@@ -1,0 +1,10 @@
+# Third-party libraries required by the MZIC project
+pyserial
+pyvisa
+numpy
+matplotlib
+Pillow
+sympy
+customtkinter
+tkinter 
+qontrol
