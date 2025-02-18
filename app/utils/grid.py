@@ -111,8 +111,7 @@ class Example(Frame):
         self.add_side_extensions(col=0, extension=50, side="left")
         
         # Add right outputs to LAST COLUMN.
-        last_col = n - 1
-        self.add_side_extensions(col=last_col, extension=50, side="right")
+        self.add_side_extensions(col=n-1, extension=50, side="right")
 
         # Connect even columns.
         for col in range(0, n, 2):
@@ -128,7 +127,7 @@ class Example(Frame):
                 f"X_{col}_{(n//2)-1}_BR",
                 f"X_{col+2}_{(n//2)-1}_BL"
             )
-
+            
     def add_side_extensions(self, col, extension, side):
         """Adds input/output extensions to specified column."""
         for node in list(self.nodes.values()):

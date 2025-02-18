@@ -20,7 +20,8 @@ MZIC/
 │   │   ├── main_window.py      # Main window of the application.
 │   │   ├── widgets.py          # Custom widgets for the GUI.
 │   │   ├── window1.py          # Layout for "Window 1".
-│   │   ├── window2.py          # Layout for "Window 2" (if implemented).
+│   │   ├── window2.py          # Layout for "Window 2".
+│   │   ├── window3.py          # Layout for "Window 3".
 │   │   └── __init__.py         # Initializes the gui subpackage.
 │   ├── mqtt/                   # Modules for MQTT communication.
 │   │   ├── client.py           # Base MQTT client implementation.
@@ -28,6 +29,8 @@ MZIC/
 │   │   └── pi_publisher.py     # MQTT publisher for Raspberry Pi.
 │   ├── utils/                  # Utility functions and helper modules.
 │   │   ├── appdata.py          # Application data and configuration parameters.
+│   │   ├── angle_mapper.py     # Map angles from Clements notation to grid layout.
+│   │   ├── clemens.py          # Clemens decomposition for unitary matrices.
 │   │   ├── exportfunc.py       # Functions to export data (e.g., to pickle or CSV).
 │   │   ├── grid.py             # Functions to build and manage the grid view.
 │   │   ├── importfunc.py       # Functions to import data (e.g., from a pickle file).

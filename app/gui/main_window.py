@@ -1,14 +1,16 @@
-# app/gui/main_window.py
-
 import customtkinter as ctk
 import tkinter.messagebox as messagebox
 import app.gui.widgets as widgets
-import app.gui.window1 as window1
+
 from app.devices.qontrol_device import QontrolDevice  # Your QontrolDevice class
-from app.gui.window1 import Window1Content  # Import the Window1Content widget
+from app.gui.window1 import Window1Content
+from app.gui.window2 import Window2Content
+from app.gui.window3 import Window3Content
+
 from app.utils.importfunc import importfunc
 from app.utils.appdata import AppData   # Import the AppData class
 from app.utils import utils            # This module contains apply_phase
+
 
 class MainWindow(ctk.CTk):
     def __init__(self, qontrol, thorlabs, config):
@@ -84,22 +86,10 @@ class MainWindow(ctk.CTk):
         # Clear the right panel.
         for widget in self.right_panel.winfo_children():
             widget.destroy()
+            
+        # Create unique content instances for each window.
         if window_name == "Window 1":
-            # Retrieve the mesh size from the OptionMenu.
-            mesh_size = self.app_control.mesh_optionmenu.get()
-            # Create the Window1Content and store it.
             self.current_content = Window1Content(
-                self.right_panel,
-                channel=0,
-                fit="Linear",
-                IOconfig="Config1",
-                app=self.appdata,
-                qontrol=self.qontrol,
-                grid_size=mesh_size
-            )
-            self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
-        elif window_name == "Window 2":
-            content = Window1Content(
                 self.right_panel,
                 channel=0,
                 fit="Linear",
@@ -108,21 +98,42 @@ class MainWindow(ctk.CTk):
                 qontrol=self.qontrol,
                 grid_size="8x8"
             )
-            content.pack(expand=True, fill="both", padx=10, pady=10)
+        elif window_name == "Window 2":
+            self.current_content = Window2Content(  # Use Window2Content, even if it's similar to Window1Content
+                self.right_panel,
+                channel=0,
+                fit="Linear",
+                IOconfig="Config1",
+                app=self.appdata,
+                qontrol=self.qontrol,
+                grid_size="8x8"
+            )
+        elif window_name == "Window 3":
+            self.current_content = Window3Content(  # Use Window3Content, even if it's similar to Window1Content
+                self.right_panel,
+                channel=0,
+                fit="Linear",
+                IOconfig="Config1",
+                app=self.appdata,
+                qontrol=self.qontrol,
+                grid_size="8x8"
+            )
         else:
-            placeholder = ctk.CTkLabel(self.right_panel, text=f"{window_name} content not implemented yet.")
-            placeholder.pack(expand=True, fill="both", padx=10, pady=10)
+            # Placeholder for unimplemented windows
+            self.current_content = ctk.CTkLabel(
+                self.right_panel, text=f"{window_name} content not implemented yet."
+            )
+    
+        # Pack the current content to the right panel
+        self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
 
     def connect_devices(self):
         if self.qontrol:
-            # Check if the device is already connected (assuming self.qontrol.device is set when connected)
             if hasattr(self.qontrol, "device") and self.qontrol.device is not None:
-                # Already connected; update device info only.
                 params = self.qontrol.params
                 params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
                 self.device_control.update_device_info(params)
             else:
-                # Not connected yet, so connect.
                 self.qontrol.connect()
                 params = self.qontrol.params
                 params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
@@ -130,16 +141,13 @@ class MainWindow(ctk.CTk):
         else:
             messagebox.showerror("Connection Error", "No Qontrol device available!")
 
-
     def disconnect_devices(self):
         if self.qontrol:
             self.qontrol.disconnect()
         self.device_control.update_device_info({})
 
     def import_data(self):
-        # Call the import function to update the appdata.
         importfunc(self.appdata)
-        # For demonstration, print one of the imported matrices.
         print("Updated with Pickle file:", self.appdata.phiphase2list)
         messagebox.showinfo("Import", "Data imported successfully!")
 
@@ -148,10 +156,9 @@ class MainWindow(ctk.CTk):
 
     def mesh_changed(self, new_mesh_size):
         print("Mesh size changed to:", new_mesh_size)
-        if hasattr(self, 'current_content') and isinstance(self.current_content, window1.Window1Content):
+        if hasattr(self, 'current_content') and isinstance(self.current_content, Window1Content):
             self.current_content.update_grid(new_mesh_size)
 
-    # (Optional: additional methods to extract values from appdata and update UI can be added here.)
 
 if __name__ == "__main__":
     qontrol_device = QontrolDevice(config={"globalcurrrentlimit": 6.0})
