@@ -29,11 +29,11 @@ MZIC/
 │   │   └── pi_publisher.py     # MQTT publisher for Raspberry Pi.
 │   ├── utils/                  # Utility functions and helper modules.
 │   │   ├── appdata.py          # Application data and configuration parameters.
-│   │   ├── angle_mapper.py     # Map angles from Clements notation to grid layout.
-│   │   ├── clemens.py          # Clemens decomposition for unitary matrices.
+│   │   ├── clements.py          # Clements decomposition for unitary matrices.
 │   │   ├── exportfunc.py       # Functions to export data (e.g., to pickle or CSV).
 │   │   ├── grid.py             # Functions to build and manage the grid view.
 │   │   ├── importfunc.py       # Functions to import data (e.g., from a pickle file).
+│   │   ├── mzi_lut.py          # Lookup table for mapping angles to MZIs.
 │   │   ├── lines.py            # Functions for processing line elements.
 │   │   └── utils.py            # Miscellaneous utility functions.
 │   └── __pycache__/            # Compiled Python files (ignored in version control).

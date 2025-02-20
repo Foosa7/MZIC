@@ -1,18 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Feb 11 12:39:13 2025
-
-@author: acata
-"""
-
+# app/utils/clements.py
 import numpy as np
 from numpy.typing import NDArray
 from scipy.optimize import fsolve
-
 from qoptcraft.optical_elements import optical_elements as elements
-from qoptcraft.operators import haar_random_unitary
 
-def clemens_decomposition(unitary: NDArray) -> tuple[list[NDArray], NDArray, list[NDArray]]:
+def clements_decomposition(unitary: NDArray) -> tuple[list[NDArray], NDArray, list[NDArray]]:
     """Given a unitary matrix calculates the Clemens et al. decompositon
     into beam splitters and phase shifters:
 
@@ -142,29 +134,3 @@ def _U_times_BS_entry(
         dot_prod = np.exp(1j * φ) * np.sin(θ) * U[mode_1, col] + np.cos(θ) * U[mode_2, col]
 
     return np.array([dot_prod.real, dot_prod.imag])
-
-"""
-modes = 8
-unitary = haar_random_unitary(modes)
-left, diag, right, left_angles, right_angles = decomposition(unitary)
-
-
-# Map to the physical MZI
-def _map_mzi(left, right, modes):
-    
-    letters = string.ascii_uppercase[:modes]
-    print(letters)
-    
-    for i in range(1, modes):
-        if (i % 2) == 1:
-            for j in range(i):
-                print('R' + str(j))
-                
-        else:
-            for j in range(i):    
-                print('L' + str(j))
-    return None
-
-_map_mzi(left,right,modes)
-"""
-

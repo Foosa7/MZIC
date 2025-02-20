@@ -197,7 +197,7 @@ class WindowSelectionWidget(ctk.CTkFrame):
         
         self.radio3 = ctk.CTkRadioButton(
             self.radio_frame,
-            text="Window 3",
+            text="Unitary",
             variable=self.radio_var,
             value="Window 3",
             command=self.on_radio_change

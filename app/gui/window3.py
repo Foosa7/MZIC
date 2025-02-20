@@ -6,8 +6,8 @@ import tkinter.filedialog as filedialog
 import numpy as np
 from qoptcraft.operators import haar_random_unitary
 from app.utils import grid  
-from app.utils import angle_mapper
-from app.utils import clemens
+from app.utils import mzi_lut
+from app.utils import clements
 
 class Window3Content(ctk.CTkFrame):
     
@@ -34,6 +34,7 @@ class Window3Content(ctk.CTkFrame):
         
         self.build_grid(self.grid_size)
         
+        '''
         # -- Import/Export path buttons at top --
         self.import_export_frame = ctk.CTkFrame(self.right_frame, fg_color="transparent")
         self.import_export_frame.pack(fill="x", padx=5, pady=(5,2))
@@ -65,7 +66,8 @@ class Window3Content(ctk.CTkFrame):
             height=20, width=60
         )
         self.print_button.pack(fill="x", padx=5, pady=(2,5))
-
+        '''
+        
         # =====================================
         #  Centered unitary panel
         # =====================================
@@ -198,11 +200,8 @@ class Window3Content(ctk.CTkFrame):
         if U is None:
             return
         try:
-            left_list, diag, right_list, left_angles, right_angles = clemens.clemens_decomposition(U)
-            print("Clements decomposition done.")
-            
-            all_angles = left_angles + right_angles # (Temp) Add all angles together - just for testing angle_ mapper function
-            json_str = angle_mapper.build_angle_json(all_angles, self.n)
+            _, _, _, left_angles, right_angles = clements.clements_decomposition(U)
+            json_str = mzi_lut.get_json_output(self.n, left_angles, right_angles)
             self.custom_grid.import_paths_json(json_str)
             self.custom_grid.update_selection()
             
