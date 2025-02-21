@@ -34,7 +34,6 @@ class Window3Content(ctk.CTkFrame):
         
         self.build_grid(self.grid_size)
         
-        '''
         # -- Import/Export path buttons at top --
         self.import_export_frame = ctk.CTkFrame(self.right_frame, fg_color="transparent")
         self.import_export_frame.pack(fill="x", padx=5, pady=(5,2))
@@ -58,7 +57,7 @@ class Window3Content(ctk.CTkFrame):
         # -- Text box for path info --
         self.selected_paths_display = ctk.CTkTextbox(self.right_frame, width=200, height=80)
         self.selected_paths_display.pack(fill="x", padx=5, pady=(2,5))
-        
+    
         # -- Print MZI values button --
         self.print_button = ctk.CTkButton(
             self.right_frame, text="Print Values",
@@ -66,7 +65,6 @@ class Window3Content(ctk.CTkFrame):
             height=20, width=60
         )
         self.print_button.pack(fill="x", padx=5, pady=(2,5))
-        '''
         
         # =====================================
         #  Centered unitary panel
@@ -151,7 +149,7 @@ class Window3Content(ctk.CTkFrame):
         self.custom_grid = grid.Example(self.grid_container, grid_n=n, scale=scale)
         self.custom_grid.pack(expand=True, fill="both")
         self.custom_grid.selection_callback = self.update_selected_paths
-
+    
     def update_selected_paths(self, selected_str):
         self.selected_paths_display.delete("0.0", "end")
         self.selected_paths_display.insert("0.0", selected_str)
@@ -159,6 +157,7 @@ class Window3Content(ctk.CTkFrame):
     # -----------------------------------
     # Import/Export path (the “paths” JSON)
     # -----------------------------------
+    
     def export_paths(self):
         json_str = self.custom_grid.export_paths_json()
         self.selected_paths_display.delete("0.0", "end")
