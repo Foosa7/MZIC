@@ -1,5 +1,5 @@
 # MZIC project structure
-
+```
 MZIC/
 ├── main.py                     # Main entry point for the application.
 ├── README.md                   # Project documentation.
@@ -38,3 +38,4 @@ MZIC/
 │   └── settings.json         # Application settings.
 ├── docs/                     # Project documentation and manuals.
 └── tests/                    # Automated tests for the project.
+```
