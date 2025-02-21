@@ -16,7 +16,7 @@ class Window1Content(ctk.CTkFrame):
         
         # Create a main content frame with some outer padding.
         self.content_frame = ctk.CTkFrame(self, fg_color="transparent", border_width=0)
-        self.content_frame.pack(expand=True, fill="both", padx=20, pady=20)
+        self.content_frame.pack(expand=True, fill="both", padx=5, pady=5)
         
         # Left: grid container (for displaying the grid)
         self.grid_container = ctk.CTkFrame(self.content_frame, fg_color="transparent", border_width=0, corner_radius=0)
@@ -103,3 +103,5 @@ class Window1Content(ctk.CTkFrame):
             theta_value = widget_dict['theta_entry'].get()
             phi_value = widget_dict['phi_entry'].get()
             print(f"Cross {cross_label}: theta = {theta_value}, phi = {phi_value}")
+
+# calibrationplotX

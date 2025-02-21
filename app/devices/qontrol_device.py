@@ -4,100 +4,173 @@ from app.imports import *
 
 class QontrolDevice:
     def __init__(self, config=None):
+        """
+        Initialize the QontrolDevice wrapper.
+        
+        config: Optional dictionary. For example, you may include
+                {"globalcurrrentlimit": 5.0} (mA) if not otherwise set.
+        """
         self.device = None
         self.serial_port = None
         self.params = {}
-
-        # Store the entire config so we can reference it anywhere
         self.config = config if config is not None else {}
-
-        # Alternatively, store specific values from config
-        self.globalcurrrentlimit = self.config.get("globalcurrrentlimit", 5.0)  # default=5.0 if config not found
-
+        # Global current limit (in mA) to be set on all channels after connecting.
+        self.globalcurrrentlimit = self.config.get("globalcurrrentlimit", 5.0)
 
     def find_serial_port(self):
-        """Find the Qontrol device by scanning available COM ports, prioritizing FTDI."""
+        """
+        Scan available COM ports for a Qontrol device.
+        Prioritize FTDI devices (which Qontrol uses).
+        """
         print("\nScanning available COM ports for Qontrol Device...")
-
-        # Get available ports and sort in reverse order (search last COM ports first)
         available_ports = list(serial.tools.list_ports.comports())
+        # Search the higher-numbered ports first.
         available_ports.sort(key=lambda port: port.device, reverse=True)
 
         if not available_ports:
             print("No available COM ports found.")
             return None
 
-        print(f"Available ports: {[port.device for port in available_ports]}")
+        print("Available ports:", [port.device for port in available_ports])
 
         for port in available_ports:
-            # Filter for FTDI devices (Qontrol uses an FTDI chip)
-            if "FTDI" not in port.manufacturer and "FT" not in port.description:
-                continue  # Skip non-FTDI devices
+            # Only try FTDI devices (or those whose description contains "FT")
+            if ("FTDI" not in (port.manufacturer or "") and
+                "FT" not in (port.description or "")):
+                continue
 
             try:
-                print(f"Trying to connect to {port.device} (FTDI detected)...")
+                print("Trying to connect to {0} (FTDI detected)...".format(port.device))
+                # Instantiate a QXOutput from the core library.
                 q = qontrol.QXOutput(serial_port_name=port.device, response_timeout=0.03)
-
-                # If connection is successful, store device info
                 self.serial_port = port.device
                 self.device = q
-                # print(f"Successfully connected to Qontrol Device on {port.device}")
-                print ("Qontroller '{:}' initialised with firmware {:} and {:} channels".format(q.device_id, q.firmware, q.n_chs) )
+
+                print("Qontroller '{0}' initialized with firmware {1} and {2} channels."
+                      .format(q.device_id, q.firmware, q.n_chs))
                 self.params = {
                     "Device id": q.device_id,
                     "Available channels": q.n_chs,
                     "Firmware": q.firmware,
-                    "Available modes": int(q.n_chs / 8),
+                    "Available modes": int(q.n_chs / 8)
                 }
                 return port.device
-                
+
             except Exception as e:
-                print(f"Failed to connect on {port.device}: {e}")
+                print("Failed to connect on {0}: {1}".format(port.device, e))
                 continue
 
         print("No Qontrol device found.")
         return None
 
     def connect(self):
-        """Connect to the Qontrol device automatically."""
+        """
+        Automatically scan for and connect to the Qontrol device.
+        On success, sets the global current limit on all channels and
+        displays device status.
+        """
         if self.find_serial_port():
-            # print(
-            #     f"Qontroller '{self.device.device_id}' initialized with "
-            #     f"{self.device.n_chs} channels."
-            # )
             q = self.device
-            print(f'Initialize current limit globally on all available channels ({q.n_chs}) to {self.globalcurrrentlimit} mA')
+            print("\nInitializing current limit on all channels ({0}) to {1} mA"
+                  .format(q.n_chs, self.globalcurrrentlimit))
             for i in range(q.n_chs):
                 q.imax[i] = self.globalcurrrentlimit
-            print('')
-
+            print("\nDevice Status:")
+            self.show_status()
         else:
             print("Qontrol device connection failed.")
 
     def disconnect(self):
-        """Disconnect the Qontrol device."""
+        """
+        Disconnect from the Qontrol device.
+        Before disconnecting, reset all channel currents to 0 mA.
+        """
         if self.device:
             q = self.device
             for i in range(q.n_chs):
                 q.i[i] = 0
-                print(f"Resetting the current for channel {i} to 0 mA")
-
+                print("Resetting current for channel {0} to 0 mA".format(i))
             self.device.close()
             print("Qontrol device disconnected.")
-            
         else:
             print("No Qontrol device to disconnect.")
 
     def set_current(self, channel, current):
-        """Set the current for a specific channel."""
-        self.device.i[int(channel)] = current
-        print(f"Set current for channel {channel} to {current} mA")
+        """
+        Set the current (in mA) for a specific channel.
+        """
+        try:
+            self.device.i[int(channel)] = current
+            print("Set current for channel {0} to {1} mA".format(channel, current))
+        except Exception as e:
+            print("Error setting current for channel {0}: {1}".format(channel, e))
+
+    def show_voltages(self):
+        """
+        Retrieve and print voltage readings from all channels.
+        Uses the core library's get_all_values('V') method.
+        """
+        try:
+            voltages = self.device.get_all_values('V')
+            if voltages is None:
+                print("No voltage readings available.")
+            else:
+                print("Voltage Readings:")
+                for i, voltage in enumerate(voltages):
+                    print("  Channel {0}: {1} V".format(i, voltage))
+        except Exception as e:
+            print("Error reading voltages:", e)
+
+    def show_errors(self):
+        """
+        Print out any error log entries recorded by the device.
+        The core library logs errors in the 'log' attribute.
+        """
+        try:
+            errors = [entry for entry in self.device.log if entry['type'] == 'err']
+            if not errors:
+                print("No errors reported.")
+            else:
+                print("Error Log:")
+                for err in errors:
+                    print("  Time: {0}, Code: {1}, Channel: {2}, Description: {3}"
+                          .format(err['timestamp'], err['id'], err['ch'], err['desc']))
+        except Exception as e:
+            print("Error retrieving error log:", e)
+
+    def show_status(self):
+        """
+        Print a combined status report for all channels,
+        including voltage and current readings.
+        """
+        try:
+            voltages = self.device.get_all_values('V')
+            currents = self.device.get_all_values('I')
+            print("Channel Status:")
+            for i in range(self.device.n_chs):
+                v_str = "{0} V".format(voltages[i]) if voltages and i < len(voltages) else "N/A"
+                i_str = "{0} mA".format(currents[i]) if currents and i < len(currents) else "N/A"
+                print("  Channel {0}: Voltage = {1}, Current = {2}".format(i, v_str, i_str))
+        except Exception as e:
+            print("Error retrieving channel status:", e)
 
 
-
-
-# For testing
+# For testing the QontrolDevice wrapper:
 if __name__ == "__main__":
     qontrol_device = QontrolDevice()
     qontrol_device.connect()
+    time.sleep(1)  # Give the device some time to settle
+
+    # Show voltages and errors
+    qontrol_device.show_voltages()
+    qontrol_device.show_errors()
+    
+    # qontrol_device.set_current(4, 2.5)
+    # Example: set current for channel 0 to 2.5 mA
+    # qontrol_device.set_current(0, 2.5)
+    # time.sleep(0.5)
+    
+    # Optionally, show the combined status report
+    qontrol_device.show_status()
+
     qontrol_device.disconnect()

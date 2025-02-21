@@ -507,7 +507,7 @@ def main():
     # root.geometry("1400x1000")
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
-    root.geometry(f"{screen_width}x{screen_height}+-10+-5")
+    root.geometry(f"{screen_width}x{screen_height}") #+-10+-5
     root.mainloop()
 
 if __name__ == '__main__':
