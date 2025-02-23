@@ -63,16 +63,7 @@ class MainWindow(ctk.CTk):
             change_command=self.window_changed
         )
         self.windowSelection.pack(anchor="nw", padx=10, pady=(10, 10), fill="x")
-        
-        # (Testing: move to widgets.py)
-        self.apply_phase_button = ctk.CTkButton(
-            master=self.left_panel,
-            text="Apply Phase",
-            command=lambda: utils.apply_phase(self.current_content.custom_grid, self.qontrol, self.appdata),
-            height=30
-        )
-        self.apply_phase_button.pack(anchor="nw", padx=10, pady=(10, 10), fill="x")
-
+ 
         # Initially, load the content for Window 1.
         self.load_window_content("Window 1")
         

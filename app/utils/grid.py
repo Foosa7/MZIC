@@ -80,13 +80,42 @@ class Example(Frame):
         self.canvas.bind("<Button-1>", self.on_canvas_click)
         self.canvas.pack(fill=BOTH, expand=1)
 
+    ## Original method to create the grid. A1 at the top. ##
+    # def create_nxn_grid(self, n, start_x, start_y, horizontal_spacing, vertical_spacing, arm_length):
+    #     """Creates X shapes with proper input/output extensions."""
+    #     # Create all crosses.
+    #     for col in range(n):
+    #         x = start_x + col * horizontal_spacing
+    #         letter = chr(ord('A') + col)
+    #         if col % 2 == 0:  # Even columns.
+    #             num_crosses = n // 2
+    #             for row in range(num_crosses):
+    #                 y = start_y + row * vertical_spacing
+    #                 self.create_x_shape(
+    #                     center_name=f"X_{col}_{row}",
+    #                     x=x, y=y,
+    #                     arm_length=arm_length,
+    #                     label=f"{letter}{row+1}"
+    #                 )
+    #         else:  # Odd columns.
+    #             num_crosses = (n // 2) - 1
+    #             for row in range(num_crosses):
+    #                 y = start_y + (vertical_spacing // 2) + row * vertical_spacing
+    #                 self.create_x_shape(
+    #                     center_name=f"X_{col}_{row}",
+    #                     x=x, y=y,
+    #                     arm_length=arm_length,
+    #                     label=f"{letter}{row+1}"
+    #                 )
+
+    ## New method to create the grid. A1 at the bottom. ##
     def create_nxn_grid(self, n, start_x, start_y, horizontal_spacing, vertical_spacing, arm_length):
-        """Creates X shapes with proper input/output extensions."""
-        # Create all crosses.
+        """Creates X shapes with bottom-to-top labeling (A1 at base)"""
         for col in range(n):
             x = start_x + col * horizontal_spacing
             letter = chr(ord('A') + col)
-            if col % 2 == 0:  # Even columns.
+            
+            if col % 2 == 0:  # Even columns
                 num_crosses = n // 2
                 for row in range(num_crosses):
                     y = start_y + row * vertical_spacing
@@ -94,9 +123,9 @@ class Example(Frame):
                         center_name=f"X_{col}_{row}",
                         x=x, y=y,
                         arm_length=arm_length,
-                        label=f"{letter}{row+1}"
+                        label=f"{letter}{num_crosses - row}"  # Reverse numbering
                     )
-            else:  # Odd columns.
+            else:  # Odd columns
                 num_crosses = (n // 2) - 1
                 for row in range(num_crosses):
                     y = start_y + (vertical_spacing // 2) + row * vertical_spacing
@@ -104,15 +133,49 @@ class Example(Frame):
                         center_name=f"X_{col}_{row}",
                         x=x, y=y,
                         arm_length=arm_length,
-                        label=f"{letter}{row+1}"
+                        label=f"{letter}{num_crosses - row}"  # Reverse numbering
                     )
-
+                    
         # Add left inputs to first column.
         self.add_side_extensions(col=0, extension=50, side="left")
         
         # Add right outputs to LAST COLUMN.
         last_col = n - 1
         self.add_side_extensions(col=last_col, extension=50, side="right")
+
+        # Add right outputs to second LAST COLUMN (only top and bottom)
+        second_last_col = n - 2
+
+        # Determine maximum row based on column parity
+        if second_last_col % 2 == 0:  # Even column
+            max_row = (n // 2) - 1
+        else:  # Odd column
+            max_row = (n // 2) - 2
+
+        # Topmost node (TR of first cross)
+        top_node_name = f"X_{second_last_col}_0_TR"
+        if top_node_name in self.nodes:
+            node = self.nodes[top_node_name]
+            ext_node = Node(
+                f"{node.name}_OUTPUT",
+                node.x + 150,
+                node.y
+            )
+            self.nodes[ext_node.name] = ext_node
+            self.create_path(node, ext_node)
+
+        # Bottommost node (BR of last cross)
+        bottom_node_name = f"X_{second_last_col}_{max_row}_BR"
+        if bottom_node_name in self.nodes:
+            node = self.nodes[bottom_node_name]
+            ext_node = Node(
+                f"{node.name}_OUTPUT",
+                node.x + 150,
+                node.y
+            )
+            self.nodes[ext_node.name] = ext_node
+            self.create_path(node, ext_node)
+
 
         # Connect even columns.
         for col in range(0, n, 2):
