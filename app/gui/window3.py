@@ -1,15 +1,9 @@
 # app/gui/window3.py
 from app.imports import *
-import customtkinter as ctk
 import tkinter.simpledialog as simpledialog
 import tkinter.filedialog as filedialog
-import numpy as np
-from qoptcraft.operators import haar_random_unitary
 from app.utils import grid  
 from app.utils import mzi_lut
-from app.utils import clements
-
-#test
 
 class Window3Content(ctk.CTkFrame):
     
@@ -127,12 +121,12 @@ class Window3Content(ctk.CTkFrame):
         )
         self.identity_button.pack(side="left", expand=True, fill="x", padx=2)
 
-        # Haar random
-        self.haar_button = ctk.CTkButton(
-            self.common_unitaries_frame, text="Haar Random",
-            command=self.fill_haar_random
+        # Random
+        self.random_button = ctk.CTkButton(
+            self.common_unitaries_frame, text="Random",
+            command=self.fill_random
         )
-        self.haar_button.pack(side="left", expand=True, fill="x", padx=2)
+        self.random_button.pack(side="left", expand=True, fill="x", padx=2)
 
         # Let the left side (mesh) get more space
         self.content_frame.grid_columnconfigure(0, weight=9)
@@ -196,6 +190,9 @@ class Window3Content(ctk.CTkFrame):
     # -----------------------------------
     # 1) “Apply Unitary” – read NxN from entries, decompose
     # -----------------------------------
+    
+    '''
+    Old code with qoptcraft clements
     def apply_unitary_and_decompose(self):
         U = self.read_unitary_entries()
         if U is None:
@@ -208,6 +205,29 @@ class Window3Content(ctk.CTkFrame):
             
         except Exception as e:
             print("Error in decomposition:", e)
+    '''
+
+    def apply_unitary_and_decompose(self):
+        U = self.read_unitary_entries()
+        if U is None:
+            return
+        try:
+            # Create interferometer using Clements decomposition
+            I = itf.square_decomposition(U)
+            
+            # Get beam splitter list directly
+            bs_list = I.BS_list  
+            
+            # Generate JSON from mzi_lut.py
+            json_str = mzi_lut.get_json_output(self.n, bs_list)
+            
+            # Update GUI
+            self.custom_grid.import_paths_json(json_str)
+            self.custom_grid.update_selection()
+            
+        except Exception as e:
+            print("Error in decomposition:", e)
+            raise  # Optional: Reraise for debugging
 
     # -----------------------------------
     # 2) Import unitary from file
@@ -269,10 +289,10 @@ class Window3Content(ctk.CTkFrame):
         I = np.eye(n, dtype=complex)
         self.fill_unitary_entries(I)
 
-    def fill_haar_random(self):
-        """Fill with a Haar-random unitary."""
+    def fill_random(self):
+        """Fill with a random unitary."""
         n = self.n
-        U = haar_random_unitary(n)
+        U = itf.random_unitary(n)
         self.fill_unitary_entries(U)
 
     # -----------------------------------

@@ -8,3 +8,4 @@ sympy
 customtkinter
 tkinter 
 qontrol
+interferometer
