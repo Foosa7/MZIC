@@ -29,7 +29,6 @@ MZIC/
 │   │   └── pi_publisher.py     # MQTT publisher for Raspberry Pi.
 │   ├── utils/                  # Utility functions and helper modules.
 │   │   ├── appdata.py          # Application data and configuration parameters.
-│   │   ├── clements.py          # Clements decomposition for unitary matrices.
 │   │   ├── exportfunc.py       # Functions to export data (e.g., to pickle or CSV).
 │   │   ├── grid.py             # Functions to build and manage the grid view.
 │   │   ├── importfunc.py       # Functions to import data (e.g., from a pickle file).
