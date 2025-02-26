@@ -6,6 +6,7 @@ import app.gui.widgets as widgets
 import app.gui.window1 as window1
 from app.gui.window1 import Window1Content  # Import the Window1Content widget
 from app.gui.window2 import Window2Content  # Import the Window2Content widget
+from app.gui.window3 import Window3Content  # Import the Window3Content widget
 from app.devices.qontrol_device import QontrolDevice  # Your QontrolDevice class
 from app.utils.importfunc import importfunc
 from app.utils.appdata import AppData   # Import the AppData class
@@ -101,6 +102,16 @@ class MainWindow(ctk.CTk):
                 app=self.appdata,
                 qontrol=self.qontrol
             )
+        elif window_name == "Window 3":
+            self.current_content = Window3Content(  # Use Window3Content, even if it's similar to Window1Content
+                self.right_panel,
+                channel=0,
+                fit="Linear",
+                IOconfig="Config1",
+                app=self.appdata,
+                qontrol=self.qontrol,
+                grid_size="8x8"
+            )            
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
         else:
             placeholder = ctk.CTkLabel(self.right_panel, text=f"{window_name} content not implemented yet.")
