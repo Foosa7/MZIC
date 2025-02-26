@@ -19,11 +19,11 @@ class Window3Content(ctk.CTkFrame):
         
         # -- Main content layout --
         self.content_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.content_frame.pack(expand=True, fill="both", padx=20, pady=20)
+        self.content_frame.pack(expand=True, fill="both", padx=2, pady=2)
         
         # Left: photonic mesh diagram
         self.grid_container = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        self.grid_container.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.grid_container.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
         
         # Right: controls
         self.right_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")

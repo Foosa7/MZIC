@@ -8,4 +8,5 @@ sympy
 customtkinter
 tkinter 
 qontrol
-interferometer
+ThorlabsPM100
+

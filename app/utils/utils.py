@@ -10,6 +10,11 @@ def apply_phase(custom_grid, qontrol, app):
     For each input box in custom_grid.input_boxes, read the entered phase (phi),
     validate it using app.allowedinputvalues, compute the required current, update the Qontrol device
     via its set_current method, and store the derived current in app.derived_current_list.
+
+    Mapping:
+      - For a cross label like "A1", the numeric part is extracted.
+      - Channel low  = (numeric - 1) * 2
+      - Channel high = channel low + 1
     """
     for cross_label, boxes in custom_grid.input_boxes.items():
         phi_str = boxes['phi_entry'].get().strip()
@@ -18,6 +23,7 @@ def apply_phase(custom_grid, qontrol, app):
             messagebox.showerror("Error", f"Phase entry is empty for channel {cross_label}.")
             continue
 
+        # Validate phi string.
         illegal = False
         dot_count = 0
         for ch in phi_str:
@@ -74,9 +80,12 @@ def apply_phase(custom_grid, qontrol, app):
             app.derived_current_list = {}
         app.derived_current_list[cross_label] = current
 
+        # Map cross label to channels using the numeric part.
         try:
-            # Extract digits from cross_label and subtract 1 to get a zero-based channel index.
-            channel_index = int(''.join(filter(str.isdigit, cross_label))) - 1
+            # Extract numeric part from cross_label (e.g. "A1" -> 1, "A2" -> 2, etc.)
+            numeric_part = int(''.join(filter(str.isdigit, cross_label)))
+            channel_low  = (numeric_part - 1) * 2
+            channel_high = channel_low + 1
         except Exception as e:
             messagebox.showerror("Error", f"Channel mapping error for {cross_label}: {e}")
             boxes['phi_entry'].delete(0, 'end')
@@ -85,8 +94,9 @@ def apply_phase(custom_grid, qontrol, app):
         # Use the Qontrol device directly.
         if qontrol and qontrol.device:
             try:
-                qontrol.set_current(channel_index, current)
-                print(f"Set current for channel {channel_index} (label {cross_label}) to {current} mA")
+                qontrol.set_current(channel_low, current)
+                qontrol.set_current(channel_high, current)
+                print(f"Set current for channels {channel_low} and {channel_high} (label {cross_label}) to {current} mA")
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to set current for channel {cross_label}: {e}")
         else:

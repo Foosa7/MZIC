@@ -1,8 +1,6 @@
 # app/gui/widgets.py
 
 from app.imports import *
-import tkinter as tk
-import customtkinter as ctk
 
 class DeviceControlWidget(ctk.CTkFrame):
     def __init__(self, master, connect_command=None, disconnect_command=None, *args, **kwargs):
@@ -83,63 +81,66 @@ class DeviceControlWidget(ctk.CTkFrame):
             self.current_limit_label.configure(text="Current limit: -")
 
 
-class AppControlWidget(ctk.CTkFrame): 
-    def __init__(self, master, import_command=None, export_command=None, mesh_change_command=None, *args, **kwargs):
+class AppControlWidget(ctk.CTkFrame):
+    def __init__(self, master, import_command=None, export_command=None, 
+                mesh_change_command=None, config=None, *args, **kwargs):
         super().__init__(master, *args, **kwargs)
+        self.config = config or {}  # Store the config
         
-        # --- Header Section with a Light Grey Fill ---
+        # --- Header Section ---
         self.header_frame = ctk.CTkFrame(
             self,
-            fg_color="#4c4c4c",  # Light grey fill for the header
+            fg_color="#4c4c4c",
             border_width=0,
             corner_radius=4
         )
-        self.header_frame.pack(fill="x", padx=10, pady=(10, 5), anchor="center")
+        self.header_frame.pack(fill="x", padx=10, pady=(10, 5))
         
         self.header_label = ctk.CTkLabel(
             self.header_frame,
             text="App Control",
-            anchor="center",
-            font=("TkDefaultFont", 13, "bold"),
-            justify="center"
+            font=("TkDefaultFont", 13, "bold")
         )
-        self.header_label.pack(fill="x", padx=5, pady=5)
+        self.header_label.pack(padx=5, pady=5)
         
-        # --- Mesh Size Selection Section ---
+        # --- Mesh Size Selection ---
         self.mesh_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.mesh_frame.pack(fill="x", padx=10, pady=(5, 5))
+        self.mesh_frame.pack(fill="x", padx=10, pady=5)
+
+        # Get options from config with fallback
+        mesh_options = self.config.get("options", ["6x6", "8x8", "12x12"])
         
-        self.mesh_label = ctk.CTkLabel(self.mesh_frame, text="Mesh Size:", anchor="w")
+        self.mesh_label = ctk.CTkLabel(self.mesh_frame, text="Mesh Size:")
         self.mesh_label.pack(side="left", padx=(0, 5))
         
-        # Pass the mesh_change_command to be called when the option changes.
         self.mesh_optionmenu = ctk.CTkOptionMenu(
-            self.mesh_frame, 
-            values=["6x6", "8x8", "12x12"],
-            command=mesh_change_command  # This callback will be set by the MainWindow.
+            self.mesh_frame,
+            values=mesh_options,
+            command=mesh_change_command
         )
-        self.mesh_optionmenu.set("8x8")
-        self.mesh_optionmenu.pack(side="left", padx=(0, 5))
+        # Set default from config or first option
+        if mesh_options:
+            default_mesh = self.config.get("default_mesh", mesh_options[1])
+            self.mesh_optionmenu.set(default_mesh)
+        self.mesh_optionmenu.pack(side="left")
         
-        # --- Button Section ---
+        # --- Import/Export Buttons ---
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.button_frame.pack(fill="x", padx=10, pady=(5, 10))
         
         self.import_button = ctk.CTkButton(
             self.button_frame,
             text="Import",
-            command=import_command,
-            height=30
+            command=import_command
         )
-        self.import_button.pack(fill="x", padx=10, pady=5)
+        self.import_button.pack(fill="x", pady=2)
         
         self.export_button = ctk.CTkButton(
             self.button_frame,
             text="Export",
-            command=export_command,
-            height=30
+            command=export_command
         )
-        self.export_button.pack(fill="x", padx=10, pady=5)
+        self.export_button.pack(fill="x", pady=2)
 
 class WindowSelectionWidget(ctk.CTkFrame):
     def __init__(self, master, change_command=None, *args, **kwargs):
@@ -166,7 +167,7 @@ class WindowSelectionWidget(ctk.CTkFrame):
             self.header_frame,
             text="Window Selection",
             anchor="center",
-            font=("TkDefaultFont", 14, "bold"),
+            font=("TkDefaultFont", 13, "bold"),
             justify="center"
         )
         self.header_label.pack(fill="x", padx=5, pady=5)
@@ -221,3 +222,73 @@ class WindowSelectionWidget(ctk.CTkFrame):
     
     def get_selected_window(self):
         return self.radio_var.get()
+
+class PlotWidget(ctk.CTkFrame):
+    def __init__(self, master, title="Plot", *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+        
+        # Configure dark theme colors
+        self.bg_color = "#2b2b2b"
+        self.text_color = "white"
+        self.line_color = "#3CBA54"
+        
+        # Create figure and axis
+        self.fig = Figure(figsize=(6, 4), dpi=100, facecolor=self.bg_color)
+        self.ax = self.fig.add_subplot(111)
+        
+        # Set plot styling
+        self._configure_plot_style()
+        
+        # Create canvas
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self)
+        self.canvas.draw()
+        
+        # Create toolbar
+        self.toolbar = NavigationToolbar2Tk(self.canvas, self)
+        self.toolbar.update()
+        
+        # Layout
+        self.toolbar.pack(side=ctk.TOP, fill=ctk.X)
+        self.canvas.get_tk_widget().pack(side=ctk.TOP, fill=ctk.BOTH, expand=True)
+
+    def _configure_plot_style(self):
+        """Configure matplotlib style to match dark theme"""
+        self.ax.set_facecolor(self.bg_color)
+        self.ax.tick_params(axis='x', colors=self.text_color)
+        self.ax.tick_params(axis='y', colors=self.text_color)
+        self.ax.xaxis.label.set_color(self.text_color)
+        self.ax.yaxis.label.set_color(self.text_color)
+        self.ax.title.set_color(self.text_color)
+        
+        for spine in self.ax.spines.values():
+            spine.set_color(self.text_color)
+
+    def plot_calibration(self, channel, xdata, ydata, fit_params):
+        """Plot calibration data from imported parameters"""
+        self.ax.clear()
+        
+        # Plot raw data
+        self.ax.plot(xdata, ydata, 'o', color=self.line_color, label='Measured Data')
+        
+        # Generate fit line
+        fit_x = np.linspace(min(xdata), max(xdata), 300)
+        fit_y = fit_params['fitfunc'](fit_x)
+        
+        # Plot fit
+        self.ax.plot(fit_x, fit_y, '--', color='red', label='Fitted Curve')
+        
+        # Add labels and legend
+        self.ax.set_xlabel("Heating Power (mW)", color=self.text_color)
+        self.ax.set_ylabel("Optical Power (mW)", color=self.text_color)
+        self.ax.set_title(f"Channel {channel} Calibration", color=self.text_color)
+        self.ax.legend(facecolor=self.bg_color, edgecolor=self.text_color)
+        
+        # Redraw canvas
+        self._configure_plot_style()
+        self.canvas.draw()
+
+    def clear_plot(self):
+        """Clear the current plot"""
+        self.ax.clear()
+        self._configure_plot_style()
+        self.canvas.draw()
