@@ -42,7 +42,8 @@ MZIC/
 │   │   ├── main_window.py      # Main window of the application.
 │   │   ├── widgets.py          # Custom widgets for the GUI.
 │   │   ├── window1.py          # Layout for "Window 1".
-│   │   ├── window2.py          # Layout for "Window 2" (if implemented).
+│   │   ├── window2.py          # Layout for "Window 2" 
+│   │   ├── window3.py          # Layout for "Window 3"
 │   │   └── __init__.py         # Initializes the gui subpackage.
 │   ├── mqtt/                   # Modules for MQTT communication.
 │   │   ├── client.py           # Base MQTT client implementation.
@@ -53,7 +54,11 @@ MZIC/
 │   │   ├── exportfunc.py       # Functions to export data (e.g., to pickle or CSV).
 │   │   ├── grid.py             # Functions to build and manage the grid view.
 │   │   ├── importfunc.py       # Functions to import data (e.g., from a pickle file).
-│   │   ├── lines.py            # Functions for processing line elements.
+│   │   ├── mzi_lut.py          # Lookup table for mapping angles to MZIs.
+│   │   ├── mzi_convention.py   # Converts the BS angles from Clements convention to chip convention.
+│   │   ├── qset.py             # Sets current values to the qontrol module from qmapper.
+│   │   ├── qmapper8x8.py       # Maps from the clements mesh layout to the chip pin number.
+│   │   ├── qset.py             # Sets current values to the qontrol module from qmapper.
 │   │   └── utils.py            # Miscellaneous utility functions.
 │   └── __pycache__/            # Compiled Python files (ignored in version control).
 ├── config/                   # Application configuration files.
