@@ -4,6 +4,7 @@ import tkinter.simpledialog as simpledialog
 import tkinter.filedialog as filedialog
 from app.utils import grid  
 from app.utils import mzi_lut
+from app.utils import mzi_convention
 
 class Window3Content(ctk.CTkFrame):
     
@@ -191,22 +192,6 @@ class Window3Content(ctk.CTkFrame):
     # 1) “Apply Unitary” – read NxN from entries, decompose
     # -----------------------------------
     
-    '''
-    Old code with qoptcraft clements
-    def apply_unitary_and_decompose(self):
-        U = self.read_unitary_entries()
-        if U is None:
-            return
-        try:
-            _, _, _, left_angles, right_angles = clements.clements_decomposition(U)
-            json_str = mzi_lut.get_json_output(self.n, left_angles, right_angles)
-            self.custom_grid.import_paths_json(json_str)
-            self.custom_grid.update_selection()
-            
-        except Exception as e:
-            print("Error in decomposition:", e)
-    '''
-
     def apply_unitary_and_decompose(self):
         U = self.read_unitary_entries()
         if U is None:
@@ -215,8 +200,11 @@ class Window3Content(ctk.CTkFrame):
             # Create interferometer using Clements decomposition
             I = itf.square_decomposition(U)
             
-            # Get beam splitter list directly
+            # Get beam splitter list in Clements convention
             bs_list = I.BS_list  
+            
+            # Convert angles from Clements MZI convention to Chip MZI convention
+            mzi_convention.clements_to_chip(bs_list)
             
             # Generate JSON from mzi_lut.py
             json_str = mzi_lut.get_json_output(self.n, bs_list)

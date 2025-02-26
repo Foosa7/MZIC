@@ -33,6 +33,7 @@ MZIC/
 │   │   ├── grid.py             # Functions to build and manage the grid view.
 │   │   ├── importfunc.py       # Functions to import data (e.g., from a pickle file).
 │   │   ├── mzi_lut.py          # Lookup table for mapping angles to MZIs.
+│   │   ├── mzi_convention.py   # Converts the BS angles from Clements convention to chip convention.
 │   │   ├── lines.py            # Functions for processing line elements.
 │   │   └── utils.py            # Miscellaneous utility functions.
 │   └── __pycache__/            # Compiled Python files (ignored in version control).

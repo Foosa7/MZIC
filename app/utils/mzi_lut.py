@@ -35,25 +35,21 @@ def map_bs_list(bs_list):
         mapping[label] = (bs.theta, bs.phi)
         label_idx += 1
     
-    return mapping, flat_labels
+    return mapping
 
 def get_json_output(n, bs_list):
     """
     New version: Directly map BS list to physical layout
     """
-    mapping, flat = map_bs_list(bs_list)
+    mapping = map_bs_list(bs_list)
     output = {}
     
     for label, (theta, phi) in mapping.items():
         
-        # Round the theta and phi values        
-        theta_rounded = round(theta, 2)
-        phi_rounded = round(phi, 2)
-        
         output[label] = {
             "arms": ["TL", "TR", "BL", "BR"],
-            "theta": str(theta_rounded),
-            "phi": str(phi_rounded)
+            "theta": str(theta),
+            "phi": str(phi)
         }
     
     return json.dumps(output, indent=4, sort_keys=True)
