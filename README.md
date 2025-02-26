@@ -1,4 +1,26 @@
 # MZIC project structure
+
+Always a good idea to create a new environment with [Anaconda](https://www.anaconda.com/download/success) 
+
+### Step 1
+```
+git clone https://github.com/Foosa7/MZIC.git
+```
+### Step 2
+```
+cd /project directory
+```
+
+### Step 3 
+```
+pip install -r /path/to/requirements.txt
+```
+
+### Step 4
+```
+python main.py
+```
+
 ```
 MZIC/
 ├── main.py                     # Main entry point for the application.
