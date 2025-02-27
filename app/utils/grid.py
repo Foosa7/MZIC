@@ -80,6 +80,119 @@ class Example(Frame):
         self.canvas.bind("<Button-1>", self.on_canvas_click)
         self.canvas.pack(fill=BOTH, expand=1)
 
+    # def create_nxn_grid(self, n, start_x, start_y, horizontal_spacing, vertical_spacing, arm_length):
+    #     """Creates X shapes with numbered extensions for 8x8 grids."""
+    #     # Create all crosses
+    #     for col in range(n):
+    #         x = start_x + col * horizontal_spacing
+    #         letter = chr(ord('A') + col)
+    #         if col % 2 == 0:  # Even columns
+    #             num_crosses = n // 2
+    #             for row in range(num_crosses):
+    #                 y = start_y + row * vertical_spacing
+    #                 self.create_x_shape(
+    #                     center_name=f"X_{col}_{row}",
+    #                     x=x, y=y,
+    #                     arm_length=arm_length,
+    #                     label=f"{letter}{row+1}"
+    #                 )
+    #         else:  # Odd columns
+    #             num_crosses = (n // 2) - 1
+    #             for row in range(num_crosses):
+    #                 y = start_y + (vertical_spacing // 2) + row * vertical_spacing
+    #                 self.create_x_shape(
+    #                     center_name=f"X_{col}_{row}",
+    #                     x=x, y=y,
+    #                     arm_length=arm_length,
+    #                     label=f"{letter}{row+1}"
+    #                 )
+
+    #     # Add extensions with numbering
+    #     self.add_side_extensions(n, col=0, extension=50, side="left")
+    #     last_col = n - 1
+    #     self.add_side_extensions(n, col=last_col, extension=50, side="right")
+
+    #     # Special handling for second last column outputs
+    #     second_last_col = n - 2
+    #     if second_last_col % 2 == 0:
+    #         max_row = (n // 2) - 1
+    #     else:
+    #         max_row = (n // 2) - 2
+
+    #     # Create top extension for second last column
+    #     top_node_name = f"X_{second_last_col}_0_TR"
+    #     if top_node_name in self.nodes:
+    #         node = self.nodes[top_node_name]
+    #         ext_node = Node(
+    #             f"{node.name}_OUTPUT",
+    #             node.x + 150,
+    #             node.y
+    #         )
+    #         self.nodes[ext_node.name] = ext_node
+    #         self.create_path(node, ext_node)
+
+    #     # Create bottom extension for second last column
+    #     bottom_node_name = f"X_{second_last_col}_{max_row}_BR"
+    #     if bottom_node_name in self.nodes:
+    #         node = self.nodes[bottom_node_name]
+    #         ext_node = Node(
+    #             f"{node.name}_OUTPUT",
+    #             node.x + 150,
+    #             node.y
+    #         )
+    #         self.nodes[ext_node.name] = ext_node
+    #         self.create_path(node, ext_node)
+
+    #     # Numbering for special right-side outputs (8x8 only)
+    #     if n == 8:
+    #         right_outputs = []
+    #         # Collect second last column outputs
+    #         right_outputs.extend([
+    #             self.nodes.get(f"X_{second_last_col}_0_TR_OUTPUT"),
+    #             self.nodes.get(f"X_{second_last_col}_{max_row}_BR_OUTPUT")
+    #         ])
+            
+    #         # Collect last column outputs
+    #         last_col_nodes = [n for n in self.nodes.values() 
+    #                         if f"X_{last_col}_" in n.name and "_OUTPUT" in n.name]
+    #         last_col_nodes.sort(key=lambda x: -x.y)  # Top to bottom
+            
+    #         # Combine all outputs with correct order
+    #         sorted_outputs = [
+    #             right_outputs[0],        # Second last column top
+    #             *last_col_nodes,         # Last column ordered
+    #             right_outputs[1]         # Second last column bottom
+    #         ]
+
+    #         # Add number labels
+    #         for i, node in enumerate(filter(None, sorted_outputs)):
+    #             label = 7 + i
+    #             # Add text label 25px right of the node
+    #             self.canvas.create_text(
+    #                 node.x + 25, node.y,
+    #                 text=str(label),
+    #                 anchor="w",
+    #                 fill="black",
+    #                 font=("Arial", 10)
+    #             )
+
+    #     # Connect even columns
+    #     for col in range(0, n, 2):
+    #         if col + 2 >= n:
+    #             break
+    #         # Top connection
+    #         self.connect_nodes(
+    #             f"X_{col}_0_TR",
+    #             f"X_{col+2}_0_TL"
+    #         )
+    #         # Bottom connection
+    #         self.connect_nodes(
+    #             f"X_{col}_{(n//2)-1}_BR",
+    #             f"X_{col+2}_{(n//2)-1}_BL"
+    #         )
+
+
+    # Original method to create the grid. A1 at the top. ##
     def create_nxn_grid(self, n, start_x, start_y, horizontal_spacing, vertical_spacing, arm_length):
         """Creates X shapes with proper input/output extensions."""
         # Create all crosses.
@@ -107,12 +220,78 @@ class Example(Frame):
                         label=f"{letter}{row+1}"
                     )
 
+    # ## New method to create the grid. A1 at the bottom. ##
+    # def create_nxn_grid(self, n, start_x, start_y, horizontal_spacing, vertical_spacing, arm_length):
+    #     """Creates X shapes with bottom-to-top labeling (A1 at base)"""
+    #     for col in range(n):
+    #         x = start_x + col * horizontal_spacing
+    #         letter = chr(ord('A') + col)
+            
+    #         if col % 2 == 0:  # Even columns
+    #             num_crosses = n // 2
+    #             for row in range(num_crosses):
+    #                 y = start_y + row * vertical_spacing
+    #                 self.create_x_shape(
+    #                     center_name=f"X_{col}_{row}",
+    #                     x=x, y=y,
+    #                     arm_length=arm_length,
+    #                     label=f"{letter}{num_crosses - row}"  # Reverse numbering
+    #                 )
+    #         else:  # Odd columns
+    #             num_crosses = (n // 2) - 1
+    #             for row in range(num_crosses):
+    #                 y = start_y + (vertical_spacing // 2) + row * vertical_spacing
+    #                 self.create_x_shape(
+    #                     center_name=f"X_{col}_{row}",
+    #                     x=x, y=y,
+    #                     arm_length=arm_length,
+    #                     label=f"{letter}{num_crosses - row}"  # Reverse numbering
+    #                 )
+                    
         # Add left inputs to first column.
-        self.add_side_extensions(col=0, extension=50, side="left")
+        # self.add_side_extensions(col=0, extension=50, side="left")
         
         # Add right outputs to LAST COLUMN.
         last_col = n - 1
-        self.add_side_extensions(col=last_col, extension=50, side="right")
+        # self.add_side_extensions(col=last_col, extension=50, side="right")
+
+        # # In create_nxn_grid calls, pass n parameter:
+        self.add_side_extensions(n, col=0, extension=50, side="left")
+        self.add_side_extensions(n, col=last_col, extension=50, side="right")
+
+        # Add right outputs to second LAST COLUMN (only top and bottom)
+        second_last_col = n - 2
+
+        # Determine maximum row based on column parity
+        if second_last_col % 2 == 0:  # Even column
+            max_row = (n // 2) - 1
+        else:  # Odd column
+            max_row = (n // 2) - 2
+
+        # # Topmost node (TR of first cross)
+        # top_node_name = f"X_{second_last_col}_0_TR"
+        # if top_node_name in self.nodes:
+        #     node = self.nodes[top_node_name]
+        #     ext_node = Node(
+        #         f"{node.name}_OUTPUT",
+        #         node.x + 150,
+        #         node.y
+        #     )
+        #     self.nodes[ext_node.name] = ext_node
+        #     self.create_path(node, ext_node)
+
+        # # Bottommost node (BR of last cross)
+        # bottom_node_name = f"X_{second_last_col}_{max_row}_BR"
+        # if bottom_node_name in self.nodes:
+        #     node = self.nodes[bottom_node_name]
+        #     ext_node = Node(
+        #         f"{node.name}_OUTPUT",
+        #         node.x + 150,
+        #         node.y
+        #     )
+        #     self.nodes[ext_node.name] = ext_node
+        #     self.create_path(node, ext_node)
+
 
         # Connect even columns.
         for col in range(0, n, 2):
@@ -129,31 +308,95 @@ class Example(Frame):
                 f"X_{col+2}_{(n//2)-1}_BL"
             )
 
-    def add_side_extensions(self, col, extension, side):
-        """Adds input/output extensions to specified column."""
-        for node in list(self.nodes.values()):
-            parts = node.name.split("_")
-            if len(parts) < 4:
-                continue
-            node_col = int(parts[1])
-            direction = parts[3]
-            if node_col != col:
-                continue
-            if side == "left" and direction in ["TL", "BL"]:
-                new_x = node.x - extension
-                suffix = "INPUT"
-            elif side == "right" and direction in ["TR", "BR"]:
-                new_x = node.x + extension
-                suffix = "OUTPUT"
-            else:
-                continue
-            ext_node = Node(
-                f"{node.name}_{suffix}",
-                new_x,
-                node.y
-            )
+    def add_side_extensions(self, n, col, extension, side):
+        """Handles extensions with proper inverted left numbering and special node placement"""
+        relevant_nodes = []
+        second_last_col = n - 2
+        
+        # Node collection with precise filtering
+        for node in self.nodes.values():
+            parts = node.name.split('_')
+            if len(parts) < 4: continue
+            node_col, direction = int(parts[1]), parts[3]
+            
+            # Special case: right side of last column (8x8 only)
+            if n == 8 and side == "right" and col == second_last_col + 1:
+                if node_col in [second_last_col, col] and direction in ["TR", "BR"]:
+                    relevant_nodes.append(node)
+            # Normal case
+            elif node_col == col and ((side == "left" and direction in ["TL", "BL"]) or 
+                                    (side == "right" and direction in ["TR", "BR"])):
+                relevant_nodes.append(node)
+
+        # Custom sorting logic
+        if n == 8 and side == "right" and col == second_last_col + 1:
+            # Special right-side handling
+            second_last_nodes = [n for n in relevant_nodes if f"X_{second_last_col}" in n.name]
+            last_col_nodes = sorted([n for n in relevant_nodes if f"X_{col}_" in n.name], 
+                                key=lambda x: x.y)
+            
+            # Find bottom node using max row calculation
+            max_row = max(int(n.name.split('_')[2]) for n in second_last_nodes) if second_last_nodes else 0
+            sorted_nodes = [
+                next((n for n in second_last_nodes if "_0_TR" in n.name), None),
+                *last_col_nodes,
+                next((n for n in second_last_nodes if f"_{max_row}_BR" in n.name), None)
+            ]
+            sorted_nodes = [n for n in sorted_nodes if n]  # Remove None values
+        else:
+            # Sort nodes by Y-coordinate ascending (top to bottom)
+            sorted_nodes = sorted(relevant_nodes, key=lambda x: x.y, reverse=False)
+
+        # Create extensions and labels
+        for i, node in enumerate(sorted_nodes):
+            # Determine extension parameters
+            is_special = f"X_{second_last_col}" in node.name and side == "right"
+            ext_length = extension * 3 if is_special else extension
+            
+            # Calculate extension position
+            new_x = node.x + (ext_length if side == "right" else -ext_length)
+            ext_node = Node(f"{node.name}_EXT", new_x, node.y)
             self.nodes[ext_node.name] = ext_node
             self.create_path(node, ext_node)
+
+            # Add labels for 8x8 grid
+            if n == 8:
+                # Calculate label based on side and position
+                label = 14 - i if side == "left" else 7 + i
+                text_offset = 25 if is_special else 20
+                text_x = new_x + (text_offset if side == "right" else -text_offset)
+                
+                self.canvas.create_text(
+                    text_x, node.y,
+                    text=str(label),
+                    anchor="w" if side == "right" else "e",
+                    fill="white",
+                    font=("Arial", 12 if is_special else 12, "bold"),
+                    tags="io_label"
+                )
+
+        # Connect special vertical extensions
+        if side == "right" and col == second_last_col and n == 8:
+            self.connect_vertical_extensions(col, (n//2)-1, extension*3)
+
+
+    def connect_vertical_extensions(self, col, max_row, extension):
+        """Connects special vertical extensions with proper spacing"""
+        # Top connection
+        if top_node := self.nodes.get(f"X_{col}_0_TR_EXT"):
+            self.create_path(
+                self.nodes[f"X_{col}_0_TR"],
+                top_node
+            )
+        
+        # Bottom connection
+        if bottom_node := self.nodes.get(f"X_{col}_{max_row}_BR_EXT"):
+            self.create_path(
+                self.nodes[f"X_{col}_{max_row}_BR"],
+                bottom_node
+            )
+
+
 
     def create_x_shape(self, center_name, x, y, arm_length, label):
         """Creates an X shape with label."""
@@ -507,7 +750,7 @@ def main():
     # root.geometry("1400x1000")
     screen_width = root.winfo_screenwidth()
     screen_height = root.winfo_screenheight()
-    root.geometry(f"{screen_width}x{screen_height}+-10+-5")
+    root.geometry(f"{screen_width}x{screen_height}") #+-10+-5
     root.mainloop()
 
 if __name__ == '__main__':

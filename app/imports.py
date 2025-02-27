@@ -1,6 +1,9 @@
 # app/imports.py
 
-# from app.imports import *
+# Set matplotlib backend first
+import matplotlib
+matplotlib.use('TkAgg')  # Set backend before other matplotlib imports
+
 # Standard Library Imports
 import os
 import sys
@@ -14,14 +17,26 @@ import traceback
 import ast
 
 # Third-Party Libraries
+import serial
 import serial.tools.list_ports
 import pyvisa
 import numpy as np
+
+# Matplotlib imports
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import (
+    FigureCanvasTkAgg, 
+    NavigationToolbar2Tk
+)
+import matplotlib.ticker as ticker
+from matplotlib.ticker import FuncFormatter
+
+# Other third-party
 from unittest.mock import MagicMock
 from PIL import Image, ImageTk
 import sympy as sp
+import interferometer as itf
 
 # CustomTkinter GUI
 import customtkinter as ctk

@@ -4,8 +4,10 @@ import customtkinter as ctk
 import tkinter.messagebox as messagebox
 import app.gui.widgets as widgets
 import app.gui.window1 as window1
-from app.devices.qontrol_device import QontrolDevice  # Your QontrolDevice class
 from app.gui.window1 import Window1Content  # Import the Window1Content widget
+from app.gui.window2 import Window2Content  # Import the Window2Content widget
+from app.gui.window3 import Window3Content  # Import the Window3Content widget
+from app.devices.qontrol_device import QontrolDevice  # Your QontrolDevice class
 from app.utils.importfunc import importfunc
 from app.utils.appdata import AppData   # Import the AppData class
 from app.utils import utils            # This module contains apply_phase
@@ -52,7 +54,8 @@ class MainWindow(ctk.CTk):
             master=self.left_panel,
             import_command=self.import_data,
             export_command=self.export_data,
-            mesh_change_command=self.mesh_changed
+            mesh_change_command=self.mesh_changed,
+            config=self.config
         )
         self.app_control.pack(anchor="nw", padx=10, pady=(10, 10), fill="x")
         
@@ -61,16 +64,7 @@ class MainWindow(ctk.CTk):
             change_command=self.window_changed
         )
         self.windowSelection.pack(anchor="nw", padx=10, pady=(10, 10), fill="x")
-        
-        # Testing move to widgets.py
-        self.apply_phase_button = ctk.CTkButton(
-            master=self.left_panel,
-            text="Apply Phase",
-            command=lambda: utils.apply_phase(self.current_content.custom_grid, self.qontrol, self.appdata),
-            height=30
-        )
-        self.apply_phase_button.pack(anchor="nw", padx=10, pady=(10, 10), fill="x")
-
+ 
         # Initially, load the content for Window 1.
         self.load_window_content("Window 1")
         
@@ -99,7 +93,17 @@ class MainWindow(ctk.CTk):
             )
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
         elif window_name == "Window 2":
-            content = Window1Content(
+            # Create the Window2Content (which integrates the Qontrol control panel)
+            self.current_content = Window2Content(
+                self.right_panel,
+                channel=0,
+                fit="Linear",
+                IOconfig="Config1",
+                app=self.appdata,
+                qontrol=self.qontrol
+            )
+        elif window_name == "Window 3":
+            self.current_content = Window3Content(  # Use Window3Content, even if it's similar to Window1Content
                 self.right_panel,
                 channel=0,
                 fit="Linear",
@@ -107,8 +111,8 @@ class MainWindow(ctk.CTk):
                 app=self.appdata,
                 qontrol=self.qontrol,
                 grid_size="8x8"
-            )
-            content.pack(expand=True, fill="both", padx=10, pady=10)
+            )            
+            self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
         else:
             placeholder = ctk.CTkLabel(self.right_panel, text=f"{window_name} content not implemented yet.")
             placeholder.pack(expand=True, fill="both", padx=10, pady=10)
@@ -130,7 +134,6 @@ class MainWindow(ctk.CTk):
         else:
             messagebox.showerror("Connection Error", "No Qontrol device available!")
 
-
     def disconnect_devices(self):
         if self.qontrol:
             self.qontrol.disconnect()
@@ -151,9 +154,7 @@ class MainWindow(ctk.CTk):
         if hasattr(self, 'current_content') and isinstance(self.current_content, window1.Window1Content):
             self.current_content.update_grid(new_mesh_size)
 
-    # (Optional: additional methods to extract values from appdata and update UI can be added here.)
-
 if __name__ == "__main__":
-    qontrol_device = QontrolDevice(config={"globalcurrrentlimit": 6.0})
+    qontrol_device = QontrolDevice(config={"globalcurrrentlimit"})
     app = MainWindow(qontrol=qontrol_device, thorlabs=None, config={})
     app.mainloop()
