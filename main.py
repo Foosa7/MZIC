@@ -15,8 +15,9 @@ def main():
 
     # Initialize devices (replace with Mock devices for testing)
     qontrol = QontrolDevice(config=config)  # Replace with QontrolDevice for real hardware
-    # qontrol = MockQontrol() # Replace with QontrolDevice for real hardware
-    thorlabs = MockThorlabsPM100()  # Replace with ThorlabsDevice for real hardware
+    # qontrol = MockQontrol(config=config) # Replace with QontrolDevice for real hardware
+    thorlabs = ThorlabsDevice(config=config)  # Replace with ThorlabsDevice for real hardware
+    # thorlabs = MockThorlabsPM100()  # Replace with ThorlabsDevice for real hardware
 
     # Connect to devices
     qontrol.connect()
