@@ -174,26 +174,3 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-
-
-app/__pycache__/imports.cpython-311.pyc
-app/__pycache__/__init__.cpython-311.pyc
-app/devices/__pycache__/__init__.cpython-311.pyc
-app/devices/__pycache__/mock_devices.cpython-311.pyc
-app/devices/__pycache__/qontrol_device.cpython-311.pyc
-app/devices/__pycache__/thorlabs_device.cpython-311.pyc
-app/gui/__pycache__/__init__.cpython-311.pyc
-app/gui/__pycache__/interferometer_view.cpython-311.pyc
-app/gui/__pycache__/main_window.cpython-311.pyc
-app/gui/__pycache__/widgets.cpython-311.pyc
-app/gui/__pycache__/window1.cpython-311.pyc
-app/gui/__pycache__/window2.cpython-311.pyc
-app/gui/__pycache__/window3.cpython-311.pyc
-app/utils/__pycache__/appdata.cpython-311.pyc
-app/utils/__pycache__/clements_decomposition.cpython-311.pyc
-app/utils/__pycache__/grid.cpython-311.pyc
-app/utils/__pycache__/importfunc.cpython-311.pyc
-app/utils/__pycache__/mzi_convention.cpython-311.pyc
-app/utils/__pycache__/mzi_lut.cpython-311.pyc
-app/utils/__pycache__/qmapper8x8.cpython-311.pyc
-app/utils/__pycache__/utils.cpython-311.pyc
