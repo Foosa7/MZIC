@@ -5,10 +5,11 @@ from unittest.mock import MagicMock
 from app.devices.mock_devices import MockThorlabsPM100
 
 class ThorlabsDevice:
-    def __init__(self):
+    def __init__(self, config=None):
         self.rm = None
         self.inst = None
         self.device = None
+        self.config = config if config is not None else {}
 
     def find_device(self):
         """Automatically find the Thorlabs Power Meter."""
