@@ -92,6 +92,21 @@ class ThorlabsDevice:
             except Exception as e:
                 print(f"Wavelength setting error: {e}")
 
+    def disconnect(self):
+        """Safely close connection to device"""
+        if self.inst:
+            try:
+                self.inst.close()
+                print("Disconnected from Thorlabs device")
+            except Exception as e:
+                print(f"Error closing connection: {e}")
+            finally:
+                self.inst = None
+                self.device = None
+        else:
+            print("No active connection to disconnect")
+
+
 # For testing
 if __name__ == "__main__":
     config = {"wavelength": 1550}

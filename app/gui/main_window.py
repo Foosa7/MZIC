@@ -9,6 +9,7 @@ from app.gui.window2 import Window2Content  # Import the Window2Content widget
 from app.gui.window3 import Window3Content  # Import the Window3Content widget
 from app.devices.qontrol_device import QontrolDevice  # Your QontrolDevice class
 import app.utils
+from app.utils.utils import importfunc
 from app.utils.appdata import AppData   # Import the AppData class
 # from app.utils import utils            # This module contains apply_phase
 
@@ -103,7 +104,6 @@ class MainWindow(ctk.CTk):
                 app=self.appdata,
                 qontrol=self.qontrol,
             )
-            print("Window 2 content loaded.")
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
         elif window_name == "Window 3":
             self.current_content = Window3Content(  # Use Window3Content, even if it's similar to Window1Content
@@ -167,7 +167,7 @@ class MainWindow(ctk.CTk):
             else:
                 self.thorlabs.connect()
                 print("Re-Connecting to Thorlabs device...")
-                if self.qontrol.device:  # Only update if connection succeeded
+                if self.thorlabs.device:  # Only update if connection succeeded
                     params = self.thorlabs.params
                     # params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
                     self.device_control.update_device_info(params, "thorlabs")

@@ -262,3 +262,98 @@ def apply_phase(custom_grid, qontrol, app):
 #         self.calframe = MyCalcFrame_main(self.settings_frame, Channel=self.channel, Fit=self.fit, IOconfig=self.IOconfig)
 #         self.calframe.grid(column=0, row=0, padx=10, pady=10, sticky="nsew") 
 #         #self.label.configure(text=str(round(self.resistancelist[self.channel][0], 0))) #reconfigure label with value for resistance
+
+# def calibrationplotX(self, channel, xdata, ydata): #calibration plot on the calibration tab
+
+#     self.channel = channel
+#     self.xdata = xdata #in mW
+#     self.ydata = ydata #in mW
+    
+#     self.fit = self.fit_func_allchannels[self.channel]
+#     self.IOconfig = self.IOconfig_allchannels[self.channel]
+#     self.fitnames = np.array(["Linear", "Linear+cubic"])
+#     self.currentfit_name = self.fitnames[self.fit_func.index(self.fit)]
+
+#     fitxdata = np.linspace(self.xdata[0], self.xdata[-1], 300)
+#     print("CalibrationplotX initiated")
+
+#     if self.fit == self.fit_func[0]:
+#         if self.IOconfig == self.IOconfig_options[0]:
+#             res = self.fit_cos(self.xdata, self.ydata) #save all the parameters here. saved in a dictionary. accessible from app. 
+#             self.caliparamlist_lin_cross[self.channel] = res #save the dictionary of calibration parameters for each channel in a list
+            
+#         elif self.IOconfig == self.IOconfig_options[1]:
+#             res = self.fit_cos_negative(self.xdata, self.ydata) #save all the parameters here. saved in a dictionary. accessible from app. 
+#             self.caliparamlist_lin_bar[self.channel] = res #save the dictionary of calibration parameters for each channel in a list
+            
+#     elif self.fit == self.fit_func[1]:
+#         if self.IOconfig == self.IOconfig_options[0]:
+#             res = self.fit_cos(self.xdata, self.ydata) #save all the parameters here. saved in a dictionary. accessible from app. 
+#             self.caliparamlist_lincub_cross[self.channel] = res #save the dictionary of calibration parameters for each channel in a list
+            
+#         elif self.IOconfig == self.IOconfig_options[1]:
+#             res = self.fit_cos_negative(self.xdata, self.ydata) #save all the parameters here. saved in a dictionary. accessible from app. 
+#             self.caliparamlist_lincub_bar[self.channel] = res #save the dictionary of calibration parameters for each channel in a list
+
+    
+#     print( "Amplitude=%(amp)s, Angular freq.=%(omega)s, phase=%(phase)s, offset=%(offset)s, Max. Cov.=%(maxcov)s" % res)
+
+#     #set white font colors
+#     COLOR = 'white'
+#     matplotlib.rcParams['text.color'] = COLOR
+#     matplotlib.rcParams['axes.labelcolor'] = COLOR
+#     matplotlib.rcParams['xtick.color'] = COLOR
+#     matplotlib.rcParams['ytick.color'] = COLOR
+
+#     fig, ax = plt.subplots(1, figsize=(8,4))
+
+#     plt.plot(self.xdata, self.ydata, "ok", label="optical power", color='white')
+#     plt.plot(fitxdata, res["fitfunc"](fitxdata), "r-", label="fit", linewidth=2)
+#     plt.legend(loc="best", facecolor="#323334", framealpha=1)
+#     plt.title("Phase calibration curve for channel "+ str(self.channel)+ " ("+ str(self.currentheaterid[self.channel])+ ")\n"+ str(self.currentfit_name)+ " I-V, "+ self.IOconfig+ " config")
+
+
+#     ax.set_facecolor("#323334")
+#     plt.setp(ax.spines.values(), color=COLOR)
+#     plt.xlabel("Heating power (P) mW")
+#     plt.ylabel("Optical power (Y) mW")
+#     fig.patch.set_facecolor("#323334")
+    
+#     #reset to default colors
+#     COLOR = 'black'
+#     matplotlib.rcParams['text.color'] = COLOR
+#     matplotlib.rcParams['axes.labelcolor'] = COLOR
+#     matplotlib.rcParams['xtick.color'] = COLOR
+#     matplotlib.rcParams['ytick.color'] = COLOR
+
+#     #plt.show()
+    
+#     # Save plot to a BytesIO buffer
+#     buf = BytesIO()
+#     print(buf)
+#     fig.savefig(buf, format="png")
+#     buf.seek(0)  # Reset buffer position to the start
+    
+#     if self.fit == self.fit_func[0]:
+#         if self.IOconfig == self.IOconfig_options[0]:
+#             self.opmod_lin_char_cross_state_images[self.channel] = buf  # Store the buffer in the array
+#             plt.close(fig)  # Close the figure to free memory
+#             self.image_frame2.your_image.configure(light_image=Image.open(self.opmod_lin_char_cross_state_images[self.channel]), size=(self.image_frame1.IMAGE_WIDTH , self.image_frame1.IMAGE_HEIGHT))
+            
+#         elif self.IOconfig == self.IOconfig_options[1]:
+#             self.opmod_lin_char_bar_state_images[self.channel] = buf  # Store the buffer in the array
+#             plt.close(fig)  # Close the figure to free memory
+#             self.image_frame2.your_image.configure(light_image=Image.open(self.opmod_lin_char_bar_state_images[self.channel]), size=(self.image_frame1.IMAGE_WIDTH , self.image_frame1.IMAGE_HEIGHT))
+            
+#     if self.fit==self.fit_func[1]:
+#         if self.IOconfig == self.IOconfig_options[0]:
+#             self.opmod_lincub_char_cross_state_images[self.channel] = buf  # Store the buffer in the array
+#             plt.close(fig)  # Close the figure to free memory
+#             self.image_frame2.your_image.configure(light_image=Image.open(self.opmod_lincub_char_cross_state_images[self.channel]), size=(self.image_frame1.IMAGE_WIDTH , self.image_frame1.IMAGE_HEIGHT))
+            
+#         elif self.IOconfig == self.IOconfig_options[1]:
+#             self.opmod_lincub_char_bar_state_images[self.channel] = buf  # Store the buffer in the array
+#             plt.close(fig)  # Close the figure to free memory
+#             self.image_frame2.your_image.configure(light_image=Image.open(self.opmod_lincub_char_bar_state_images[self.channel]), size=(self.image_frame1.IMAGE_WIDTH , self.image_frame1.IMAGE_HEIGHT))
+    
+    

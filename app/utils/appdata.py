@@ -1,6 +1,9 @@
 # app/utils/appdata.py
 
 class AppData:
+    default_json_grid = {}
+    test_json_grid = {"A1": {"arms": ["TL", "TR", "BL", "BR"], "theta": "0", "phi": "0"},
+    "B1": {"arms": ["TL", "TR", "BL", "BR"], "theta": "0", "phi": "0"}}
     def __init__(self, n_channels):
         self.n_channels = n_channels
         
@@ -10,8 +13,9 @@ class AppData:
             "Cubic + linear fit (V = R₀ ( I + αI³)"
         ]
         self.default_fit = self.fit_func[1]
-        self.IOconfig_options = ["Cross", "Bar"]
+        self.IOconfig_options = ["Cross", "Bar", "50:50", "Custom"]
         self.default_IOconfig = self.IOconfig_options[0]
+
 
         # Calibration parameters (dummy data, one set per channel).
         self.caliparamlist_lin_cross = [{"amp": 1.0, "omega": 1.0, "phase": 0.5, "offset": 2.0} for _ in range(n_channels)]

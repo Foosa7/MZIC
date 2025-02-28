@@ -1,4 +1,7 @@
 # app/gui/window1.py
+from app.imports import *
+
+from app.utils.appdata import AppData
 import io
 from contextlib import redirect_stdout
 import customtkinter as ctk
@@ -103,7 +106,7 @@ class Window1Content(ctk.CTkFrame):
     def _start_status_updates(self):
         """Start periodic status updates"""
         self._update_system_status()
-        self.after(1000, self._start_status_updates)
+        self.after(10000, self._start_status_updates)
 
     def _update_system_status(self):
         """Update both status and error displays"""
@@ -133,8 +136,27 @@ class Window1Content(ctk.CTkFrame):
         """Status displays are now integrated in control panel"""
         pass
 
+    # def build_grid(self, grid_size):
+    #     """Initialize the grid display"""
+    #     try:
+    #         n = int(grid_size.split('x')[0])
+    #     except:
+    #         n = 8
+            
+    #     if hasattr(self, 'custom_grid'):
+    #         self.custom_grid.destroy()
+            
+    #     self.custom_grid = grid.Example(
+    #         self.grid_container, 
+    #         grid_n=n,
+    #         scale=0.8 if n >= 12 else 1.0
+    #     )
+    #     self.custom_grid.pack(fill="both", expand=True)
+    #     self._attach_grid_listeners()
+
+
     def build_grid(self, grid_size):
-        """Initialize the grid display"""
+        """Initialize the grid display with default JSON"""
         try:
             n = int(grid_size.split('x')[0])
         except:
@@ -150,6 +172,21 @@ class Window1Content(ctk.CTkFrame):
         )
         self.custom_grid.pack(fill="both", expand=True)
         self._attach_grid_listeners()
+        
+        # Load default JSON configuration
+        # default_json = json.dumps({
+        #     "A1": {"arms": ["TL", "TR", "BL", "BR"], "theta": "0", "phi": "0"},
+        #     "B1": {"arms": ["TL", "TR", "BL", "BR"], "theta": "0", "phi": "0"},
+        #     # ... add other default grid values
+        # })
+
+        default_json = json.dumps(AppData.default_json_grid)
+
+        try:
+            self.custom_grid.import_paths_json(default_json)
+        except Exception as e:
+            print(f"Error loading default grid: {str(e)}")
+
 
     def _attach_grid_listeners(self):
         """Attach event listeners to grid inputs"""

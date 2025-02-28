@@ -710,7 +710,7 @@ class Example(Frame):
         and the corresponding input boxes will be updated (or created).
         """
         try:
-            imported = json.loads(json_str)
+            imported = json.loads(json_str) #default_json_grid 
         except Exception as e:
             print("Invalid JSON:", e)
             return

@@ -1,10 +1,12 @@
 # app/gui/window3.py
 from app.imports import *
+
 import tkinter.simpledialog as simpledialog
 import tkinter.filedialog as filedialog
 from app.utils import grid  
 from app.utils.unitary import mzi_lut
 from app.utils.unitary import mzi_convention
+from app.utils.appdata import AppData
 
 class Window3Content(ctk.CTkFrame):
     
@@ -207,11 +209,11 @@ class Window3Content(ctk.CTkFrame):
             mzi_convention.clements_to_chip(bs_list)
             
             # Generate JSON from mzi_lut.py
-            json_str = mzi_lut.get_json_output(self.n, bs_list)
+            AppData.default_json_grid = mzi_lut.get_json_output(self.n, bs_list)
             
-            # # Update GUI
-            # self.custom_grid.import_paths_json(json_str)
-            # self.custom_grid.update_selection()
+            # Update GUI
+            self.custom_grid.import_paths_json(AppData.default_json_grid)
+            self.custom_grid.update_selection()
             
         except Exception as e:
             print("Error in decomposition:", e)

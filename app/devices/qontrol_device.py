@@ -15,7 +15,15 @@ class QontrolDevice:
         self.params = {}
         self.config = config if config is not None else {}
         # Global current limit (in mA) to be set on all channels after connecting.
-        self.globalcurrrentlimit = self.config.get("globalcurrrentlimit", 5.0)
+        self.globalcurrrentlimit = self.config.get("globalcurrrentlimit")
+
+    def _enforce_operation_delay(self):
+        """Ensure minimum time between operations"""
+        elapsed = time.time() - self.last_operation_time
+        if elapsed < self.operation_delay:
+            time.sleep(self.operation_delay - elapsed)
+        self.last_operation_time = time.time()
+
 
     def find_serial_port(self):
         """
