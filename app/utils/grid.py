@@ -406,6 +406,17 @@ class Example(Frame):
             text=label,
             anchor='w', font=("Arial", 12), fill="white"
         )
+
+        # # Create top-left dot (added feature)
+        # tl_x = x - arm_length
+        # tl_y = y - arm_length
+        # self.canvas.create_oval(
+        #     tl_x - 3, tl_y - 3,  # Coordinates for top-left corner
+        #     tl_x + 3, tl_y + 3,  # Coordinates for bottom-right corner
+        #     fill="white",         # Match label color
+        #     outline="white"       # Remove border
+        # )
+
         # Create arm nodes.
         for suffix, (dx, dy) in {
             "TL": (-arm_length, -arm_length),
@@ -435,7 +446,7 @@ class Example(Frame):
         """Handles path selection."""
         for path in self.paths:
             coords = self.canvas.coords(path.line_id)
-            if len(coords) >= 4 and self.is_point_near_line(event.x, event.y, *coords[:4], 8):
+            if len(coords) >= 4 and self.is_point_near_line(event.x, event.y, *coords[:4], 15): # 15 pixels tolerance
                 self.toggle_path_selection(path)
 
     def toggle_path_selection(self, path):

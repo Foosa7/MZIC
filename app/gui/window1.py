@@ -3,16 +3,17 @@ import io
 from contextlib import redirect_stdout
 import customtkinter as ctk
 from app.utils import grid
-from app.utils.qmapper8x8 import create_label_mapping, apply_grid_mapping
+from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
 from collections import defaultdict
 
 class Window1Content(ctk.CTkFrame):
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, grid_size="8x8", **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, grid_size="8x8", **kwargs):
         super().__init__(master, **kwargs)
         self.qontrol = qontrol
+        self.thorlabs = thorlabs
         self.grid_size = grid_size
         self.after_id = None
-        
+
         # Configure main layout
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)

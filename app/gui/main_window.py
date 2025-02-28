@@ -1,5 +1,5 @@
 # app/gui/main_window.py
-
+from app.imports import *
 import customtkinter as ctk
 import tkinter.messagebox as messagebox
 import app.gui.widgets as widgets
@@ -8,9 +8,9 @@ from app.gui.window1 import Window1Content  # Import the Window1Content widget
 from app.gui.window2 import Window2Content  # Import the Window2Content widget
 from app.gui.window3 import Window3Content  # Import the Window3Content widget
 from app.devices.qontrol_device import QontrolDevice  # Your QontrolDevice class
-from app.utils.importfunc import importfunc
+import app.utils
 from app.utils.appdata import AppData   # Import the AppData class
-from app.utils import utils            # This module contains apply_phase
+# from app.utils import utils            # This module contains apply_phase
 
 class MainWindow(ctk.CTk):
     def __init__(self, qontrol, thorlabs, config):
@@ -48,7 +48,7 @@ class MainWindow(ctk.CTk):
             connect_command=self.connect_devices,
             disconnect_command=self.disconnect_devices
         )
-        self.device_control.pack(anchor="nw", padx=10, pady=(10, 0), fill="x")
+        self.device_control.pack(anchor="nw", padx=10, pady=(10, 5), fill="x")
 
         self.app_control = widgets.AppControlWidget(
             master=self.left_panel,
@@ -57,13 +57,13 @@ class MainWindow(ctk.CTk):
             mesh_change_command=self.mesh_changed,
             config=self.config
         )
-        self.app_control.pack(anchor="nw", padx=10, pady=(10, 10), fill="x")
+        self.app_control.pack(anchor="nw", padx=10, pady=(5, 5), fill="x")
         
         self.windowSelection = widgets.WindowSelectionWidget(
             master=self.left_panel,
             change_command=self.window_changed
         )
-        self.windowSelection.pack(anchor="nw", padx=10, pady=(10, 10), fill="x")
+        self.windowSelection.pack(anchor="nw", padx=10, pady=(5, 10), fill="x")
  
         # Initially, load the content for Window 1.
         self.load_window_content("Window 1")
@@ -89,6 +89,7 @@ class MainWindow(ctk.CTk):
                 IOconfig="Config1",
                 app=self.appdata,
                 qontrol=self.qontrol,
+                thorlabs = self.thorlabs,
                 grid_size=mesh_size
             )
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
@@ -100,8 +101,10 @@ class MainWindow(ctk.CTk):
                 fit="Linear",
                 IOconfig="Config1",
                 app=self.appdata,
-                qontrol=self.qontrol
+                qontrol=self.qontrol,
             )
+            print("Window 2 content loaded.")
+            self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
         elif window_name == "Window 3":
             self.current_content = Window3Content(  # Use Window3Content, even if it's similar to Window1Content
                 self.right_panel,
@@ -110,34 +113,74 @@ class MainWindow(ctk.CTk):
                 IOconfig="Config1",
                 app=self.appdata,
                 qontrol=self.qontrol,
-                grid_size="8x8"
+                # grid_size="8x8"
             )            
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
         else:
             placeholder = ctk.CTkLabel(self.right_panel, text=f"{window_name} content not implemented yet.")
             placeholder.pack(expand=True, fill="both", padx=10, pady=10)
 
+    # def connect_devices(self):
+    #     if self.qontrol:
+    #         # Check if the device is already connected (assuming self.qontrol.device is set when connected)
+    #         if hasattr(self.qontrol, "device") and self.qontrol.device is not None:
+    #             # Already connected; update device info only.
+    #             params = self.qontrol.params
+    #             params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
+    #             self.device_control.update_device_info(params)
+    #         else:
+    #             # Not connected yet, so connect.
+    #             self.qontrol.connect()
+    #             params = self.qontrol.params
+    #             params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
+    #             self.device_control.update_device_info(params)
+    #     else:
+    #         messagebox.showerror("Connection Error", "No Qontrol device available!")
+
+    # def disconnect_devices(self):
+    #     if self.qontrol:
+    #         self.qontrol.disconnect()
+    #     self.device_control.update_device_info({})
+
     def connect_devices(self):
+        # Handle Qontrol connection should be connected by default
         if self.qontrol:
-            # Check if the device is already connected (assuming self.qontrol.device is set when connected)
             if hasattr(self.qontrol, "device") and self.qontrol.device is not None:
-                # Already connected; update device info only.
                 params = self.qontrol.params
                 params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
-                self.device_control.update_device_info(params)
+                self.device_control.update_device_info(params, "qontrol")
             else:
                 # Not connected yet, so connect.
                 self.qontrol.connect()
-                params = self.qontrol.params
-                params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
-                self.device_control.update_device_info(params)
-        else:
-            messagebox.showerror("Connection Error", "No Qontrol device available!")
+                print("Re-Connecting to Qontrol device...")
+                if self.qontrol.device:  # Only update if connection succeeded
+                    params = self.qontrol.params
+                    params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
+                    self.device_control.update_device_info(params, "qontrol")
+
+        # Handle Thorlabs connection should be connected by default
+        if self.thorlabs:  # Add thorlabs connection handling
+            if hasattr(self.thorlabs, "device") and self.thorlabs.device is not None:
+                params = self.thorlabs.params
+                # params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
+                self.device_control.update_device_info(params, "thorlabs")
+            else:
+                self.thorlabs.connect()
+                print("Re-Connecting to Thorlabs device...")
+                if self.qontrol.device:  # Only update if connection succeeded
+                    params = self.thorlabs.params
+                    # params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
+                    self.device_control.update_device_info(params, "thorlabs")
 
     def disconnect_devices(self):
         if self.qontrol:
             self.qontrol.disconnect()
-        self.device_control.update_device_info({})
+        if self.thorlabs:
+            self.thorlabs.disconnect()
+        # Clear both device displays
+        self.device_control.update_device_info(None, "qontrol")
+        self.device_control.update_device_info(None, "thorlabs")
+    
 
     def import_data(self):
         # Call the import function to update the appdata.

@@ -1,4 +1,3 @@
-
 import pyvisa
 from ThorlabsPM100 import ThorlabsPM100
 from unittest.mock import MagicMock
@@ -9,23 +8,43 @@ class ThorlabsDevice:
         self.rm = None
         self.inst = None
         self.device = None
+        self.params = {}
         self.config = config if config is not None else {}
+        self.wavelength = self.config.get("wavelength", 1550)  # Default 1550 nm
 
     def find_device(self):
-        """Automatically find the Thorlabs Power Meter."""
         try:
             self.rm = pyvisa.ResourceManager()
             resources = self.rm.list_resources()
             print(f"Available VISA resources: {resources}")
 
             for res in resources:
-                if "USB" in res:  # Look for USB-based connections
+                if "USB" in res and "0x1313" in res:  # Thorlabs vendor ID
                     try:
                         print(f"Trying to connect to {res}...")
                         self.inst = self.rm.open_resource(res)
                         self.device = ThorlabsPM100(self.inst)
-                        print(f"Connected to Thorlabs Power Meter at {res}")
+                        
+                        # Get identification using raw VISA command
+                        idn = self.inst.query("*IDN?").strip().split(',')
+                        self.params = {
+                            "Manufacturer": idn[0],
+                            "Model": idn[1],
+                            "Serial": idn[2],
+                            "Firmware": idn[3],
+                            "Wavelength": f"{self.device.sense.correction.wavelength} nm",
+                            "Power Range": f"{self.device.sense.power.dc.range.upper} W"
+                        }
+
+                        # Configure measurement type to POWER
+                        self.device.sense.function = 'POWER'
+                        
+                        # Apply wavelength config
+                        self.device.sense.correction.wavelength = self.wavelength
+                        
+                        print(f"Connected to {self.params['Model']} at {res}")
                         return True
+
                     except Exception as e:
                         print(f"Failed to connect to {res}: {e}")
                         continue
@@ -34,29 +53,54 @@ class ThorlabsDevice:
             return False
 
         except Exception as e:
-            print(f"Error accessing VISA resources: {e}")
+            print(f"VISA resource error: {e}")
             return False
 
     def connect(self):
-        """Connect to the Thorlabs power meter automatically."""
         if self.find_device():
-            print("Thorlabs Power Meter connected successfully.")
+            print(f"Connected to {self.params['Model']} (SN: {self.params['Serial']})")
+            print(f"Current wavelength: {self.params['Wavelength']}")
         else:
-            print("Using Mock Thorlabs Power Meter instead.")
-            self.device = MockThorlabsPM100(MagicMock())  # Use mock device
+            print("Using mock device")
+            self.device = MockThorlabsPM100(MagicMock())
+            self.params = {
+                "Manufacturer": "MockThorlabs",
+                "Model": "PM100D-MOCK",
+                "Serial": "MOCK1234",
+                "Firmware": "1.0.0",
+                "Wavelength": f"{self.wavelength} nm",
+                "Power Range": "100 mW"
+            }
 
-    def disconnect(self):
-        """Disconnect the Thorlabs device."""
+    def read_power(self):
+        """Get power reading in mW"""
         if self.device:
-            print("Thorlabs Power Meter disconnected.")
-            if self.inst:
-                self.inst.close()
-        else:
-            print("No Thorlabs device to disconnect.")
+            try:
+                return self.device.read * 1000  # Convert W to mW
+            except AttributeError:
+                return self.device.power * 1000
+        return 0.0
+
+    def set_wavelength(self, wavelength):
+        """Set measurement wavelength (300-1100nm or 800-1700nm depending on sensor)"""
+        if self.device:
+            try:
+                self.device.sense.correction.wavelength = wavelength
+                self.wavelength = wavelength
+                self.params["Wavelength"] = f"{wavelength} nm"
+                print(f"Wavelength updated to {wavelength} nm")
+            except Exception as e:
+                print(f"Wavelength setting error: {e}")
 
 # For testing
 if __name__ == "__main__":
-    thorlabs = ThorlabsDevice()
+    config = {"wavelength": 1550}
+    thorlabs = ThorlabsDevice(config)
     thorlabs.connect()
-    print(f"Power Reading: {thorlabs.device.read_power()} mW")
+    
+    if thorlabs.device:
+        thorlabs.show_status()
+        thorlabs.set_wavelength(1310)
+        thorlabs.show_status()
+    
     thorlabs.disconnect()

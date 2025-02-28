@@ -3,33 +3,33 @@ from app.imports import *
 import tkinter.simpledialog as simpledialog
 import tkinter.filedialog as filedialog
 from app.utils import grid  
-from app.utils import mzi_lut
-from app.utils import mzi_convention
+from app.utils.unitary import mzi_lut
+from app.utils.unitary import mzi_convention
 
 class Window3Content(ctk.CTkFrame):
     
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, grid_size="8x8", **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, **kwargs):
         super().__init__(master, **kwargs)
         self.channel = channel
         self.fit = fit
         self.IOconfig = IOconfig
         self.app = app
         self.qontrol = qontrol
-        self.grid_size = grid_size
+        # self.grid_size = grid_size
         
         # -- Main content layout --
         self.content_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.content_frame.pack(expand=True, fill="both", padx=2, pady=2)
         
-        # Left: photonic mesh diagram
-        self.grid_container = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        self.grid_container.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
+        # # Left: photonic mesh diagram
+        # self.grid_container = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        # self.grid_container.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
         
         # Right: controls
         self.right_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         self.right_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
         
-        self.build_grid(self.grid_size)
+        # self.build_grid(self.grid_size)
         
         # -- Import/Export path buttons at top --
         self.import_export_frame = ctk.CTkFrame(self.right_frame, fg_color="transparent")
@@ -75,16 +75,16 @@ class Window3Content(ctk.CTkFrame):
         self.unitary_entries_frame = ctk.CTkFrame(self.unitary_container, fg_color="gray20")
         self.unitary_entries_frame.pack(anchor="center", pady=10)
 
-        # Determine dimension n from mesh size
-        self.n = int(self.grid_size.split('x')[0])
-        self.unitary_entries = []
-        for i in range(self.n):
-            row_entries = []
-            for j in range(self.n):
-                e = ctk.CTkEntry(self.unitary_entries_frame, width=40)
-                e.grid(row=i, column=j, padx=2, pady=2)
-                row_entries.append(e)
-            self.unitary_entries.append(row_entries)
+        # # Determine dimension n from mesh size
+        # self.n = int(self.grid_size.split('x')[0])
+        # self.unitary_entries = []
+        # for i in range(self.n):
+        #     row_entries = []
+        #     for j in range(self.n):
+        #         e = ctk.CTkEntry(self.unitary_entries_frame, width=40)
+        #         e.grid(row=i, column=j, padx=2, pady=2)
+        #         row_entries.append(e)
+        #     self.unitary_entries.append(row_entries)
 
         # -- “Apply Unitary” / file import / file export / common unitaries --
         self.bottom_buttons_frame = ctk.CTkFrame(self.right_frame, fg_color="transparent")
@@ -137,15 +137,15 @@ class Window3Content(ctk.CTkFrame):
     # -----------------------------------
     # Mesh building / updating
     # -----------------------------------
-    def build_grid(self, grid_size):
-        try:
-            n = int(grid_size.split('x')[0])
-        except:
-            n = 8
-        scale = 0.8 if n == 12 else 1.0
-        self.custom_grid = grid.Example(self.grid_container, grid_n=n, scale=scale)
-        self.custom_grid.pack(expand=True, fill="both")
-        self.custom_grid.selection_callback = self.update_selected_paths
+    # def build_grid(self, grid_size):
+    #     try:
+    #         n = int(grid_size.split('x')[0])
+    #     except:
+    #         n = 8
+    #     scale = 0.8 if n == 12 else 1.0
+    #     # self.custom_grid = grid.Example(self.grid_container, grid_n=n, scale=scale)
+    #     self.custom_grid.pack(expand=True, fill="both")
+    #     self.custom_grid.selection_callback = self.update_selected_paths
     
     def update_selected_paths(self, selected_str):
         self.selected_paths_display.delete("0.0", "end")
@@ -167,14 +167,14 @@ class Window3Content(ctk.CTkFrame):
             self.custom_grid.import_paths_json(json_str)
             self.custom_grid.update_selection()
 
-    def update_grid(self, new_grid_size):
-        cover = ctk.CTkFrame(self.grid_container, fg_color="grey16", border_width=0)
-        cover.place(relwidth=1, relheight=1)
-        self.grid_container.update_idletasks()
-        for widget in self.grid_container.winfo_children():
-            widget.destroy()
-        self.build_grid(new_grid_size)
-        cover.destroy()
+    # def update_grid(self, new_grid_size):
+    #     cover = ctk.CTkFrame(self.grid_container, fg_color="grey16", border_width=0)
+    #     cover.place(relwidth=1, relheight=1)
+    #     self.grid_container.update_idletasks()
+    #     for widget in self.grid_container.winfo_children():
+    #         widget.destroy()
+    #     # self.build_grid(new_grid_size)
+    #     cover.destroy()
 
     # -----------------------------------
     # Print MZI (theta, phi) values
@@ -209,9 +209,9 @@ class Window3Content(ctk.CTkFrame):
             # Generate JSON from mzi_lut.py
             json_str = mzi_lut.get_json_output(self.n, bs_list)
             
-            # Update GUI
-            self.custom_grid.import_paths_json(json_str)
-            self.custom_grid.update_selection()
+            # # Update GUI
+            # self.custom_grid.import_paths_json(json_str)
+            # self.custom_grid.update_selection()
             
         except Exception as e:
             print("Error in decomposition:", e)

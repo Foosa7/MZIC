@@ -49,7 +49,8 @@ def get_json_output(n, bs_list):
         output[label] = {
             "arms": ["TL", "TR", "BL", "BR"],
             "theta": str(theta),
-            "phi": str(phi)
+            "phi": str(phi),
+            
         }
     
     return json.dumps(output, indent=4, sort_keys=True)

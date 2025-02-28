@@ -2,7 +2,7 @@
 import json
 import argparse
 from app.devices.qontrol_device import QontrolDevice
-from app.utils.qmapper8x8 import create_label_mapping, clamp_value
+from app.utils.qontrol.qmapper8x8 import create_label_mapping, clamp_value
 
 class QontrolSetter:
     def __init__(self, config_path, grid_size="8x8", verbose=False):

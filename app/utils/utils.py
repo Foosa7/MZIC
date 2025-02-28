@@ -4,6 +4,80 @@ import math
 import numpy as np
 import sympy as sp
 from tkinter import messagebox
+import os
+import pickle
+from io import BytesIO
+from tkinter import filedialog, messagebox
+
+
+def importfunc(obj):
+    """
+    Opens a file dialog to select a pickle file, then imports data from it
+    and updates the attributes of the given object 'obj'.
+    
+    Expected keys in the imported dictionary:
+      - 'caliparamlist_lin_cross'
+      - 'caliparamlist_lin_bar'
+      - 'caliparamlist_lincub_cross'
+      - 'caliparamlist_lincub_bar'
+      - 'standard_matrices'
+      - 'image_map'
+      
+    The function also reassigns the 'fitfunc' in the matrices if its value is 'fit_cos_func'
+    by setting it to obj.fit_cos.
+    """
+    
+    # Ask for the import file.
+    import_file = filedialog.askopenfilename(
+        title="Open Import File",
+        filetypes=[("Pickle Files", "*.pkl")]
+    )
+    if not import_file:
+        messagebox.showinfo("Import Canceled", "No file selected for import.")
+        return
+
+    # Load the imported data from the pickle file.
+    with open(import_file, "rb") as file:
+        imported = pickle.load(file)
+
+    # Reassign the fitfunc back from the reference string.
+    for key in ['caliparamlist_lin_cross', 'caliparamlist_lin_bar',
+                'caliparamlist_lincub_cross', 'caliparamlist_lincub_bar']:
+        if hasattr(obj, key):
+            matrix = getattr(obj, key)
+            for i, data in enumerate(matrix):
+                if isinstance(data, dict) and 'fitfunc' in data:
+                    if data['fitfunc'] == 'fit_cos_func':
+                        data['fitfunc'] = obj.fit_cos  # Replace with the actual function reference.
+                    matrix[i] = data  # Replace with the modified data.
+
+    # Import standard matrices.
+    standard_matrices = imported.get("standard_matrices", {})
+    for attr_name, matrix in standard_matrices.items():
+        if hasattr(obj, attr_name):
+            setattr(obj, attr_name, matrix)
+
+    # Import BytesIO matrices from images.
+    import_dir = os.path.dirname(import_file)
+    image_map = imported.get("image_map", {})
+    for matrix_name, image_filenames in image_map.items():
+        if hasattr(obj, matrix_name):
+            matrix = getattr(obj, matrix_name)
+            if isinstance(matrix, list):
+                for i, filename in enumerate(image_filenames):
+                    image_path = os.path.join(import_dir, filename)
+                    if os.path.exists(image_path):
+                        with open(image_path, "rb") as img_file:
+                            buf = BytesIO(img_file.read())
+                            buf.seek(0)  # Reset position
+                            # Extend the list if necessary.
+                            if i >= len(matrix):
+                                matrix.extend([None] * (i + 1 - len(matrix)))
+                            matrix[i] = buf
+
+    messagebox.showinfo("Import Complete",
+                        f"{import_file}")
+
 
 def apply_phase(custom_grid, qontrol, app):
     """
@@ -105,3 +179,86 @@ def apply_phase(custom_grid, qontrol, app):
         boxes['phi_entry'].delete(0, 'end')
     
     messagebox.showinfo("Apply Phase", "Phase values applied and currents updated for selected channels.")
+
+
+# def fit_func(self, x, y):
+#     """ Fit the data to a linear or linear + cubic function """
+#     if self.fit == self.fit_func[0]:  # Linear fit
+#         elif self.fit == self.fit_func[1]: 
+            
+#             self.lincubchar_voltage[self.channel] = y
+#             self.lincubchar_current[self.channel] = x
+            
+#             # Design matrix excluding the x^2 term
+#             X = np.vstack([x**3, x, np.ones_like(x)]).T
+            
+#             # Solve for coefficients [a, c, d] using least squares
+#             coefficients, residuals, rank, s = np.linalg.lstsq(X, y, rcond=None)
+            
+#             # Extract coefficients
+#             a, c, d = coefficients
+#             print(a, c, d)
+            
+#             self.resistancelist[self.channel] = a*(x**2) + c
+#             self.rmin_list[self.channel] = np.min(self.resistancelist[self.channel])
+#             self.rmax_list[self.channel] = np.max(self.resistancelist[self.channel])
+#             self.alpha_list[self.channel] = a/c
+#             self.resistance_parameter_list[self.channel] = [a, c, d] #add resistance, this is a float
+            
+#             print('Acquired resistance for channel ' +str(self.channel) +" is "+ str(self.resistancelist[self.channel]) + ' Ω '+ 'for the current values '+ str(x*1000)+'mA when when fitted using a linear + cubic function')
+            
+#             # Set white font colors
+#             COLOR = 'white'
+#             matplotlib.rcParams['text.color'] = COLOR
+#             matplotlib.rcParams['axes.labelcolor'] = COLOR
+#             matplotlib.rcParams['xtick.color'] = COLOR
+#             matplotlib.rcParams['ytick.color'] = COLOR
+            
+#             # Create figure and axes explicitly
+#             fig, ax = plt.subplots(1, figsize=(6, 4))
+            
+#             plt.scatter(x,y,label='Measured data points', color='white')
+#             plt.plot(x, a*(x**3)+c*(x)+d, label = "Linear +cubic fit", color = "red")
+#             #plt.text(endcurr/1000 - 5/1000, 0.7, 'y = ' + '{:.2f}'.format(b) + ' + {:.2f}'.format(a) + 'x', size=9)
+#             #plt.text(endcurr/1000 - 5/1000, 0.4, 'Resistance near zero current: ' + '{:.2f}'.format(c) + 'Ω', size=9)
+            
+#             # Apply custom formatter to x-axis
+#             ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value * 1000:.0f}"))
+            
+#             # Add labels, title, and legend
+#             ax.set_xlabel("Applied current (mA)")
+#             ax.set_ylabel("Measured voltage (V)")
+#             ax.set_title("Characterized Resistance for Channel"+str(self.channel)+"("+str(self.currentheaterid[self.channel])+"): Linear+Cubic fit")  # Adjust channel dynamically
+#             ax.legend(loc="best", facecolor="#323334", framealpha=1)
+            
+#             # Customize appearance
+#             ax.set_facecolor("#323334")
+#             plt.setp(ax.spines.values(), color=COLOR)
+#             fig.patch.set_facecolor("#323334")
+            
+#             # Show the plot
+#             #plt.show()
+            
+#             # Save plot to a BytesIO buffer
+#             buf = BytesIO()
+#             print(buf)
+#             fig.savefig(buf, format="png")
+#             buf.seek(0)  # Reset buffer position to the start
+
+#             self.res_lincub_char_images[self.channel] = buf  # Store the buffer in the array
+#             plt.close(fig)  # Close the figure to free memory
+            
+#             self.image_frame1.your_image.configure(light_image=Image.open(self.res_lincub_char_images[self.channel]), size=(self.image_frame1.IMAGE_WIDTH , self.image_frame1.IMAGE_HEIGHT))
+            
+#             self.resist_min.configure(text=str(np.round(self.rmin_list[self.channel]/1000, 2)))
+#             self.resist_max.configure(text=str(np.round(self.rmax_list[self.channel]/1000, 2)))
+#             #self.alpha.configure(text=str(np.round(self.alpha_list[self.channel], 2)))
+#         ##########################################################################
+#         self.image_frame2.your_image.configure(light_image=Image.open(self.opmodimagechoices[self.fit_index][self.IOconfig_index][self.channel]), size=((250)*(395/278),250))
+       
+#         if self.calframe is not None:
+#             self.calframe.destroy()
+        
+#         self.calframe = MyCalcFrame_main(self.settings_frame, Channel=self.channel, Fit=self.fit, IOconfig=self.IOconfig)
+#         self.calframe.grid(column=0, row=0, padx=10, pady=10, sticky="nsew") 
+#         #self.label.configure(text=str(round(self.resistancelist[self.channel][0], 0))) #reconfigure label with value for resistance
