@@ -5,3 +5,6 @@
 2. Add characterize function
 3. Add plot 
 4. Save and export characterized data
+
+#### Updates
+1. Grid reads globally

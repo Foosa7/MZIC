@@ -37,7 +37,11 @@ class Window1Content(ctk.CTkFrame):
         
         # Initial setup
         self.build_grid(self.grid_size)
+        self.custom_grid.master = self.grid_container  # Explicit parent assignment
         self._start_status_updates()
+        # self._update_selection_display()
+        self._setup_event_bindings()
+
 
     def _create_grid_container(self):
         """Create expanded grid display area"""
@@ -131,6 +135,15 @@ class Window1Content(ctk.CTkFrame):
             display.insert("1.0", output)
             display.configure(state="disabled")
 
+    def _setup_event_bindings(self):
+        """One-time event binding setup"""
+        self.custom_grid.bind("<<SelectionUpdated>>", self._event_update_handler)
+
+    def _event_update_handler(self, event=None):
+        """Handle both periodic and event-driven updates"""
+        current = AppData.get_last_selection()
+        print(f"Live selection: {current['cross']}-{current['arm']}")
+
 
     def _create_status_displays(self):
         """Status displays are now integrated in control panel"""
@@ -190,6 +203,8 @@ class Window1Content(ctk.CTkFrame):
 
     def _attach_grid_listeners(self):
         """Attach event listeners to grid inputs"""
+        self.grid_container.bind("<<SelectionUpdated>>", self._handle_selection_update)
+
         if hasattr(self.custom_grid, 'input_boxes'):
             for widgets in self.custom_grid.input_boxes.values():
                 for entry in [widgets['theta_entry'], widgets['phi_entry']]:
@@ -222,6 +237,11 @@ class Window1Content(ctk.CTkFrame):
             except Exception as e:
                 self._show_error(f"Invalid config: {str(e)}")
 
+    def _handle_selection_update(self, event):
+        """Event-driven update handler"""
+        current = AppData.get_last_selection()
+        print(f"Current selection: {current['cross']}-{current['arm']}")
+        # Add any UI updates here
 
     def update_grid(self, new_grid_size):
         cover = ctk.CTkFrame(self.grid_container, fg_color="grey16", border_width=0)

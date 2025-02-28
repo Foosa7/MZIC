@@ -1,4 +1,5 @@
 # app/utils/grid.py
+from app.utils.appdata import AppData
 from tkinter import Tk, Canvas, Frame, BOTH, Label, Button, Text, Toplevel, Entry
 from collections import defaultdict
 import json
@@ -33,6 +34,7 @@ class Example(Frame):
         self.initUI()
         self.input_boxes = {}  # Tracks input boxes by cross label.
         self.cross_selected_count = defaultdict(int)  # Tracks selected path counts per cross.
+        self.last_selection = {"cross": None, "arm": None}  # Add this line
 
     def initUI(self):
         self.pack(fill=BOTH, expand=1)
@@ -79,118 +81,6 @@ class Example(Frame):
         # self.canvas.bind("<Motion>", self.show_coordinates)
         self.canvas.bind("<Button-1>", self.on_canvas_click)
         self.canvas.pack(fill=BOTH, expand=1)
-
-    # def create_nxn_grid(self, n, start_x, start_y, horizontal_spacing, vertical_spacing, arm_length):
-    #     """Creates X shapes with numbered extensions for 8x8 grids."""
-    #     # Create all crosses
-    #     for col in range(n):
-    #         x = start_x + col * horizontal_spacing
-    #         letter = chr(ord('A') + col)
-    #         if col % 2 == 0:  # Even columns
-    #             num_crosses = n // 2
-    #             for row in range(num_crosses):
-    #                 y = start_y + row * vertical_spacing
-    #                 self.create_x_shape(
-    #                     center_name=f"X_{col}_{row}",
-    #                     x=x, y=y,
-    #                     arm_length=arm_length,
-    #                     label=f"{letter}{row+1}"
-    #                 )
-    #         else:  # Odd columns
-    #             num_crosses = (n // 2) - 1
-    #             for row in range(num_crosses):
-    #                 y = start_y + (vertical_spacing // 2) + row * vertical_spacing
-    #                 self.create_x_shape(
-    #                     center_name=f"X_{col}_{row}",
-    #                     x=x, y=y,
-    #                     arm_length=arm_length,
-    #                     label=f"{letter}{row+1}"
-    #                 )
-
-    #     # Add extensions with numbering
-    #     self.add_side_extensions(n, col=0, extension=50, side="left")
-    #     last_col = n - 1
-    #     self.add_side_extensions(n, col=last_col, extension=50, side="right")
-
-    #     # Special handling for second last column outputs
-    #     second_last_col = n - 2
-    #     if second_last_col % 2 == 0:
-    #         max_row = (n // 2) - 1
-    #     else:
-    #         max_row = (n // 2) - 2
-
-    #     # Create top extension for second last column
-    #     top_node_name = f"X_{second_last_col}_0_TR"
-    #     if top_node_name in self.nodes:
-    #         node = self.nodes[top_node_name]
-    #         ext_node = Node(
-    #             f"{node.name}_OUTPUT",
-    #             node.x + 150,
-    #             node.y
-    #         )
-    #         self.nodes[ext_node.name] = ext_node
-    #         self.create_path(node, ext_node)
-
-    #     # Create bottom extension for second last column
-    #     bottom_node_name = f"X_{second_last_col}_{max_row}_BR"
-    #     if bottom_node_name in self.nodes:
-    #         node = self.nodes[bottom_node_name]
-    #         ext_node = Node(
-    #             f"{node.name}_OUTPUT",
-    #             node.x + 150,
-    #             node.y
-    #         )
-    #         self.nodes[ext_node.name] = ext_node
-    #         self.create_path(node, ext_node)
-
-    #     # Numbering for special right-side outputs (8x8 only)
-    #     if n == 8:
-    #         right_outputs = []
-    #         # Collect second last column outputs
-    #         right_outputs.extend([
-    #             self.nodes.get(f"X_{second_last_col}_0_TR_OUTPUT"),
-    #             self.nodes.get(f"X_{second_last_col}_{max_row}_BR_OUTPUT")
-    #         ])
-            
-    #         # Collect last column outputs
-    #         last_col_nodes = [n for n in self.nodes.values() 
-    #                         if f"X_{last_col}_" in n.name and "_OUTPUT" in n.name]
-    #         last_col_nodes.sort(key=lambda x: -x.y)  # Top to bottom
-            
-    #         # Combine all outputs with correct order
-    #         sorted_outputs = [
-    #             right_outputs[0],        # Second last column top
-    #             *last_col_nodes,         # Last column ordered
-    #             right_outputs[1]         # Second last column bottom
-    #         ]
-
-    #         # Add number labels
-    #         for i, node in enumerate(filter(None, sorted_outputs)):
-    #             label = 7 + i
-    #             # Add text label 25px right of the node
-    #             self.canvas.create_text(
-    #                 node.x + 25, node.y,
-    #                 text=str(label),
-    #                 anchor="w",
-    #                 fill="black",
-    #                 font=("Arial", 10)
-    #             )
-
-    #     # Connect even columns
-    #     for col in range(0, n, 2):
-    #         if col + 2 >= n:
-    #             break
-    #         # Top connection
-    #         self.connect_nodes(
-    #             f"X_{col}_0_TR",
-    #             f"X_{col+2}_0_TL"
-    #         )
-    #         # Bottom connection
-    #         self.connect_nodes(
-    #             f"X_{col}_{(n//2)-1}_BR",
-    #             f"X_{col+2}_{(n//2)-1}_BL"
-    #         )
-
 
     # Original method to create the grid. A1 at the top. ##
     def create_nxn_grid(self, n, start_x, start_y, horizontal_spacing, vertical_spacing, arm_length):
@@ -267,31 +157,6 @@ class Example(Frame):
             max_row = (n // 2) - 1
         else:  # Odd column
             max_row = (n // 2) - 2
-
-        # # Topmost node (TR of first cross)
-        # top_node_name = f"X_{second_last_col}_0_TR"
-        # if top_node_name in self.nodes:
-        #     node = self.nodes[top_node_name]
-        #     ext_node = Node(
-        #         f"{node.name}_OUTPUT",
-        #         node.x + 150,
-        #         node.y
-        #     )
-        #     self.nodes[ext_node.name] = ext_node
-        #     self.create_path(node, ext_node)
-
-        # # Bottommost node (BR of last cross)
-        # bottom_node_name = f"X_{second_last_col}_{max_row}_BR"
-        # if bottom_node_name in self.nodes:
-        #     node = self.nodes[bottom_node_name]
-        #     ext_node = Node(
-        #         f"{node.name}_OUTPUT",
-        #         node.x + 150,
-        #         node.y
-        #     )
-        #     self.nodes[ext_node.name] = ext_node
-        #     self.create_path(node, ext_node)
-
 
         # Connect even columns.
         for col in range(0, n, 2):
@@ -472,6 +337,34 @@ class Example(Frame):
                 self.cross_selected_count[cross_label] -= 1
                 if self.cross_selected_count[cross_label] == 0:
                     self.delete_input_boxes(cross_label)
+        if adding:
+            center, arm = self._parse_path_components(path)
+            if center and arm:
+                self.last_selection = {"cross": center, "arm": arm}
+                AppData.update_last_selection(center, arm)  # Keep synced with AppData
+                self.event_generate("<<SelectionUpdated>>")  # Add event trigger
+                self.update_selection()
+
+
+    def get_last_selection(self):
+        """Public method to access last selection"""
+        return self.last_selection.copy()
+
+    def import_paths_json(self, json_str):
+        """Existing import method"""
+        # Add this at the end to preserve selection after import
+        if self.last_selection['cross'] and self.last_selection['arm']:
+            self._apply_last_selection()
+
+    def _apply_last_selection(self):
+        """Internal method to highlight last selected path"""
+        for path in self.paths:
+            center, arm = self._parse_path_components(path)
+            if (center == self.last_selection['cross'] and 
+                arm == self.last_selection['arm']):
+                self.toggle_path_selection(path)
+                break
+
         self.update_selection()  # Update dynamic selection display.
 
     def update_selection(self):
@@ -581,6 +474,38 @@ class Example(Frame):
             label = label + "\n0, 0"
         return label
 
+    def _parse_path_components(self, path):
+        """Improved arm detection with extension support"""
+        node1, node2 = path.node1, path.node2
+        parts1 = node1.name.split('_')
+        parts2 = node2.name.split('_')
+
+        # Case 1: Direct center-to-arm connection
+        if len(parts1) == 3 and len(parts2) == 4:
+            return self.get_cross_label_from_node(node1), parts2[-1]
+        if len(parts1) == 4 and len(parts2) == 3:
+            return self.get_cross_label_from_node(node2), parts1[-1]
+
+        # Case 2: Arm-to-arm connection (same cross)
+        if len(parts1) == 4 and len(parts2) == 4 and parts1[:3] == parts2[:3]:
+            return self.get_cross_label_from_node(node1), f"{parts1[-1]}-{parts2[-1]}"
+
+        # Case 3: Input/output extensions
+        ext_parts = [p for p in [parts1, parts2] if 'EXT' in p]
+        if ext_parts:
+            ext_part = ext_parts[0]
+            base_part = parts2 if ext_part is parts1 else parts1
+            if len(base_part) == 4:
+                return self.get_cross_label_from_node(self.nodes['_'.join(base_part[:3])]), base_part[-1]
+
+        # Case 4: Cross-column connections
+        if len(parts1) == 4 and len(parts2) == 4:
+            return (
+                f"{self.get_cross_label_from_node(node1)}-{self.get_cross_label_from_node(node2)}",
+                f"{parts1[-1]}-{parts2[-1]}"
+            )
+
+        return None, None
 
     def get_cross_label_from_node(self, node):
         """Retrieves the cross label associated with an arm or center node."""
@@ -719,6 +644,8 @@ class Example(Frame):
         for path in self.paths:
             if path.line_id in self.selected_paths:
                 self.canvas.itemconfig(path.line_id, fill="white")
+                self.toggle_path_selection(path)  # Clear existing
+                self.toggle_path_selection(path)  # Re-apply with new data                
         self.selected_paths.clear()
 
         # For each center in the imported data...
@@ -753,6 +680,8 @@ class Example(Frame):
                 self.input_boxes[center]['theta_entry'].insert(0, theta_val)
                 self.input_boxes[center]['phi_entry'].delete(0, "end")
                 self.input_boxes[center]['phi_entry'].insert(0, phi_val)
+
+        self.event_generate("<<SelectionUpdated>>")  # Add event trigger        
         self.update_selection()
 
 def main():

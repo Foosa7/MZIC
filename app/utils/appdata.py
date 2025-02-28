@@ -1,7 +1,21 @@
 # app/utils/appdata.py
+from threading import Lock
 
 class AppData:
     default_json_grid = {}
+    _last_selection_lock = Lock()
+    last_selected = {"cross": "", "arm": ""}  # Set default starting value
+
+    @classmethod
+    def update_last_selection(cls, cross, arm):
+        cls.last_selected["cross"] = cross.split('-')[0]  # Handle composite labels
+        cls.last_selected["arm"] = arm.split('-')[0]
+        
+    @classmethod 
+    def get_last_selection(cls):
+        with cls._last_selection_lock:
+            return cls.last_selected.copy()
+
     test_json_grid = {"A1": {"arms": ["TL", "TR", "BL", "BR"], "theta": "0", "phi": "0"},
     "B1": {"arms": ["TL", "TR", "BL", "BR"], "theta": "0", "phi": "0"}}
     def __init__(self, n_channels):
