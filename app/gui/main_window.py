@@ -106,6 +106,8 @@ class MainWindow(ctk.CTk):
             )
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
         elif window_name == "Window 3":
+            # Retrieve the mesh size from the OptionMenu.
+            mesh_size = self.app_control.mesh_optionmenu.get()
             self.current_content = Window3Content(  # Use Window3Content, even if it's similar to Window1Content
                 self.right_panel,
                 channel=0,
@@ -113,7 +115,7 @@ class MainWindow(ctk.CTk):
                 IOconfig="Config1",
                 app=self.appdata,
                 qontrol=self.qontrol,
-                # grid_size="8x8"
+                grid_size=mesh_size
             )            
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
         else:
@@ -194,7 +196,13 @@ class MainWindow(ctk.CTk):
 
     def mesh_changed(self, new_mesh_size):
         print("Mesh size changed to:", new_mesh_size)
-        if hasattr(self, 'current_content') and isinstance(self.current_content, window1.Window1Content):
+    
+        # If the current tab is Window 1 => update
+        if isinstance(self.current_content, Window3Content):
+            self.current_content.update_grid(new_mesh_size)
+    
+        # If the current tab is Window 3 => update
+        if isinstance(self.current_content, Window1Content):
             self.current_content.update_grid(new_mesh_size)
 
 if __name__ == "__main__":

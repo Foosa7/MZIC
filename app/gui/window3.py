@@ -10,60 +10,25 @@ from app.utils.appdata import AppData
 
 class Window3Content(ctk.CTkFrame):
     
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, grid_size, **kwargs):
         super().__init__(master, **kwargs)
         self.channel = channel
         self.fit = fit
         self.IOconfig = IOconfig
         self.app = app
         self.qontrol = qontrol
-        # self.grid_size = grid_size
+        self.grid_size = grid_size
+        
+        # Determine dimension n from mesh size
+        self.n = int(self.grid_size.split('x')[0])
         
         # -- Main content layout --
         self.content_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.content_frame.pack(expand=True, fill="both", padx=2, pady=2)
         
-        # # Left: photonic mesh diagram
-        # self.grid_container = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        # self.grid_container.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
-        
         # Right: controls
         self.right_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
         self.right_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
-        
-        # self.build_grid(self.grid_size)
-        
-        # -- Import/Export path buttons at top --
-        self.import_export_frame = ctk.CTkFrame(self.right_frame, fg_color="transparent")
-        self.import_export_frame.pack(fill="x", padx=5, pady=(5,2))
-        
-        self.export_button = ctk.CTkButton(
-            self.import_export_frame,
-            text="Export",
-            command=self.export_paths,
-            height=20, width=60
-        )
-        self.export_button.pack(side="left", padx=1)
-        
-        self.import_button = ctk.CTkButton(
-            self.import_export_frame,
-            text="Import",
-            command=self.import_paths,
-            height=20, width=60
-        )
-        self.import_button.pack(side="left", padx=1)
-        
-        # -- Text box for path info --
-        self.selected_paths_display = ctk.CTkTextbox(self.right_frame, width=200, height=80)
-        self.selected_paths_display.pack(fill="x", padx=5, pady=(2,5))
-    
-        # -- Print MZI values button --
-        self.print_button = ctk.CTkButton(
-            self.right_frame, text="Print Values",
-            command=self.print_input_values,
-            height=20, width=60
-        )
-        self.print_button.pack(fill="x", padx=5, pady=(2,5))
         
         # =====================================
         #  Centered unitary panel
@@ -75,18 +40,15 @@ class Window3Content(ctk.CTkFrame):
         # We'll nest the actual grid of entries in a sub‐frame.
         # Pack or grid it with anchor='center' to center it.
         self.unitary_entries_frame = ctk.CTkFrame(self.unitary_container, fg_color="gray20")
-        self.unitary_entries_frame.pack(anchor="center", pady=10)
-
-        # # Determine dimension n from mesh size
-        # self.n = int(self.grid_size.split('x')[0])
-        # self.unitary_entries = []
-        # for i in range(self.n):
-        #     row_entries = []
-        #     for j in range(self.n):
-        #         e = ctk.CTkEntry(self.unitary_entries_frame, width=40)
-        #         e.grid(row=i, column=j, padx=2, pady=2)
-        #         row_entries.append(e)
-        #     self.unitary_entries.append(row_entries)
+        self.unitary_entries_frame.pack(anchor="center", padx=5, pady=5)
+        self.unitary_entries = []
+        for i in range(self.n):
+            row_entries = []
+            for j in range(self.n):
+                e = ctk.CTkEntry(self.unitary_entries_frame, width=40)
+                e.grid(row=i, column=j, padx=2, pady=2)
+                row_entries.append(e)
+            self.unitary_entries.append(row_entries)
 
         # -- “Apply Unitary” / file import / file export / common unitaries --
         self.bottom_buttons_frame = ctk.CTkFrame(self.right_frame, fg_color="transparent")
@@ -131,65 +93,31 @@ class Window3Content(ctk.CTkFrame):
         )
         self.random_button.pack(side="left", expand=True, fill="x", padx=2)
 
-        # Let the left side (mesh) get more space
-        self.content_frame.grid_columnconfigure(0, weight=9)
-        self.content_frame.grid_columnconfigure(1, weight=1)
-        self.content_frame.grid_rowconfigure(0, weight=1)
 
-    # -----------------------------------
-    # Mesh building / updating
-    # -----------------------------------
-    # def build_grid(self, grid_size):
-    #     try:
-    #         n = int(grid_size.split('x')[0])
-    #     except:
-    #         n = 8
-    #     scale = 0.8 if n == 12 else 1.0
-    #     # self.custom_grid = grid.Example(self.grid_container, grid_n=n, scale=scale)
-    #     self.custom_grid.pack(expand=True, fill="both")
-    #     self.custom_grid.selection_callback = self.update_selected_paths
+
+    def update_grid(self, new_mesh_size):
+        '''
+        Refresh the matrix if the user picks a new mesh size
+        '''
+        
+        # Parse out the new dimension.
+        self.n = int(new_mesh_size.split('x')[0])
+        
+        # 1) Destroy old entry widgets
+        for row in self.unitary_entries:
+            for e in row:
+                e.destroy()
+        self.unitary_entries.clear()
     
-    def update_selected_paths(self, selected_str):
-        self.selected_paths_display.delete("0.0", "end")
-        self.selected_paths_display.insert("0.0", selected_str)
-
-    # -----------------------------------
-    # Import/Export path (the “paths” JSON)
-    # -----------------------------------
-    
-    def export_paths(self):
-        json_str = self.custom_grid.export_paths_json()
-        self.selected_paths_display.delete("0.0", "end")
-        self.selected_paths_display.insert("0.0", json_str)
-
-    def import_paths(self):
-        json_str = simpledialog.askstring("Import Paths", "Enter JSON for selected paths:")
-        print('test')
-        if json_str:
-            self.custom_grid.import_paths_json(json_str)
-            self.custom_grid.update_selection()
-
-    # def update_grid(self, new_grid_size):
-    #     cover = ctk.CTkFrame(self.grid_container, fg_color="grey16", border_width=0)
-    #     cover.place(relwidth=1, relheight=1)
-    #     self.grid_container.update_idletasks()
-    #     for widget in self.grid_container.winfo_children():
-    #         widget.destroy()
-    #     # self.build_grid(new_grid_size)
-    #     cover.destroy()
-
-    # -----------------------------------
-    # Print MZI (theta, phi) values
-    # -----------------------------------
-    def print_input_values(self):
-        if not hasattr(self.custom_grid, 'input_boxes'):
-            print("No input boxes found.")
-            return
-        for cross_label, widget_dict in self.custom_grid.input_boxes.items():
-            theta_value = widget_dict['theta_entry'].get()
-            phi_value = widget_dict['phi_entry'].get()
-            print(f"Cross {cross_label}: theta = {theta_value}, phi = {phi_value}")
-
+        # 2) Rebuild NxN matrix
+        for i in range(self.n):
+            row_entries = []
+            for j in range(self.n):
+                entry = ctk.CTkEntry(self.unitary_entries_frame, width=40)
+                entry.grid(row=i, column=j, padx=2, pady=2)
+                row_entries.append(entry)
+            self.unitary_entries.append(row_entries)
+        
     # -----------------------------------
     # 1) “Apply Unitary” – read NxN from entries, decompose
     # -----------------------------------
@@ -213,7 +141,7 @@ class Window3Content(ctk.CTkFrame):
             
             # Update GUI
             self.custom_grid.import_paths_json(AppData.default_json_grid)
-            self.custom_grid.update_selection()
+            #self.custom_grid.update_selection()
             
         except Exception as e:
             print("Error in decomposition:", e)
