@@ -20,6 +20,7 @@ class MainWindow(ctk.CTk):
         self.thorlabs = thorlabs
         self.config = config
 
+        self.current_content = None  # Important: so we can check it safely switch tabs
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
         self.geometry(f"{screen_width}x{screen_height}+-10+-5")
@@ -76,9 +77,17 @@ class MainWindow(ctk.CTk):
         self.load_window_content(selected_window)
 
     def load_window_content(self, window_name):
+        
+        # If the current content is Window3, save its matrix before destroying it
+        if isinstance(self.current_content, Window3Content):
+            old_matrix = self.current_content.read_unitary_entries()
+            if old_matrix is not None:
+                AppData.saved_unitary_matrix = old_matrix
+    
         # Clear the right panel.
         for widget in self.right_panel.winfo_children():
             widget.destroy()
+            
         if window_name == "Window 1":
             # Retrieve the mesh size from the OptionMenu.
             mesh_size = self.app_control.mesh_optionmenu.get()
@@ -118,6 +127,7 @@ class MainWindow(ctk.CTk):
                 grid_size=mesh_size
             )            
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
+            
         else:
             placeholder = ctk.CTkLabel(self.right_panel, text=f"{window_name} content not implemented yet.")
             placeholder.pack(expand=True, fill="both", padx=10, pady=10)

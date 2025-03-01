@@ -92,8 +92,20 @@ class Window3Content(ctk.CTkFrame):
             command=self.fill_random
         )
         self.random_button.pack(side="left", expand=True, fill="x", padx=2)
-
-
+            
+        # Load any saved unitary as soon as we finish building everything
+        self.load_saved_unitary()
+        
+    def load_saved_unitary(self):
+        # If we have a saved matrix, load it
+        if AppData.saved_unitary_matrix is not None:
+            self.fill_unitary_entries(AppData.saved_unitary_matrix)
+            print('saved matrix')
+        else:
+            # Otherwise fill with zeros
+            zero_matrix = np.zeros((self.n, self.n), dtype=complex)
+            print('zero matrix')
+            self.fill_unitary_entries(zero_matrix)
 
     def update_grid(self, new_mesh_size):
         '''

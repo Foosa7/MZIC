@@ -6,6 +6,8 @@ class AppData:
     _last_selection_lock = Lock()
     last_selected = {"cross": "", "arm": ""}  # Set default starting value
 
+    saved_unitary_matrix = None # Stores the matrix when switching windows
+
     @classmethod
     def update_last_selection(cls, cross, arm):
         cls.last_selected["cross"] = cross.split('-')[0]  # Handle composite labels
