@@ -45,7 +45,7 @@ class Window3Content(ctk.CTkFrame):
         for i in range(self.n):
             row_entries = []
             for j in range(self.n):
-                e = ctk.CTkEntry(self.unitary_entries_frame, width=40)
+                e = ctk.CTkEntry(self.unitary_entries_frame, width=55)
                 e.grid(row=i, column=j, padx=2, pady=2)
                 row_entries.append(e)
             self.unitary_entries.append(row_entries)
@@ -138,9 +138,9 @@ class Window3Content(ctk.CTkFrame):
             
             # Generate JSON from mzi_lut.py
             AppData.default_json_grid = mzi_lut.get_json_output(self.n, bs_list)
-            
+
             # Update GUI
-            self.custom_grid.import_paths_json(AppData.default_json_grid)
+            #self.custom_grid.import_paths_json(AppData.default_json_grid)
             #self.custom_grid.update_selection()
             
         except Exception as e:
