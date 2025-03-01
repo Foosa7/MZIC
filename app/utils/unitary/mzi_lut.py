@@ -52,5 +52,5 @@ def get_json_output(n, bs_list):
             "phi": str(phi),
             
         }
-    
-    return json.dumps(output, indent=4, sort_keys=True)
+        
+    return output

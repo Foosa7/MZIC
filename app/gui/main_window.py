@@ -198,11 +198,11 @@ class MainWindow(ctk.CTk):
         print("Mesh size changed to:", new_mesh_size)
     
         # If the current tab is Window 1 => update
-        if isinstance(self.current_content, Window3Content):
+        if isinstance(self.current_content, Window1Content):
             self.current_content.update_grid(new_mesh_size)
     
         # If the current tab is Window 3 => update
-        if isinstance(self.current_content, Window1Content):
+        if isinstance(self.current_content, Window3Content):
             self.current_content.update_grid(new_mesh_size)
 
 if __name__ == "__main__":
