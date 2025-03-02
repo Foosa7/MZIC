@@ -78,11 +78,9 @@ class MainWindow(ctk.CTk):
 
     def load_window_content(self, window_name):
         
-        # If the current content is Window3, save its matrix before destroying it
-        if isinstance(self.current_content, Window3Content):
-            old_matrix = self.current_content.read_unitary_entries()
-            if old_matrix is not None:
-                AppData.saved_unitary_matrix = old_matrix
+        # If the current content is Window3, save all NxN data
+        if isinstance(self.current_content, Window3Content) and self.current_content.winfo_exists():
+            self.current_content.save_all_tabs()
     
         # Clear the right panel.
         for widget in self.right_panel.winfo_children():
@@ -193,7 +191,6 @@ class MainWindow(ctk.CTk):
         self.device_control.update_device_info(None, "qontrol")
         self.device_control.update_device_info(None, "thorlabs")
     
-
     def import_data(self):
         # Call the import function to update the appdata.
         importfunc(self.appdata)

@@ -6,7 +6,9 @@ class AppData:
     _last_selection_lock = Lock()
     last_selected = {"cross": "", "arm": ""}  # Set default starting value
 
-    saved_unitary_matrix = None # Stores the matrix when switching windows
+    saved_unitary_U1 = None     
+    saved_unitary_U2 = None     
+    saved_unitary_U3 = None    
 
     @classmethod
     def update_last_selection(cls, cross, arm):
