@@ -80,7 +80,7 @@ class MainWindow(ctk.CTk):
         
         # If the current content is Window3, save all NxN data
         if isinstance(self.current_content, Window3Content) and self.current_content.winfo_exists():
-            self.current_content.save_all_tabs()
+            self.current_content.handle_all_tabs(operation='save')
     
         # Clear the right panel.
         for widget in self.right_panel.winfo_children():

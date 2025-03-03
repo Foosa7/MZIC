@@ -52,3 +52,4 @@ from app.devices.thorlabs_device import ThorlabsDevice
 from app.devices.mock_devices import MockQontrol, MockThorlabsPM100
 from app.gui.main_window import MainWindow  
 from app.utils.appdata import AppData
+
