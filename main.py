@@ -3,7 +3,7 @@
 from app.imports import *
 
 SETTINGS_PATH = os.path.join(os.path.dirname(__file__), "config", "settings.json")
-# 
+
 def main():
     # Initialize the GUI theme
     ctk.set_appearance_mode("dark")

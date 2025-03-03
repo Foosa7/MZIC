@@ -2,7 +2,6 @@
 
 from app.imports import *
 import tkinter.filedialog as filedialog
-import numpy as np
 
 from app.utils.unitary import mzi_lut
 from app.utils.unitary import mzi_convention
@@ -32,14 +31,15 @@ class Window3Content(ctk.CTkFrame):
         self.tabview = ctk.CTkTabview(self.right_frame, width=600, height=300)
         self.tabview.grid(row=0, column=0, sticky='nsew', padx=10, pady=10)
 
+        # Add a tab for each unitary 
         self.tabview.add('U1')
         self.tabview.add('U2')
         self.tabview.add('U3')
 
         # For each tab, build a separate NxN of CTkEntries.
-        self.unitary_entries_U1 = self.build_nxn_tab(self.tabview.tab('U1'))
-        self.unitary_entries_U2 = self.build_nxn_tab(self.tabview.tab('U2'))
-        self.unitary_entries_U3 = self.build_nxn_tab(self.tabview.tab('U3'))
+        self.unitary_entries_U1 = self.create_nxn_entries(self.tabview.tab('U1'))
+        self.unitary_entries_U2 = self.create_nxn_entries(self.tabview.tab('U2'))
+        self.unitary_entries_U3 = self.create_nxn_entries(self.tabview.tab('U3'))
 
         # Bottom buttons
         self.bottom_buttons_frame = ctk.CTkFrame(self.right_frame, fg_color='transparent')
@@ -80,65 +80,55 @@ class Window3Content(ctk.CTkFrame):
         self.random_button.pack(side='left', expand=True, anchor='center', padx=2)
 
         # Load any saved unitary from AppData for each tab
-        self.load_all_tabs()
+        self.handle_all_tabs()
+
+    def get_unitary_mapping(self):
+        '''Returns a dictionary mapping tab names to their corresponding entry grids and AppData variables.'''
+        return {
+            'U1': (self.unitary_entries_U1, 'saved_unitary_U1'),
+            'U2': (self.unitary_entries_U2, 'saved_unitary_U2'),
+            'U3': (self.unitary_entries_U3, 'saved_unitary_U3'),
+            }
 
     def get_active_tab(self):
         '''
         Returns the unitary entry grid (2D list) and corresponding AppData variable
         for the currently selected tab.
         '''
-        current_tab = self.tabview.get()
-    
-        if current_tab == 'U1':
-            return self.unitary_entries_U1, 'saved_unitary_U1'
-        elif current_tab == 'U2':
-            return self.unitary_entries_U2, 'saved_unitary_U2'
-        elif current_tab == 'U3':
-            return self.unitary_entries_U3, 'saved_unitary_U3'
+        return self.get_unitary_mapping().get(self.tabview.get(), (None, None))
         
     def get_unitary_by_tab(self, tab_name):
         '''
         Returns the unitary entry grid (2D list) and corresponding AppData variable
         for a specific tab (U1, U2, U3).
         '''
-        if tab_name == 'U1':
-            return self.unitary_entries_U1, 'saved_unitary_U1'
-        elif tab_name == 'U2':
-            return self.unitary_entries_U2, 'saved_unitary_U2'
-        elif tab_name == 'U3':
-            return self.unitary_entries_U3, 'saved_unitary_U3'
+        return self.get_unitary_mapping().get(tab_name, (None, None))
      
-    def load_all_tabs(self):
-        '''Fill each tab's NxN from its corresponding AppData matrix.'''
-        for tab_name in ['U1', 'U2', 'U3']:
-            # Get the NxN entry grid and AppData variable dynamically
-            entries, appdata_var = self.get_unitary_by_tab(tab_name)
-    
-            if entries is not None and appdata_var is not None:
-                # Load saved matrix or default to zeros
-                unitary_matrix = getattr(AppData, appdata_var, None)
-                if unitary_matrix is None:
-                    unitary_matrix = np.eye(self.n, dtype=complex)
-    
-                self.fill_tab_entries(entries, unitary_matrix)
+    def handle_all_tabs(self, operation='load'):
+        '''Handles loading or saving of unitary matrices for all tabs based on the operation.'''
+        for tab_name, (entries, appdata_var) in self.get_unitary_mapping().items():
+            if entries is None or appdata_var is None:
+                continue  # Skip invalid entries
+            try:
+                if operation == 'load':
+                    unitary_matrix = getattr(AppData, appdata_var, None)
+                    if unitary_matrix is None or not isinstance(unitary_matrix, np.ndarray):
+                        unitary_matrix = np.eye(self.n, dtype=complex)  # Default to identity
+                    self.fill_tab_entries(entries, unitary_matrix)
+                
+                elif operation == 'save':
+                    unitary_matrix = self.read_tab_entries(entries)
+                    if unitary_matrix is not None:
+                        setattr(AppData, appdata_var, unitary_matrix)
+            except Exception as e:
+                print(f'Error in {operation} operation for {tab_name}: {e}')  # Log error 
 
-    def save_all_tabs(self):
-        '''Read NxN from each tab's 2D list and store it in AppData dynamically.'''
-        for tab_name in ['U1', 'U2', 'U3']:
-            entries, appdata_var = self.get_unitary_by_tab(tab_name)
-    
-            if entries is not None and appdata_var is not None:
-                unitary_matrix = self.read_tab_entries(entries)
-                if unitary_matrix is not None:
-                    setattr(AppData, appdata_var, unitary_matrix)  
-
-    def build_nxn_tab(self, parent_frame):
-        '''Create an NxN grid of CTkEntry inside parent_frame, return 2D list.'''
+    def create_nxn_entries(self, parent_frame):
+        '''Creates an NxN grid of CTkEntry fields inside parent_frame and returns a 2D list.'''
         entries_2d = []
-        # A container in each tab for the NxN
         frame = ctk.CTkFrame(parent_frame, fg_color='gray20')
         frame.pack(anchor='center', padx=5, pady=5)
-
+    
         for i in range(self.n):
             row_entries = []
             for j in range(self.n):
@@ -146,6 +136,7 @@ class Window3Content(ctk.CTkFrame):
                 e.grid(row=i, column=j, padx=5, pady=5)
                 row_entries.append(e)
             entries_2d.append(row_entries)
+        
         return entries_2d
 
     def read_tab_entries(self, entries_2d) -> np.ndarray | None:
@@ -271,55 +262,28 @@ class Window3Content(ctk.CTkFrame):
             setattr(AppData, appdata_var, mat)  # Save dynamically
 
     def update_grid(self, new_mesh_size):
-        '''
-        Refresh all unitary matrices when the user selects a new mesh size.
-        This function re-creates the entry widgets inside each tab’s container,
-        preserving the container (which was created using pack).
-        '''
-        # Parse new NxN dimension
+        '''Refresh NxN grids when the user selects a new mesh size.'''
         self.n = int(new_mesh_size.split('x')[0])
         
-        for tab_name in ['U1', 'U2', 'U3']:
-            # Get the current tab's entries and associated AppData variable
-            entries, appdata_var = self.get_unitary_by_tab(tab_name)
+        for tab_name, (entries, appdata_var) in self.get_unitary_mapping().items():
             if entries is None or appdata_var is None:
                 continue
     
-            # Determine the container frame that holds the NxN entries.
-            # We assume at least one entry exists; if not, use the tab's frame.
-            if entries and entries[0]:
-                container = entries[0][0].master
-            else:
-                container = self.tabview.tab(tab_name)
-            
-            # Destroy all children in the container (the old entry widgets)
+            # Determine parent frame
+            container = self.tabview.tab(tab_name)
+    
+            # Destroy old widgets and clear entries
             for child in container.winfo_children():
                 child.destroy()
-            # Clear the stored entries list
-            entries.clear()
     
-            # Rebuild the NxN grid in the same container using grid (not pack)
-            new_entries = []
-            for i in range(self.n):
-                row_entries = []
-                for j in range(self.n):
-                    e = ctk.CTkEntry(container, width=55)
-                    e.grid(row=i, column=j, padx=5, pady=5)
-                    row_entries.append(e)
-                new_entries.append(row_entries)
-            
-            # Update the corresponding attribute for this tab
-            if tab_name == 'U1':
-                self.unitary_entries_U1 = new_entries
-            elif tab_name == 'U2':
-                self.unitary_entries_U2 = new_entries
-            elif tab_name == 'U3':
-                self.unitary_entries_U3 = new_entries
+            # Recreate the grid and update reference
+            new_entries = self.create_nxn_entries(container)
+            setattr(self, f'unitary_entries_{tab_name}', new_entries)
     
-            # Load saved values if available; otherwise, default to an identity matrix
+            # Restore saved matrix or default to identity
             unitary_matrix = getattr(AppData, appdata_var, None)
-            if unitary_matrix is None or unitary_matrix.shape[0] != self.n or unitary_matrix.shape[1] != self.n:
+            if unitary_matrix is None or unitary_matrix.shape != (self.n, self.n):
                 unitary_matrix = np.eye(self.n, dtype=complex)
-            
+    
             self.fill_tab_entries(new_entries, unitary_matrix)
-            setattr(AppData, appdata_var, unitary_matrix)      
+            setattr(AppData, appdata_var, unitary_matrix)
