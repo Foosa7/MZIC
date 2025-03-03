@@ -29,7 +29,7 @@ class Window3Content(ctk.CTkFrame):
         self.right_frame.grid(row=0, column=0, sticky='nsew', padx=5, pady=5)
 
         # Create a Tabview
-        self.tabview = ctk.CTkTabview(self.right_frame, width=600, height=400)
+        self.tabview = ctk.CTkTabview(self.right_frame, width=600, height=300)
         self.tabview.grid(row=0, column=0, sticky='nsew', padx=10, pady=10)
 
         self.tabview.add('U1')
@@ -49,35 +49,35 @@ class Window3Content(ctk.CTkFrame):
             self.bottom_buttons_frame, text='Decompose',
             command=self.decompose_unitary
         )
-        self.apply_unitary_button.pack(fill='x', pady=(5,5))
+        self.apply_unitary_button.pack(anchor='center', pady=(5,5))
 
         self.import_unitary_button = ctk.CTkButton(
             self.bottom_buttons_frame, text='Import Unitary',
             command=self.import_unitary_file
         )
-        self.import_unitary_button.pack(fill='x', pady=(5,5))
+        self.import_unitary_button.pack(anchor='center', pady=(5,5))
 
         self.export_unitary_button = ctk.CTkButton(
             self.bottom_buttons_frame, text='Export Unitary',
             command=self.export_unitary_file
         )
-        self.export_unitary_button.pack(fill='x', pady=(5,5))
+        self.export_unitary_button.pack(anchor='center', pady=(5,5))
 
         # Common unitaries
         self.common_unitaries_frame = ctk.CTkFrame(self.bottom_buttons_frame, fg_color='transparent')
-        self.common_unitaries_frame.pack(fill='x', pady=(5,5))
+        self.common_unitaries_frame.pack(anchor='center', pady=(5,5))
 
         self.identity_button = ctk.CTkButton(
             self.common_unitaries_frame, text='Identity',
             command=self.fill_identity
         )
-        self.identity_button.pack(side='left', expand=True, fill='x', padx=2)
+        self.identity_button.pack(side='left', expand=True, anchor='center', padx=2)
 
         self.random_button = ctk.CTkButton(
             self.common_unitaries_frame, text='Random',
             command=self.fill_random
         )
-        self.random_button.pack(side='left', expand=True, fill='x', padx=2)
+        self.random_button.pack(side='left', expand=True, anchor='center', padx=2)
 
         # Load any saved unitary from AppData for each tab
         self.load_all_tabs()
@@ -143,7 +143,7 @@ class Window3Content(ctk.CTkFrame):
             row_entries = []
             for j in range(self.n):
                 e = ctk.CTkEntry(frame, width=55)
-                e.grid(row=i, column=j, padx=2, pady=2)
+                e.grid(row=i, column=j, padx=5, pady=5)
                 row_entries.append(e)
             entries_2d.append(row_entries)
         return entries_2d
@@ -303,8 +303,8 @@ class Window3Content(ctk.CTkFrame):
             for i in range(self.n):
                 row_entries = []
                 for j in range(self.n):
-                    e = ctk.CTkEntry(container, width=40)
-                    e.grid(row=i, column=j, padx=2, pady=2)
+                    e = ctk.CTkEntry(container, width=55)
+                    e.grid(row=i, column=j, padx=5, pady=5)
                     row_entries.append(e)
                 new_entries.append(row_entries)
             
