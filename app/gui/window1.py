@@ -69,30 +69,6 @@ class Window1Content(ctk.CTkFrame):
         inner_frame = ctk.CTkFrame(control_frame, fg_color="transparent")
         inner_frame.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
         inner_frame.grid_rowconfigure(1, weight=1)
-        
-        # # Compact button row
-        # btn_frame = ctk.CTkFrame(inner_frame, fg_color="transparent")
-        # btn_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 2))
-        
-        # controls = [
-        #     ("Import", self._import_config),
-        #     ("Export", self._export_config),
-        #     ("Apply", self._apply_config),
-        #     ("Clear", self._clear_grid),
-        #     ("Status", self._show_full_status)
-        # ]
-        # # Smaller buttons with compact layout
-        # for col, (text, cmd) in enumerate(controls):
-        #     btn = ctk.CTkButton(
-        #         btn_frame, 
-        #         text=text, 
-        #         command=cmd,
-        #         width=50,  # Reduced width to fit 5 buttons
-        #         height=24,
-        #         font=ctk.CTkFont(size=11)
-        #     )
-        #     btn.grid(row=0, column=col, padx=1, sticky="nsew")
-        #     btn_frame.grid_columnconfigure(col, weight=1)
 
         # Compact button row
         btn_frame = ctk.CTkFrame(inner_frame, fg_color="transparent")
@@ -125,7 +101,7 @@ class Window1Content(ctk.CTkFrame):
             )
             btn.grid(row=0, column=col, padx=1, sticky="nsew")
 
-        
+
         # Compact notebook for displays
         notebook = ctk.CTkTabview(inner_frame, height=180)  # Fixed height
         notebook.grid(row=1, column=0, sticky="nsew", pady=(2, 0))
@@ -195,6 +171,25 @@ class Window1Content(ctk.CTkFrame):
         """Status displays are now integrated in control panel"""
         pass
 
+    # def build_grid(self, grid_size):
+    #     """Initialize the grid display"""
+    #     try:
+    #         n = int(grid_size.split('x')[0])
+    #     except:
+    #         n = 8
+            
+    #     if hasattr(self, 'custom_grid'):
+    #         self.custom_grid.destroy()
+            
+    #     self.custom_grid = grid.Example(
+    #         self.grid_container, 
+    #         grid_n=n,
+    #         scale=0.8 if n >= 12 else 1.0
+    #     )
+    #     self.custom_grid.pack(fill="both", expand=True)
+    #     self._attach_grid_listeners()
+
+
     def build_grid(self, grid_size):
         """Initialize the grid display with default JSON"""
         try:
@@ -212,6 +207,13 @@ class Window1Content(ctk.CTkFrame):
         )
         self.custom_grid.pack(fill="both", expand=True)
         self._attach_grid_listeners()
+        
+        # Load default JSON configuration
+        # default_json = json.dumps({
+        #     "A1": {"arms": ["TL", "TR", "BL", "BR"], "theta": "0", "phi": "0"},
+        #     "B1": {"arms": ["TL", "TR", "BL", "BR"], "theta": "0", "phi": "0"},
+        #     # ... add other default grid values
+        # })
 
         default_json = json.dumps(AppData.default_json_grid)
 
@@ -328,18 +330,6 @@ class Window1Content(ctk.CTkFrame):
         self.grid_size = new_size
         self.build_grid(new_size)
 
-    def _get_current_channels(self, event=None):
-        """Get theta/phi channels for current selection"""
-        current = AppData.get_last_selection()
-        if not current or 'cross' not in current:
-            return None, None
-        
-        label_map = create_label_mapping(8)
-        theta_ch, phi_ch = label_map.get(current['cross'], (None, None))
-        print(f"θ{theta_ch}, φ{phi_ch}")
-
-        return theta_ch, phi_ch
-    
     def _create_calibration_controls(self):
         """Add calibration section with separate buttons"""
         calibration_frame = ctk.CTkFrame(self.control_panel)
@@ -379,75 +369,36 @@ class Window1Content(ctk.CTkFrame):
         btn_frame.grid_columnconfigure(0, weight=1)
         btn_frame.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkButton(
-            btn_frame,
-            text="Calibrate Resistance", 
-            command=self._run_resistance_calibration
-        ).grid(row=0, column=0, padx=5, sticky="ew")
-
-        ctk.CTkButton(
-            btn_frame,
-            text="Characterize Phase", 
-            command=self._run_phase_calibration
-        ).grid(row=0, column=1, padx=5, sticky="ew")
-
-
-        # # Configuration selector
-        # self.io_config_var = ctk.StringVar(value="cross")
-        # config_frame = ctk.CTkFrame(calibration_frame, fg_color="transparent")
-        # config_frame.pack(pady=5)
-        # ctk.CTkRadioButton(config_frame, text="Cross", variable=self.io_config_var, value="cross").pack(side='left')
-        # ctk.CTkRadioButton(config_frame, text="Bar", variable=self.io_config_var, value="bar").pack(side='left', padx=10)
-
-        # # Channel type selector
-        # self.channel_type_var = ctk.StringVar(value="theta")
-        # type_frame = ctk.CTkFrame(calibration_frame, fg_color="transparent")
-        # type_frame.pack(pady=5)
-        # ctk.CTkRadioButton(type_frame, text="θ", variable=self.channel_type_var, value="theta").pack(side='left')
-        # ctk.CTkRadioButton(type_frame, text="φ", variable=self.channel_type_var, value="phi").pack(side='left', padx=10)
-
-        # # Calibration buttons
-        # btn_frame = ctk.CTkFrame(calibration_frame, fg_color="transparent")
-        # btn_frame.pack(pady=10)
+    def _get_current_channels(self, event=None):
+        """Get theta/phi channels for current selection"""
+        current = AppData.get_last_selection()
+        if not current or 'cross' not in current:
+            return None, None
         
-        # ctk.CTkButton(
-        #     btn_frame, 
-        #     text="Calibrate Resistance", 
-        #     command=self._run_resistance_calibration
-        # ).pack(side='left', padx=5)
-        
-        # ctk.CTkButton(
-        #     btn_frame,
-        #     text="Characterize Phase", 
-        #     command=self._run_phase_calibration
-        # ).pack(side='left', padx=5)
+        label_map = create_label_mapping(8)
+        theta_ch, phi_ch = label_map.get(current['cross'], (None, None))
+        print(f"θ{theta_ch}, φ{phi_ch}")
+
+        return theta_ch, phi_ch
 
     def _run_resistance_calibration(self):
-        """Handle resistance calibration"""
+        """Run resistance characterization on selected channel"""
         try:
             theta_ch, phi_ch = self._get_current_channels()
             channel_type = self.channel_type_var.get()
             target_channel = theta_ch if channel_type == "theta" else phi_ch
             
+            if target_channel is None:
+                raise ValueError("No valid channel selected")
+                
+            # Run characterization
             self._characterize_resistance(target_channel)
-            self._update_calibration_display(target_channel, "resistance")
+            
+            # Update UI
+            self._update_calibration_display_R(target_channel)
             
         except Exception as e:
-            self._show_error(f"Resistance calibration failed: {str(e)}")
-
-    def _run_phase_calibration(self):
-        """Handle phase characterization"""
-        try:
-            theta_ch, phi_ch = self._get_current_channels()
-            channel_type = self.channel_type_var.get()
-            target_channel = theta_ch if channel_type == "theta" else phi_ch
-            io_config = self.io_config_var.get()
-            
-            self._characterize_phase(target_channel, io_config)
-            self._update_calibration_display(target_channel, "phase")
-            
-        except Exception as e:
-            self._show_error(f"Phase characterization failed: {str(e)}")
+            self._show_error(f"Calibration failed: {str(e)}")
 
     def _characterize_resistance(self, channel):
         """Execute characterization routine with linear+cubic fit analysis"""
@@ -500,61 +451,26 @@ class Window1Content(ctk.CTkFrame):
             'resistance_parameters': [float(a), float(c), float(d)]
         }
 
+        # Enhanced print output
         print(f"\nChannel {channel} Characterization (Cubic+Linear Model)")
         print(f"a = {a:.2e}, c = {c:.2e}, d = {d:.2e}")
+        # print(f"Resistance: {resistance}")
+        # print(f"V(I) = {a:.2e}·I³ + {c:.2e}·I + {d:.2e}")
+        # print(f"Max Current: {end_current:.1f} mA")
         print(f"Average Resistance: {np.mean(resistance):.2f}Ω")
+   
+    def _update_calibration_display_R(self, channel):
+        """Update UI with calibration results"""
+        params = self.resistance_params.get(channel)
+        if not params:
+            return
         
-
-
-    def _display_plot(self, fig, channel):
-        """Display matplotlib plot in a popup window"""
-        # Create popup window
-        plot_window = ctk.CTkToplevel(self)
-        # plot_window.title(f"Channel {channel} Calibration Results")
-        plot_window.title(f"Channel {channel} Calibration Results")  
-        plot_window.geometry("800x600")
+        # Get current channel type from radio buttons
+        channel_type = self.channel_type_var.get()
         
-        # Convert plot to image
-        buf = io.BytesIO()
-        fig.savefig(buf, format='png', dpi=100)
-        buf.seek(0)
-        img = Image.open(buf)
-        
-        # Create CTk image and label
-        ctk_image = ctk.CTkImage(
-            light_image=img,
-            dark_image=img,
-            size=(750, 550)
-        )
-        
-        label = ctk.CTkLabel(plot_window, image=ctk_image, text="")
-        label.pack(padx=10, pady=10)
-        
-        # Add close button
-        close_btn = ctk.CTkButton(
-            plot_window, 
-            text="Close", 
-            command=plot_window.destroy
-        )
-        close_btn.pack(pady=5)
-        
-        plt.close(fig)
-
-    # def _update_calibration_display(self, channel, cal_type):
-    #     """Handle both calibration types"""
-    #     if cal_type == "resistance":
-    #         params = self.resistance_params.get(channel)
-    #         title = f"Resistance Characterization (Channel {channel})"
-    #     else:
-    #         params = self.phase_params.get(channel)
-    #         title = f"Phase Characterization ({params['io_config'].capitalize()} Config)"
-        
-    #     if not params:
-    #         return
-
-    #     fig = self._create_calibration_plot_R(params, cal_type)
-    #     self._display_plot(fig, channel, title)
-
+        # Generate plot with channel context
+        fig = self._create_calibration_plot_R(params, channel_type, channel)  # Add missing args
+        self._display_plot_R(fig, channel)
 
 
     def _create_calibration_plot_R(self, params, channel_type, target_channel):
@@ -600,7 +516,7 @@ class Window1Content(ctk.CTkFrame):
 
         return fig
 
-    def _display_plot(self, fig, channel):
+    def _display_plot_R(self, fig, channel):
         """Display matplotlib plot in a popup window"""
         # Create popup window
         plot_window = ctk.CTkToplevel(self)
@@ -634,10 +550,12 @@ class Window1Content(ctk.CTkFrame):
         
         plt.close(fig)
 
-    def _run_calibration(self):
+## Phase Calibration
+
+    def _run_phase_calibration(self):
         """Run phase characterization on selected channel"""
         try:
-            theta_ch, phi_ch = self.channel()
+            theta_ch, phi_ch = self._get_current_channels()
             channel_type = self.channel_type_var.get()
             target_channel = theta_ch if channel_type == "theta" else phi_ch
             
@@ -651,7 +569,7 @@ class Window1Content(ctk.CTkFrame):
             self._characterize_phase(target_channel, io_config)
             
             # Update UI
-            self._update_calibration_display(target_channel, io_config)
+            self._update_calibration_display_P(target_channel, io_config)
             
         except Exception as e:
             self._show_error(f"Calibration failed: {str(e)}")
@@ -661,7 +579,7 @@ class Window1Content(ctk.CTkFrame):
         # Measurement parameters
         start_current = 0
         end_current = self.qontrol.globalcurrrentlimit
-        steps = 50
+        steps = 10
         delay = 0.5
         
         currents = np.linspace(start_current, end_current, steps)
@@ -697,6 +615,7 @@ class Window1Content(ctk.CTkFrame):
         print(f"Amp: {fit_result['amp']:.2e} mW")
         print(f"Frequency: {fit_result['freq']:.2f} Hz")
         print(f"Phase: {fit_result['phase']:.2f} rad")
+        
 
     def fit_cos(self, xdata, ydata):
         """Positive cosine fit"""
@@ -748,7 +667,67 @@ class Window1Content(ctk.CTkFrame):
             'rawres': (guess, popt, pcov)
         }
 
+
+    def _update_calibration_display_P(self, channel, io_config):
+        """Update UI with calibration results"""
+        params = self.calibration_params[io_config].get(channel)
+        if not params:
+            return
+            
+        # Get current channel type
+        channel_type = self.channel_type_var.get()
+        
+        # Generate and display plot
+        fig = self._create_calibration_plot_P(params, channel_type, channel, io_config)
+        self._display_plot_P(fig, channel)
+    
     def _create_calibration_plot(self, params, channel_type, target_channel, io_config):
+        current = AppData.get_last_selection()
+        channel_symbol = "θ" if channel_type == "theta" else "φ"
+        
+        fig, ax = plt.subplots(figsize=(8, 5))
+        fig.patch.set_facecolor('#2b2b2b')
+        ax.set_facecolor('#363636')
+        
+        if io_config == "resistance":
+            # Resistance plot
+            ax.plot(params['currents'], params['voltages'], 
+                'o', color='white', markersize=6, label='Measured Data')
+            x_fit = np.linspace(min(params['currents']), max(params['currents']), 100)
+            y_fit = params['a']*x_fit**3 + params['c']*x_fit + params['d']
+            ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=2.5, label='Cubic Fit')
+            
+            title_str = f"Resistance Characterization of {current['cross']}:{channel_symbol} at Channel {target_channel}"
+            ax.set_xlabel("Current (mA)", color='white', fontsize=10)
+            ax.set_ylabel("Voltage (V)", color='white', fontsize=10)
+        else:
+            # Phase plot
+            ax.plot(params['currents'], params['optical_powers'], 
+                'o', color='white', markersize=6, label='Measured Data')
+            x_fit = np.linspace(min(params['currents']), max(params['currents']), 100)
+            y_fit = params['fitfunc'](x_fit, params['amp'], params['omega'], params['phase'], params['offset'])
+            ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=2.5, label='Cosine Fit')
+            
+            title_str = f"Phase Characterization of {current['cross']}:{channel_symbol} at Channel {target_channel} ({io_config.capitalize()} Config)"
+            ax.set_xlabel("Current (mA)", color='white', fontsize=10)
+            ax.set_ylabel("Optical Power (mW)", color='white', fontsize=10)
+        
+        ax.set_title(title_str, color='white', fontsize=12, pad=20)
+        
+        # Configure ticks and borders
+        ax.tick_params(colors='white', which='both')
+        for spine in ax.spines.values():
+            spine.set_color('white')
+            
+        # Legend styling
+        legend = ax.legend(frameon=True, facecolor='#2b2b2b', edgecolor='white')
+        for text in legend.get_texts():
+            text.set_color('white')
+
+        return fig
+
+
+    def _create_calibration_plot_P(self, params, channel_type, target_channel, io_config):
         """Generate phase calibration plot"""
         current = AppData.get_last_selection()
         fig, ax = plt.subplots(figsize=(8, 5))
@@ -779,16 +758,36 @@ class Window1Content(ctk.CTkFrame):
         
         return fig
 
-    def _update_calibration_display(self, channel, io_config):
-        """Update UI with calibration results"""
-        params = self.calibration_params[io_config].get(channel)
-        if not params:
-            return
-            
-        # Get current channel type
-        channel_type = self.channel_type_var.get()
+    def _display_plot_P(self, fig, channel):
+        """Display matplotlib plot in a popup window"""
+        # Create popup window
+        plot_window = ctk.CTkToplevel(self)
+        # plot_window.title(f"Channel {channel} Calibration Results")
+        plot_window.title(f"Channel {channel} Calibration Results")  
+        plot_window.geometry("800x600")
         
-        # Generate and display plot
-        fig = self._create_calibration_plot(params, channel_type, channel, io_config)
-        self._display_plot(fig, channel)
-    
+        # Convert plot to image
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=100)
+        buf.seek(0)
+        img = Image.open(buf)
+        
+        # Create CTk image and label
+        ctk_image = ctk.CTkImage(
+            light_image=img,
+            dark_image=img,
+            size=(750, 550)
+        )
+        
+        label = ctk.CTkLabel(plot_window, image=ctk_image, text="")
+        label.pack(padx=10, pady=10)
+        
+        # Add close button
+        close_btn = ctk.CTkButton(
+            plot_window, 
+            text="Close", 
+            command=plot_window.destroy
+        )
+        close_btn.pack(pady=5)
+        
+        plt.close(fig)
