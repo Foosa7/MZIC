@@ -89,14 +89,14 @@ class MyInfoFrame(customtkinter.CTkFrame):
         IMAGE_WIDTH = 30 
         IMAGE_HEIGHT = 33
 
-        IMAGE_PATH = './logo_mini.png'
-        image=Image.open(IMAGE_PATH)
-        #IMAGE_PATH = './kthlogo_mini_white2.png'
+        # IMAGE_PATH = './logo_mini.png'
+        # image=Image.open(IMAGE_PATH)
+        # #IMAGE_PATH = './kthlogo_mini_white2.png'
         
         #self.your_image = customtkinter.CTkImage(light_image=ImageTk.PhotoImage(Image.open(IMAGE_PATH)), size=(IMAGE_WIDTH , IMAGE_HEIGHT))
-        self.your_image = customtkinter.CTkImage(light_image=image, size=(IMAGE_WIDTH, IMAGE_HEIGHT))
-        logo = customtkinter.CTkLabel(self, image=self.your_image, text="")
-        logo.grid(row=0, column=0, padx=(10,0), pady=(10,3), rowspan = 6, sticky="n")
+        # self.your_image = customtkinter.CTkImage(light_image=image, size=(IMAGE_WIDTH, IMAGE_HEIGHT))
+        # logo = customtkinter.CTkLabel(self, image=self.your_image, text="")
+        # logo.grid(row=0, column=0, padx=(10,0), pady=(10,3), rowspan = 6, sticky="n")
       
 
         labela = customtkinter.CTkLabel(self, text = 'Status:')
@@ -1902,7 +1902,7 @@ class App(customtkinter.CTk):
             self.linear_resistance_list[self.channel] = c
             
             print('Acquired resistance for channel'+str(self.channel) +" is "+ str(c) + ' Ω when fitted with a linear funtion')
-            
+            print('Coefficients acquired for channel'+str(self.channel) +" are "+ str(coefficients))
             
 
             # Set white font colors
@@ -2783,7 +2783,7 @@ if __name__ == "__main__":
         print('')
         print("Connecting to QControl Device...")
         #serial_port_name_qcontrol = "/dev/tty.usbserial-FT672B5J" #this is static. for windows COM3 or COM5 etc.
-        serial_port_name_qcontrol = "COM3" 
+        serial_port_name_qcontrol = "COM18" 
         print("Serial port name for the QControl device is: ", serial_port_name_qcontrol)
         q = qontrol.QXOutput(serial_port_name = serial_port_name_qcontrol, response_timeout = 0.1) #connect to the device. this is done automatically when software is started
         print ("Qontroller '{:}' initialised with firmware {:} and {:} channels".format(q.device_id, q.firmware, q.n_chs) )

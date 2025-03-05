@@ -293,6 +293,39 @@ class Example(Frame):
             self.nodes[arm_name] = Node(arm_name, x + dx, y + dy)
             self.create_path(self.nodes[center_name], self.nodes[arm_name])
 
+    def get_cross_modes(self):
+        """Returns a dict mapping cross labels to their selection type (bar/cross/split)."""
+        cross_arms = defaultdict(set)
+        
+        # Collect selected arms per cross
+        for path in self.paths:
+            if path.line_id in self.selected_paths:
+                center, arm = self._parse_path_components(path)
+                if center and arm:
+                    # Handle arm pairs (like "TL-BR") from cross connections
+                    if '-' in arm:
+                        cross_arms[center].update(arm.split('-'))
+                    else:
+                        cross_arms[center].add(arm)
+
+        # Determine mode for each cross
+        modes = {}
+        for cross, arms in cross_arms.items():
+            arm_set = set(arms)
+            
+            if len(arm_set) != 2:
+                continue  # Only consider pairs
+                
+            if arm_set in [{'BR', 'BL'}, {'TR', 'TL'}]:
+                modes[cross] = 'bar'
+            elif arm_set in [{'TL', 'BR'}, {'TR', 'BL'}]:
+                modes[cross] = 'cross'
+            elif arm_set == {'TR', 'BR'}:
+                modes[cross] = 'split'
+                
+        return modes
+
+
     def connect_nodes(self, node1_name, node2_name):
         """Connects two nodes if they exist."""
         if (node1 := self.nodes.get(node1_name)) and (node2 := self.nodes.get(node2_name)):

@@ -58,7 +58,6 @@ MZIC/
 │   │   ├── mzi_convention.py   # Converts the BS angles from Clements convention to chip convention.
 │   │   ├── qset.py             # Sets current values to the qontrol module from qmapper.
 │   │   ├── qmapper8x8.py       # Maps from the clements mesh layout to the chip pin number.
-│   │   ├── qset.py             # Sets current values to the qontrol module from qmapper.
 │   │   └── utils.py            # Miscellaneous utility functions.
 │   └── __pycache__/            # Compiled Python files (ignored in version control).
 ├── config/                   # Application configuration files.

@@ -50,7 +50,7 @@ class QontrolDevice:
             try:
                 print("Trying to connect to {0} (FTDI detected)...".format(port.device))
                 # Instantiate a QXOutput from the core library.
-                q = qontrol.QXOutput(serial_port_name=port.device, response_timeout=0.03)
+                q = qontrol.QXOutput(serial_port_name=port.device, response_timeout=0.5)
                 self.serial_port = port.device
                 self.device = q
 
@@ -103,15 +103,40 @@ class QontrolDevice:
         else:
             print("No Qontrol device to disconnect.")
 
+    # def set_current(self, channel, current):
+    #     """
+    #     Set the current (in mA) for a specific channel.
+    #     """
+    #     try:
+    #         self.device.i[int(channel)] = current
+    #         print("Set current for channel {0} to {1} mA".format(channel, current))
+    #     except Exception as e:
+    #         print("Error setting current for channel {0}: {1}".format(channel, e))
+
     def set_current(self, channel, current):
         """
-        Set the current (in mA) for a specific channel.
+        Set current (mA) for a specific channel with enhanced type checking
         """
         try:
-            self.device.i[int(channel)] = current
-            print("Set current for channel {0} to {1} mA".format(channel, current))
+            if not self.device:
+                raise RuntimeError("Device not connected")
+            
+            channel_int = int(channel)
+            if channel_int < 0 or channel_int >= self.device.n_chs:
+                raise ValueError(f"Invalid channel {channel} (0-{self.device.n_chs-1})")
+
+            # Use direct integer indexing
+            self.device.i[channel_int] = current
+            print(f"Set current for channel {channel_int} to {current} mA")
+
+        except ValueError as ve:
+            print(f"Invalid channel format {channel}: {ve}")
+        except IndexError as ie:
+            print(f"Channel {channel_int} out of range: {ie}")
         except Exception as e:
-            print("Error setting current for channel {0}: {1}".format(channel, e))
+            print(f"Error setting channel {channel}: {str(e)}")
+            if hasattr(self.device, 'log'):
+                print(f"Last device errors: {self.device.log[-3:]}")
 
     def show_voltages(self):
         """
