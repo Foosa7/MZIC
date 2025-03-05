@@ -33,7 +33,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-# f1- 20, 46
-# g3- 23, 51
