@@ -330,10 +330,28 @@ class Window1Content(ctk.CTkFrame):
         self.current_channel_label.pack(pady=5)
         
         # Theta/Phi selector
+        # self.channel_type_var = ctk.StringVar(value="theta")
+        # ctk.CTkRadioButton(calibration_frame, text="Theta", variable=self.channel_type_var, value="theta").pack(side='left')
+        # ctk.CTkRadioButton(calibration_frame, text="Phi", variable=self.channel_type_var, value="phi").pack(side='left', padx=10)
+
         self.channel_type_var = ctk.StringVar(value="theta")
-        ctk.CTkRadioButton(calibration_frame, text="Theta", variable=self.channel_type_var, value="theta").pack(side='left')
-        ctk.CTkRadioButton(calibration_frame, text="Phi", variable=self.channel_type_var, value="phi").pack(side='left', padx=10)
-        
+        ctk.CTkRadioButton(
+            calibration_frame, 
+            text="θ",  # Changed from "Theta"
+            variable=self.channel_type_var, 
+            value="theta",
+            font=ctk.CTkFont(family="Arial", size=14)  # Ensures symbol support
+        ).pack(side='left')
+        ctk.CTkRadioButton(
+            calibration_frame, 
+            text="φ",  # Changed from "Phi"
+            variable=self.channel_type_var, 
+            value="phi",
+            font=ctk.CTkFont(family="Arial", size=14)
+        ).pack(side='left', padx=10)
+
+
+
         # Calibration button
         ctk.CTkButton(calibration_frame, 
                      text="Characterize Resistance", 
@@ -346,10 +364,6 @@ class Window1Content(ctk.CTkFrame):
             return None, None
         
         label_map = create_label_mapping(8)
-        # selection = label_map.get(current['cross'], (None, None))  # Get tuple directly
-
-        # selection is a tuple of (theta, phi) channel numbers
-        # print(selection)
         theta_ch, phi_ch = label_map.get(current['cross'], (None, None))
         print(f"θ{theta_ch}, φ{phi_ch}")
 
@@ -375,47 +389,66 @@ class Window1Content(ctk.CTkFrame):
             self._show_error(f"Calibration failed: {str(e)}")
 
     def _characterize_resistance(self, channel):
-        """Execute characterization routine for specified channel"""
-        # Set up measurement parameters
+        """Execute characterization routine with linear+cubic fit analysis"""
+        # Measurement setup
         start_current = 0
-        end_current = self.qontrol.globalcurrrentlimit #float(self.qontrol.device.imax[channel])  # Convert to native float globalcurrrentlimit
-        steps = 50
-        delay = 0.1
-        
-        # Generate current sweep with native Python floats
+        end_current = self.qontrol.globalcurrrentlimit
+        steps = 10
+        delay = 0.5
         currents = np.linspace(start_current, end_current, steps).astype(float)
         voltages = []
-        
-        # Perform sweep with type conversion
+
+        # Current sweep measurement
         for I in currents:
-            # Convert NumPy float to native Python float before sending
             self.qontrol.set_current(channel, float(I))
             time.sleep(delay)
-            # Convert device voltage reading to native float
             voltages.append(float(self.qontrol.device.v[channel]))
         
         # Reset current to zero
-        self.qontrol.set_current(channel, float(0))
-        # Perform curve fit with native types
+        self.qontrol.set_current(channel, 0.0)
+
+        # Cubic+linear fit
         X = np.vstack([currents**3, currents, np.ones_like(currents)]).T
-        coefficients, _, _, _ = np.linalg.lstsq(X, voltages, rcond=None)
-        
-        # Convert coefficients to native Python floats
-        a, c, d = (float(coeff) for coeff in coefficients)
-        
-        # Store results with native types
+        coefficients, residuals, _, _ = np.linalg.lstsq(X, voltages, rcond=None)
+        a, c, d = coefficients
+
+
+        # Calculate differential resistance (dV/dI)
+        # resistance = 3*a*currents**2 + c  # Derivative of cubic fit
+        # Calculate resistance using the cubic+linear model
+
+        resistance = a * currents**2 + c  # Modified from derivative-based calculation
+
+        # Calculate additional parameters
+        rmin = np.min(resistance)
+        rmax = np.max(resistance)
+        alpha = a / c if c != 0 else float('inf')
+
+        # Store comprehensive results
         self.resistance_params[channel] = {
             'a': a,
             'c': c,
             'd': d,
-            'currents': currents.tolist(),  # Convert array to list of native floats
-            'voltages': voltages
+            'resistances': resistance.tolist(),
+            'rmin': float(rmin),
+            'rmax': float(rmax),
+            'alpha': float(alpha),
+            'currents': currents.tolist(),
+            'voltages': voltages,
+            'max_current': float(end_current),
+            'resistance_parameters': [float(a), float(c), float(d)]
         }
 
-        print(f"Channel {channel} resistance characterization complete")
-        print(f"Resistance params: a={a}, c={c}, d={d}")
-        print(f"Resistance of the channel is {a} * I^3 + {c} * I + {d}")
-
+        # Enhanced print output
+        print(f"\nChannel {channel} Characterization (Cubic+Linear Model)")
+        print(f"a = {a:.2e}, c = {c:.2e}, d = {d:.2e}")
+        # print(f"Resistance: {resistance}")
+        # print(f"V(I) = {a:.2e}·I³ + {c:.2e}·I + {d:.2e}")
+        # print(f"Max Current: {end_current:.1f} mA")
+        print(f"Average Resistance: {np.mean(resistance):.2f}Ω")
+        # print(f"Resistance Range: {np.min(resistance):.2f}Ω - {np.max(resistance):.2f}Ω")
+        # print(f"Resistance @ Max Current: {resistance[-1]:.2f}Ω")
+  
     # def _update_calibration_display(self, channel):
     #     """Update UI with calibration results"""
     #     params = self.resistance_params.get(channel)
@@ -445,42 +478,67 @@ class Window1Content(ctk.CTkFrame):
 
     def _update_calibration_display(self, channel):
         """Update UI with calibration results"""
-        if not hasattr(self, 'resistance_params'):
-            self.resistance_params = {}
-        
         params = self.resistance_params.get(channel)
         if not params:
-            self._show_error("No calibration data available")
             return
-            
-        # Update channel info
-        self.current_channel_label.configure(
-            text=f"Channel {channel} ({'Theta' if channel == self._get_current_channels()[0] else 'Phi'})"
-        )
         
-        # Create and display plot in popup
-        fig = self._create_calibration_plot(params)
+        # Get current channel type from radio buttons
+        channel_type = self.channel_type_var.get()
+        
+        # Generate plot with channel context
+        fig = self._create_calibration_plot(params, channel_type, channel)  # Add missing args
         self._display_plot(fig, channel)
 
-    def _create_calibration_plot(self, params):
-        """Generate the resistance characterization plot"""
-        fig, ax = plt.subplots()
-        ax.plot(params['currents'], params['voltages'], 'o', label='Measured')
+
+    def _create_calibration_plot(self, params, channel_type, target_channel):
+        """Generate styled resistance characterization plot"""
+        current = AppData.get_last_selection()
+        label_map = create_label_mapping(8)
+        channel_type = self.channel_type_var.get()
+        channel_symbol = "θ" if channel_type == "theta" else "φ"
+
+        # Get both channels but only show selected one
+        theta_ch, phi_ch = label_map.get(current['cross'], (None, None))
+        
+        # Create plot with dark theme
+        fig, ax = plt.subplots(figsize=(8, 5))
+        fig.patch.set_facecolor('#2b2b2b')
+        ax.set_facecolor('#363636')
+        
+        # Plot data points and fit curve
+        ax.plot(params['currents'], params['voltages'], 
+            'o', color='white', markersize=6, label='Measured Data')
         x_fit = np.linspace(min(params['currents']), max(params['currents']), 100)
         y_fit = params['a']*x_fit**3 + params['c']*x_fit + params['d']
-        ax.plot(x_fit, y_fit, label='Cubic Fit')
-        
-        ax.set_xlabel("Current (mA)")
-        ax.set_ylabel("Voltage (V)")
-        ax.legend()
-        return fig
+        ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=2.5, label='Cubic Fit')
 
+        # # Dynamic title based on selected channel type
+        # title_str = (f"Resistance Characterization: {current['cross']} "
+        #             f"Characterizing {channel_type.capitalize()} Channel: {target_channel}")
+        title_str = (f"Resistance Characterization of {current['cross']}:{channel_symbol} at Channel {target_channel}")
+
+        ax.set_title(title_str, color='white', fontsize=12, pad=20)
+        ax.set_xlabel("Current (mA)", color='white', fontsize=10)
+        ax.set_ylabel("Voltage (V)", color='white', fontsize=10)
+        
+        # Configure ticks and borders
+        ax.tick_params(colors='white', which='both')
+        for spine in ax.spines.values():
+            spine.set_color('white')
+            
+        # Legend styling
+        legend = ax.legend(frameon=True, facecolor='#2b2b2b', edgecolor='white')
+        for text in legend.get_texts():
+            text.set_color('white')
+
+        return fig
 
     def _display_plot(self, fig, channel):
         """Display matplotlib plot in a popup window"""
         # Create popup window
         plot_window = ctk.CTkToplevel(self)
-        plot_window.title(f"Channel {channel} Calibration Results")
+        # plot_window.title(f"Channel {channel} Calibration Results")
+        plot_window.title(f"Channel {channel} Calibration Results")  
         plot_window.geometry("800x600")
         
         # Convert plot to image
