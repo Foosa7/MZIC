@@ -102,7 +102,7 @@ class DeviceControlWidget(ctk.CTkFrame):
             # Update Thorlabs parameters with device index if applicable
             device_suffix = f" {device_index}" if device_index else ""
             self.thorlabs_model_label.configure(
-                text=f"Thorlabs{device_suffix} Model: {params.get('Model', '-')} (SN: {params.get('Serial', '-')})"
+                text=f"Model: {params.get('Model', '-')}({params.get('Serial', '-')})"
             )
             
             # Create or update additional labels for multiple devices if needed
@@ -115,7 +115,7 @@ class DeviceControlWidget(ctk.CTkFrame):
             # Update the specific device label if it exists
             if device_index and hasattr(self, f"thorlabs_model_label{device_index}"):
                 getattr(self, f"thorlabs_model_label{device_index}").configure(
-                    text=f"Thorlabs{device_suffix} Model: {params.get('Model', '-')} (SN: {params.get('Serial', '-')})"
+                    text=f"Model: {params.get('Model', '-')}({params.get('Serial', '-')})"
                 )
 
         elif device_type is None:
