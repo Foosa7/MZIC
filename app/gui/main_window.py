@@ -168,34 +168,57 @@ class MainWindow(ctk.CTk):
                     params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
                     self.device_control.update_device_info(params, "qontrol")
 
-        # Handle Thorlabs connection should be connected by default
-        if self.thorlabs:  # Add thorlabs connection handling
+        # Handle Thorlabs connection(s)
+        if isinstance(self.thorlabs, list):
+            # Multiple Thorlabs devices
+            for i, thorlabs_device in enumerate(self.thorlabs):
+                device_id = f"thorlabs{i}" if i > 0 else "thorlabs"
+                if hasattr(thorlabs_device, "device") and thorlabs_device.device is not None:
+                    params = thorlabs_device.params
+                    self.device_control.update_device_info(params, device_id)
+                else:
+                    thorlabs_device.connect()
+                    print(f"Re-Connecting to Thorlabs device {i}...")
+                    if thorlabs_device.device:  # Only update if connection succeeded
+                        params = thorlabs_device.params
+                        self.device_control.update_device_info(params, device_id)
+        elif self.thorlabs:  # Single Thorlabs device
             if hasattr(self.thorlabs, "device") and self.thorlabs.device is not None:
                 params = self.thorlabs.params
-                # params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
                 self.device_control.update_device_info(params, "thorlabs")
             else:
                 self.thorlabs.connect()
                 print("Re-Connecting to Thorlabs device...")
                 if self.thorlabs.device:  # Only update if connection succeeded
                     params = self.thorlabs.params
-                    # params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
                     self.device_control.update_device_info(params, "thorlabs")
 
     def disconnect_devices(self):
         if self.qontrol:
             self.qontrol.disconnect()
-        if self.thorlabs:
+        
+        # Handle disconnecting Thorlabs device(s)
+        if isinstance(self.thorlabs, list):
+            # Multiple Thorlabs devices
+            for i, thorlabs_device in enumerate(self.thorlabs):
+                thorlabs_device.disconnect()
+                device_id = f"thorlabs{i}" if i > 0 else "thorlabs"
+                self.device_control.update_device_info(None, device_id)
+        elif self.thorlabs:
+            # Single Thorlabs device
             self.thorlabs.disconnect()
-        # Clear both device displays
+            self.device_control.update_device_info(None, "thorlabs")
+        
+        # Clear Qontrol display
         self.device_control.update_device_info(None, "qontrol")
-        self.device_control.update_device_info(None, "thorlabs")
+
+
     
     def import_data(self):
         # Call the import function to update the appdata.
         importfunc(self.appdata)
         # For demonstration, print one of the imported matrices.
-        print("Updated with Pickle file:", self.appdata.phiphase2list)
+        print("Updated with Pickle file:", self.appdata.caliparamlist_lincub_cross[1])
         messagebox.showinfo("Import", "Data imported successfully!")
 
     def export_data(self):

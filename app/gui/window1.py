@@ -1,6 +1,7 @@
 # app/gui/window1.py
 from app.imports import *
 
+import sympy as sp
 from app.utils.appdata import AppData
 import io
 from contextlib import redirect_stdout
@@ -9,6 +10,7 @@ from app.utils import grid
 from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
 from collections import defaultdict
 from typing import Dict, Any
+from scipy import optimize
 
 class Window1Content(ctk.CTkFrame):
     def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, grid_size="8x8", **kwargs):
@@ -19,7 +21,10 @@ class Window1Content(ctk.CTkFrame):
         self.after_id = None
         self.control_panel = None  
         self.resistance_params: Dict[int, Dict[str, Any]] = {}
-  
+        self.calibration_params = {'cross': {}, 'bar': {}}
+        self.phase_params = {}
+        self.io_config_var = ctk.StringVar(value="cross")
+        self.app = app  # Store the AppData instance
 
         # Configure main layout
         self.grid_rowconfigure(0, weight=1)
@@ -61,50 +66,101 @@ class Window1Content(ctk.CTkFrame):
         control_frame.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
         control_frame.grid_rowconfigure(0, weight=1)
         control_frame.grid_columnconfigure(0, weight=1)
+        # self.graph_frame.pack_propagate(False)
         
         # Compact inner frame
         inner_frame = ctk.CTkFrame(control_frame, fg_color="transparent")
         inner_frame.grid(row=0, column=0, sticky="nsew", padx=1, pady=1)
         inner_frame.grid_rowconfigure(1, weight=1)
-        
+
         # Compact button row
         btn_frame = ctk.CTkFrame(inner_frame, fg_color="transparent")
         btn_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 2))
-        
+
+        # # Original controls + new calibration buttons
+        # controls = [
+        #     ("Import", self._import_config),
+        #     ("Export", self._export_config),
+        #     ("Apply", self._apply_config),
+        #     ("Clear", self._clear_grid),
+        #     ("Status", self._show_full_status),
+        #     ("R", self._run_resistance_calibration),
+        #     ("P", self._run_phase_calibration)
+        # ]
+
+        # Add to your controls list in _create_compact_control_panel method:
         controls = [
             ("Import", self._import_config),
             ("Export", self._export_config),
             ("Apply", self._apply_config),
             ("Clear", self._clear_grid),
-            ("Status", self._show_full_status)
+            ("Status", self._show_full_status),
+            ("R", self._run_resistance_calibration),
+            ("P", self._run_phase_calibration),
+            ("Phase", self.apply_phase_new)  # Add this new button
         ]
-        # Smaller buttons with compact layout
+
+
+        # Configure grid columns for 7 buttons
+        for col in range(7):
+            btn_frame.grid_columnconfigure(col, weight=1)
+
+        # Create buttons with adjusted styling
         for col, (text, cmd) in enumerate(controls):
             btn = ctk.CTkButton(
                 btn_frame, 
-                text=text, 
+                text=text,
                 command=cmd,
-                width=50,  # Reduced width to fit 5 buttons
+                width=20,  #  if col < 5 else 60, Narrower for first 5, wider for last 2
                 height=24,
-                font=ctk.CTkFont(size=11)
+                font=ctk.CTkFont(size=11 if col < 5 else 10)  # Smaller font for long labels
             )
             btn.grid(row=0, column=col, padx=1, sticky="nsew")
-            btn_frame.grid_columnconfigure(col, weight=1)
 
-        
+
         # Compact notebook for displays
         notebook = ctk.CTkTabview(inner_frame, height=180)  # Fixed height
         notebook.grid(row=1, column=0, sticky="nsew", pady=(2, 0))
         inner_frame.grid_columnconfigure(0, weight=1)
-        
-        # Status tab
-        self.status_display = ctk.CTkTextbox(notebook.add("Status"), state="disabled")
-        self.status_display.pack(fill="both", expand=True)
-        
+
+        # When creating the graph tab
+        graph_tab = notebook.add("Graph")
+        self.graph_frame = ctk.CTkFrame(graph_tab)
+        self.graph_frame.pack(fill="both", expand=True, padx=0, pady=0)
+
+        # Configure the graph frame to expand properly
+        self.graph_frame.grid_columnconfigure(0, weight=1)
+        self.graph_frame.grid_rowconfigure(0, weight=1) 
+
+        # Create the image label with proper parameters for maximum space usage
+        self.graph_image_label = ctk.CTkLabel(
+            self.graph_frame, 
+            text="No plot to display", 
+            image=None,
+            corner_radius=0,
+            fg_color="transparent"
+        )
+        self.graph_image_label.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+
+        # Text label below the image
+        self.graph_text_label = ctk.CTkLabel(
+            self.graph_frame, 
+            text="",
+            anchor="center"
+        )
+        self.graph_text_label.grid(row=1, column=0, sticky="ew")
+
+
         # Mapping tab
         self.mapping_display = ctk.CTkTextbox(notebook.add("Mapping"))
         self.mapping_display.pack(fill="both", expand=True)
         
+
+        # Status tab
+        self.status_display = ctk.CTkTextbox(notebook.add("Status"), state="disabled")
+        self.status_display.pack(fill="both", expand=True)
+        
+
         # Compact error display
         self.error_display = ctk.CTkTextbox(
             inner_frame, 
@@ -222,6 +278,13 @@ class Window1Content(ctk.CTkFrame):
                 for entry in [widgets['theta_entry'], widgets['phi_entry']]:
                     entry.bind("<KeyRelease>", lambda e: self._update_device())
 
+## config has the current values so the apply phase has to read from default_json_grid which return values in 3.14 which means 1 pi and calculate the phases for the entire grid one by one
+#  and then export the calculated values in the same format as custom_grid.export_paths_json()
+## calculated values 
+## to config 
+
+## how it works is that the apply phase button will read the default_json_grid which return values in terms of pi as 3.14 meaning 1 pi and calculate the phases for the entire grid using the apply_phase function and then export the calculated values in the same format as custom_grid.export_paths_json()
+
     def _update_device(self):
         """Update Qontrol device with current values"""
         try:
@@ -251,6 +314,7 @@ class Window1Content(ctk.CTkFrame):
 
     def _handle_selection_update(self, event):
         """Event-driven update handler"""
+        print(AppData.default_json_grid)
         # current = AppData.get_last_selection()
         # print(f"Current selection: {current['cross']}-{current['arm']}")
         # Add any UI updates here
@@ -296,6 +360,322 @@ class Window1Content(ctk.CTkFrame):
         """Force apply current configuration"""
         self._update_device()
 
+    # def apply_phase_new(self):
+    #     """Apply phase settings to the entire grid based on phase calibration data"""
+    #     try:
+    #         # Get current grid configuration
+    #         current_config = json.loads(self.custom_grid.export_paths_json())
+    #         if not current_config:
+    #             self._show_error("No grid configuration found")
+    #             return
+                
+    #         # Get current selection to determine which channel to use
+    #         current = AppData.get_last_selection()
+    #         if not current or 'cross' not in current or not current['cross']:
+    #             self._show_error("No cross selected. Please select a cross first.")
+    #             return
+                
+    #         # Get theta/phi channels for current selection
+    #         theta_ch, phi_ch = self._get_current_channels()
+    #         if theta_ch is None or phi_ch is None:
+    #             self._show_error("Invalid channel selection")
+    #             return
+                
+    #         # Get current I/O configuration and channel type
+    #         io_config = self.io_config_var.get()
+    #         channel_type = self.channel_type_var.get()
+    #         target_channel = theta_ch if channel_type == "theta" else phi_ch
+                
+    #         # Get phase parameters for the selected channel
+    #         params = self.phase_params.get(target_channel)
+    #         if not params:
+    #             self._show_error("Phase calibration data missing. Please characterize the phase shifter first.")
+    #             return
+                
+    #         # Extract calibration parameters
+    #         A = params['amp']
+    #         b = params['omega']
+    #         c = params['phase']
+    #         d = params['offset']
+            
+    #         # Get resistance parameters for the selected channel
+    #         r_params = self.resistance_params.get(target_channel)
+    #         if not r_params:
+    #             self._show_error("Resistance calibration data missing. Please characterize the resistance first.")
+    #             return
+                
+    #         # Create a dialog to get the desired phase value
+    #         dialog = ctk.CTkInputDialog(
+    #             text=f"Enter desired phase (in π units) for {current['cross']}:", 
+    #             title="Apply Phase"
+    #         )
+    #         phi_input = dialog.get_input()
+            
+    #         if not phi_input:
+    #             return  # User canceled
+                
+    #         # Validate input
+    #         try:
+    #             phi = float(phi_input)
+    #         except ValueError:
+    #             self._show_error("Invalid phase value. Please enter a number.")
+    #             return
+                
+    #         # Check if phase is within valid range
+    #         if phi < c/np.pi:
+    #             self._show_error(f"Entered phase less than the offset phase ({c/np.pi:.2f}π) of this phase shifter. Enter a greater value.")
+    #             return
+                
+    #         # Calculate current based on phase
+    #         if channel_type == "theta":
+    #             # Update theta value in the current configuration
+    #             if current['cross'] in current_config:
+    #                 current_config[current['cross']]["theta"] = str(phi)
+                    
+    #             # Calculate current to apply
+    #             P = abs((phi*np.pi - c) / b)  # Heating power for phi phase shift
+                
+    #             # Use cubic+linear model if available, otherwise use linear model
+    #             if 'a' in r_params and 'c' in r_params:  # Cubic+linear model
+    #                 # Define symbols for solving equation
+    #                 I = sp.symbols('I')
+    #                 P_watts = P/1000  # Convert to watts
+    #                 R0 = r_params['c']  # Linear resistance term
+    #                 alpha = r_params['a']/R0 if R0 != 0 else 0  # Nonlinearity parameter
+                    
+    #                 # Define equation: P/R0 = I^2 + alpha*I^4
+    #                 eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
+                    
+    #                 # Solve the equation
+    #                 solutions = sp.solve(eq, I)
+                    
+    #                 # Filter and choose the real, positive solution
+    #                 positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+    #                 if positive_solutions:
+    #                     current_to_apply = float(1000 * positive_solutions[0])  # Convert to mA
+    #                 else:
+    #                     current_to_apply = float(round(1000 * np.sqrt(P/(R0*1000)), 2))  # Fallback to linear model
+    #             else:  # Linear model
+    #                 R = r_params.get('c', 50.0)  # Use linear resistance or default to 50 ohms
+    #                 current_to_apply = float(round(1000 * np.sqrt(P/(R*1000)), 2))  # Calculate current in mA
+                    
+    #             # Apply the current to the device
+    #             self.qontrol.set_current(target_channel, current_to_apply/1000.0)  # Convert mA to A
+    #             print(f"Applied {current_to_apply:.2f} mA to channel {target_channel} for phase {phi}π")
+                
+    #         elif channel_type == "phi":
+    #             # Update phi value in the current configuration
+    #             if current['cross'] in current_config:
+    #                 current_config[current['cross']]["phi"] = str(phi)
+                    
+    #             # Calculate current using the same logic as for theta
+    #             P = abs((phi*np.pi - c) / b)
+                
+    #             if 'a' in r_params and 'c' in r_params:
+    #                 I = sp.symbols('I')
+    #                 P_watts = P/1000
+    #                 R0 = r_params['c']
+    #                 alpha = r_params['a']/R0 if R0 != 0 else 0
+                    
+    #                 eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
+    #                 solutions = sp.solve(eq, I)
+                    
+    #                 positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+    #                 if positive_solutions:
+    #                     current_to_apply = float(1000 * positive_solutions[0])
+    #                 else:
+    #                     current_to_apply = float(round(1000 * np.sqrt(P/(R0*1000)), 2))
+    #             else:
+    #                 R = r_params.get('c', 50.0)
+    #                 current_to_apply = float(round(1000 * np.sqrt(P/(R*1000)), 2))
+                    
+    #             # Apply the current to the device
+    #             # self.qontrol.set_current(target_channel, current_to_apply/1000.0)
+    #             print(f"Applied {current_to_apply:.2f} mA to channel {target_channel} for phase {phi}π")
+            
+    #         # Update the grid display with new configuration
+    #         self.custom_grid.import_paths_json(json.dumps(current_config))
+            
+    #         # Update device with new configuration
+    #         self._update_device()
+            
+    #         return json.dumps(current_config)
+            
+    #     except Exception as e:
+    #         self._show_error(f"Failed to apply phase: {str(e)}")
+    #         import traceback
+    #         traceback.print_exc()
+    #         return None
+
+
+    def apply_phase_new(self):
+        """Apply phase settings to the entire grid based on phase calibration data"""
+        try:
+            # Get current grid configuration
+            current_config = json.loads(self.custom_grid.export_paths_json())
+            if not current_config:
+                self._show_error("No grid configuration found")
+                return
+                
+            # Get current selection to determine which channel to use
+            current = AppData.get_last_selection()
+            if not current or 'cross' not in current or not current['cross']:
+                self._show_error("No cross selected. Please select a cross first.")
+                return
+                
+            # Get theta/phi channels for current selection
+            theta_ch, phi_ch = self._get_current_channels()
+            if theta_ch is None or phi_ch is None:
+                self._show_error("Invalid channel selection")
+                return
+                
+            # Get current I/O configuration and channel type
+            io_config = self.io_config_var.get()
+            channel_type = self.channel_type_var.get()
+            target_channel = theta_ch if channel_type == "theta" else phi_ch
+            
+            # Similar to your previous approach, create a nested array structure
+            calpararrays = [
+                [self.app.caliparamlist_lincub_cross, self.app.caliparamlist_lincub_bar]
+            ]
+
+            print(calpararrays)
+            
+            # Select the appropriate array based on IO configuration
+            IOconfig_index = 0 if io_config == "cross" else 1
+            fit_index = 0  # Assuming we're using the first fit type
+            
+            # Get the current array and settings
+            currentarray = calpararrays[fit_index][IOconfig_index]
+            
+            # Check if the target channel exists and is not "Null"
+            if target_channel >= len(currentarray) or currentarray[target_channel] == "Null":
+                self._show_error("Phase calibration data missing for this channel. Please characterize the phase shifter first.")
+                return
+                
+            # Get the current settings for this channel
+            currentsettings = currentarray[target_channel]
+            
+            # Extract calibration parameters
+            A = currentsettings['amp']
+            b = currentsettings['omega']
+            c = currentsettings['phase']
+            d = currentsettings['offset']
+            
+            # Get resistance parameters for the selected channel
+            if target_channel >= len(self.app.resistance_parameter_list):
+                self._show_error("Resistance calibration data missing. Please characterize the resistance first.")
+                return
+            
+            r_params = self.app.resistance_parameter_list[target_channel]
+            if not r_params or len(r_params) < 2:
+                self._show_error("Resistance calibration data incomplete. Please characterize the resistance first.")
+                return
+                
+            # Create a dialog to get the desired phase value
+            dialog = ctk.CTkInputDialog(
+                text=f"Enter desired phase (in π units) for {current['cross']}:", 
+                title="Apply Phase"
+            )
+            phi_input = dialog.get_input()
+            
+            if not phi_input:
+                return  # User canceled
+                
+            # Validate input
+            try:
+                phi = float(phi_input)
+            except ValueError:
+                self._show_error("Invalid phase value. Please enter a number.")
+                return
+                
+            # Check if phase is within valid range
+            if phi < c/np.pi:
+                self._show_error(f"Entered phase less than the offset phase ({c/np.pi:.2f}π) of this phase shifter. Enter a greater value.")
+                return
+                
+            # Calculate current based on phase
+            if channel_type == "theta":
+                # Update theta value in the current configuration
+                if current['cross'] in current_config:
+                    current_config[current['cross']]["theta"] = str(phi)
+                    
+                # Calculate current to apply
+                P = abs((phi*np.pi - c) / b)  # Heating power for phi phase shift
+                
+                # Use cubic+linear model if available, otherwise use linear model
+                if len(r_params) >= 2:  # Assuming [a, c] format for cubic+linear
+                    # Define symbols for solving equation
+                    I = sp.symbols('I')
+                    P_watts = P/1000  # Convert to watts
+                    R0 = r_params[1]  # Linear resistance term (c)
+                    alpha = r_params[0]/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
+                    
+                    # Define equation: P/R0 = I^2 + alpha*I^4
+                    eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
+                    
+                    # Solve the equation
+                    solutions = sp.solve(eq, I)
+                    
+                    # Filter and choose the real, positive solution
+                    positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+                    if positive_solutions:
+                        current_to_apply = float(1000 * positive_solutions[0])  # Convert to mA
+                    else:
+                        current_to_apply = float(round(1000 * np.sqrt(P/(R0*1000)), 2))  # Fallback to linear model
+                else:  # Linear model
+                    R = self.app.linear_resistance_list[target_channel] if target_channel < len(self.app.linear_resistance_list) else 50.0
+                    current_to_apply = float(round(1000 * np.sqrt(P/(R*1000)), 2))  # Calculate current in mA
+                    
+                # Apply the current to the device
+                self.qontrol.set_current(target_channel, current_to_apply/1000.0)  # Convert mA to A
+                print(f"Applied {current_to_apply:.2f} mA to channel {target_channel} for phase {phi}π")
+                
+            elif channel_type == "phi":
+                # Update phi value in the current configuration
+                if current['cross'] in current_config:
+                    current_config[current['cross']]["phi"] = str(phi)
+                    
+                # Calculate current using the same logic as for theta
+                P = abs((phi*np.pi - c) / b)
+                
+                if len(r_params) >= 2:
+                    I = sp.symbols('I')
+                    P_watts = P/1000
+                    R0 = r_params[1]
+                    alpha = r_params[0]/R0 if R0 != 0 else 0
+                    
+                    eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
+                    solutions = sp.solve(eq, I)
+                    
+                    positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+                    if positive_solutions:
+                        current_to_apply = float(1000 * positive_solutions[0])
+                    else:
+                        current_to_apply = float(round(1000 * np.sqrt(P/(R0*1000)), 2))
+                else:
+                    R = self.app.linear_resistance_list[target_channel] if target_channel < len(self.app.linear_resistance_list) else 50.0
+                    current_to_apply = float(round(1000 * np.sqrt(P/(R*1000)), 2))
+                    
+                # Apply the current to the device
+                self.qontrol.set_current(target_channel, current_to_apply/1000.0)
+                print(f"Applied {current_to_apply:.2f} mA to channel {target_channel} for phase {phi}π")
+            
+            # Update the grid display with new configuration
+            self.custom_grid.import_paths_json(json.dumps(current_config))
+            
+            # Update device with new configuration
+            self._update_device()
+            
+            return json.dumps(current_config)
+            
+        except Exception as e:
+            self._show_error(f"Failed to apply phase: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+
     def _show_full_status(self):
         """Display detailed device status"""
         self._capture_output(self.qontrol.show_status, self.status_display)
@@ -321,41 +701,43 @@ class Window1Content(ctk.CTkFrame):
         self.build_grid(new_size)
 
     def _create_calibration_controls(self):
-        """Add calibration section to control panel"""
+        """Add calibration section with separate buttons"""
         calibration_frame = ctk.CTkFrame(self.control_panel)
         calibration_frame.pack(pady=10, fill='x')
-        
+
         # Channel selection display
         self.current_channel_label = ctk.CTkLabel(calibration_frame, text="No channel selected")
         self.current_channel_label.pack(pady=5)
-        
+
+        # Create container frame for side-by-side layout
+        io_config_frame = ctk.CTkFrame(calibration_frame, fg_color="transparent")
+        io_config_frame.pack(pady=5, fill='x')
+
+        # Cross/Bar selector
+        self.io_config_var = ctk.StringVar(value="cross")
+        config_frame = ctk.CTkFrame(io_config_frame, fg_color="transparent")
+        config_frame.grid(row=0, column=0, padx=(0,10))  # Right padding
+        ctk.CTkRadioButton(config_frame, text="Cross", variable=self.io_config_var, value="cross").pack(side='left')
+        ctk.CTkRadioButton(config_frame, text="Bar", variable=self.io_config_var, value="bar").pack(side='left', padx=5)
+
         # Theta/Phi selector
-        # self.channel_type_var = ctk.StringVar(value="theta")
-        # ctk.CTkRadioButton(calibration_frame, text="Theta", variable=self.channel_type_var, value="theta").pack(side='left')
-        # ctk.CTkRadioButton(calibration_frame, text="Phi", variable=self.channel_type_var, value="phi").pack(side='left', padx=10)
-
         self.channel_type_var = ctk.StringVar(value="theta")
-        ctk.CTkRadioButton(
-            calibration_frame, 
-            text="θ",  # Changed from "Theta"
-            variable=self.channel_type_var, 
-            value="theta",
-            font=ctk.CTkFont(family="Arial", size=14)  # Ensures symbol support
-        ).pack(side='left')
-        ctk.CTkRadioButton(
-            calibration_frame, 
-            text="φ",  # Changed from "Phi"
-            variable=self.channel_type_var, 
-            value="phi",
-            font=ctk.CTkFont(family="Arial", size=14)
-        ).pack(side='left', padx=10)
+        type_frame = ctk.CTkFrame(io_config_frame, fg_color="transparent")
+        type_frame.grid(row=0, column=1, padx=(10,0))  # Left padding
+        ctk.CTkRadioButton(type_frame, text="θ", variable=self.channel_type_var, value="theta").pack(side='left')
+        ctk.CTkRadioButton(type_frame, text="φ", variable=self.channel_type_var, value="phi").pack(side='left', padx=5)
 
+        # Configure grid columns for equal spacing
+        io_config_frame.grid_columnconfigure(0, weight=1)
+        io_config_frame.grid_columnconfigure(1, weight=1)
 
+        # Calibration buttons
+        btn_frame = ctk.CTkFrame(calibration_frame, fg_color="transparent")
+        btn_frame.pack(pady=10)
 
-        # Calibration button
-        ctk.CTkButton(calibration_frame, 
-                     text="Characterize Resistance", 
-                     command=self._run_calibration).pack(pady=10)
+        # Configure grid columns
+        btn_frame.grid_columnconfigure(0, weight=1)
+        btn_frame.grid_columnconfigure(1, weight=1)
 
     def _get_current_channels(self, event=None):
         """Get theta/phi channels for current selection"""
@@ -369,7 +751,7 @@ class Window1Content(ctk.CTkFrame):
 
         return theta_ch, phi_ch
 
-    def _run_calibration(self):
+    def _run_resistance_calibration(self):
         """Run resistance characterization on selected channel"""
         try:
             theta_ch, phi_ch = self._get_current_channels()
@@ -383,7 +765,7 @@ class Window1Content(ctk.CTkFrame):
             self._characterize_resistance(target_channel)
             
             # Update UI
-            self._update_calibration_display(target_channel)
+            self._update_calibration_display_R(target_channel)
             
         except Exception as e:
             self._show_error(f"Calibration failed: {str(e)}")
@@ -446,37 +828,8 @@ class Window1Content(ctk.CTkFrame):
         # print(f"V(I) = {a:.2e}·I³ + {c:.2e}·I + {d:.2e}")
         # print(f"Max Current: {end_current:.1f} mA")
         print(f"Average Resistance: {np.mean(resistance):.2f}Ω")
-        # print(f"Resistance Range: {np.min(resistance):.2f}Ω - {np.max(resistance):.2f}Ω")
-        # print(f"Resistance @ Max Current: {resistance[-1]:.2f}Ω")
-  
-    # def _update_calibration_display(self, channel):
-    #     """Update UI with calibration results"""
-    #     params = self.resistance_params.get(channel)
-    #     if not hasattr(self, 'resistance_params'):
-    #         self.resistance_params = {}
-    #     # if not params:
-    #         return
-            
-    #     # Update channel info
-    #     self.current_channel_label.configure(
-    #         text=f"Channel {channel} ({'Theta' if channel == self._get_current_channels()[0] else 'Phi'})"
-    #     )
-        
-    #     # Update plots
-    #     fig = self._create_calibration_plot(params)
-    #     self._display_plot(fig)
-
-    # def _display_plot(self, fig):
-    #     """Display matplotlib plot in GUI"""
-    #     buf = io.BytesIO()
-    #     fig.savefig(buf, format='png')
-    #     buf.seek(0)
-        
-    #     # Update image display (assuming you have an image widget)
-    #     # self.calibration_image.configure(light_image=Image.open(buf))
-    #     plt.close(fig)
-
-    def _update_calibration_display(self, channel):
+   
+    def _update_calibration_display_R(self, channel):
         """Update UI with calibration results"""
         params = self.resistance_params.get(channel)
         if not params:
@@ -486,11 +839,11 @@ class Window1Content(ctk.CTkFrame):
         channel_type = self.channel_type_var.get()
         
         # Generate plot with channel context
-        fig = self._create_calibration_plot(params, channel_type, channel)  # Add missing args
-        self._display_plot(fig, channel)
+        fig = self._create_calibration_plot_R(params, channel_type, channel)  # Add missing args
+        self._display_plot_R(fig, channel)
 
 
-    def _create_calibration_plot(self, params, channel_type, target_channel):
+    def _create_calibration_plot_R(self, params, channel_type, target_channel):
         """Generate styled resistance characterization plot"""
         current = AppData.get_last_selection()
         label_map = create_label_mapping(8)
@@ -533,28 +886,87 @@ class Window1Content(ctk.CTkFrame):
 
         return fig
 
-    def _display_plot(self, fig, channel):
-        """Display matplotlib plot in a popup window"""
-        # Create popup window
-        plot_window = ctk.CTkToplevel(self)
-        # plot_window.title(f"Channel {channel} Calibration Results")
-        plot_window.title(f"Channel {channel} Calibration Results")  
-        plot_window.geometry("800x600")
+    # def _display_plot_R(self, fig, channel):
+    #     """Display matplotlib plot in a popup window"""
+    #     # Create popup window
+    #     plot_window = ctk.CTkToplevel(self)
+    #     # plot_window.title(f"Channel {channel} Calibration Results")
+    #     plot_window.title(f"Channel {channel} Calibration Results")  
+    #     plot_window.geometry("800x600")
         
-        # Convert plot to image
+    #     # Convert plot to image
+    #     buf = io.BytesIO()
+    #     fig.savefig(buf, format='png', dpi=100)
+    #     buf.seek(0)
+    #     img = Image.open(buf)
+        
+    #     # Create CTk image and label
+    #     ctk_image = ctk.CTkImage(
+    #         light_image=img,
+    #         dark_image=img,
+    #         size=(750, 550)
+    #     )
+        
+    #     label = ctk.CTkLabel(plot_window, image=ctk_image, text="")
+    #     label.pack(padx=10, pady=10)
+        
+    #     # Add close button
+    #     close_btn = ctk.CTkButton(
+    #         plot_window, 
+    #         text="Close", 
+    #         command=plot_window.destroy
+    #     )
+    #     close_btn.pack(pady=5)
+        
+    #     plt.close(fig)
+
+
+    def _display_plot_R(self, fig, channel):
+        """Display matplotlib plot in a popup window and graph tab"""
+        # Adjust figure layout to reduce whitespace and maximize content area
+        fig.tight_layout()
+        
+        # Convert plot to image with tight borders
         buf = io.BytesIO()
-        fig.savefig(buf, format='png', dpi=100)
+        fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
         buf.seek(0)
         img = Image.open(buf)
         
-        # Create CTk image and label
-        ctk_image = ctk.CTkImage(
+        # Create CTk images - one for popup, one for graph tab
+        popup_image = ctk.CTkImage(
             light_image=img,
             dark_image=img,
             size=(750, 550)
         )
         
-        label = ctk.CTkLabel(plot_window, image=ctk_image, text="")
+        # Get the actual width of the graph frame
+        graph_frame_width = self.graph_frame.winfo_width()/2  # Reduce width for better aspect ratio
+        graph_frame_height = self.graph_frame.winfo_height()/2  # Subtract space for text label
+        # Remove graph for now
+        # graph_image = ctk.CTkImage(
+        #     light_image=img,
+        #     dark_image=img,
+        #     size=(graph_frame_width, graph_frame_height)
+        # )
+
+        # # Prevent size propagation before updating the image
+        # self.graph_frame.pack_propagate(False)
+
+        # # Create a wider image for the graph tab to better fill horizontal space
+        # graph_width = 100  # RIncreased width to better fill horizontal space
+        # graph_height = 80
+        # graph_image = ctk.CTkImage(
+        #     light_image=img,
+        #     dark_image=img,
+        #     size=(graph_width, graph_height)
+        # )
+        
+        # Create popup window (original functionality)
+        plot_window = ctk.CTkToplevel(self)
+        plot_window.title(f"Channel {channel} Calibration Results")  
+        plot_window.geometry("800x600")
+        
+        label = ctk.CTkLabel(plot_window, image=popup_image, text="")
         label.pack(padx=10, pady=10)
         
         # Add close button
@@ -565,4 +977,243 @@ class Window1Content(ctk.CTkFrame):
         )
         close_btn.pack(pady=5)
         
+        # Update the image in the graph tab
+        # self.graph_image_label.configure(image=graph_image, text="")
+        
+        # Update text label
+        # self.graph_text_label.configure(text=f"Channel {channel} Calibration Results")
+        
+        # Store references to prevent garbage collection
+        self.popup_image_ref = popup_image
+        # self.graph_image_ref = graph_image
+        
         plt.close(fig)
+
+
+## Phase Calibration
+
+    def _run_phase_calibration(self):
+        """Run phase characterization on selected channel"""
+        try:
+            theta_ch, phi_ch = self._get_current_channels()
+            channel_type = self.channel_type_var.get()
+            target_channel = theta_ch if channel_type == "theta" else phi_ch
+            
+            if target_channel is None:
+                raise ValueError("No valid channel selected")
+                
+            # Get current I/O configuration
+            io_config = self.io_config_var.get()  # Add this variable to your UI
+            
+            # Run characterization
+            self._characterize_phase(target_channel, io_config)
+            
+            # Update UI
+            self._update_calibration_display_P(target_channel, io_config)
+            
+        except Exception as e:
+            self._show_error(f"Calibration failed: {str(e)}")
+
+    def _characterize_phase(self, channel, io_config):
+        """Execute phase characterization routine"""
+        # Measurement parameters
+        start_current = 0
+        end_current = self.qontrol.globalcurrrentlimit
+        steps = 10
+        delay = 0.5
+        
+        currents = np.linspace(start_current, end_current, steps)
+        optical_powers = []
+        
+        # Current sweep measurement
+        for I in currents:
+            self.qontrol.set_current(channel, float(I))
+            time.sleep(delay)
+            optical_powers.append(self.thorlabs.read_power())
+        
+        # Reset current to zero
+        self.qontrol.set_current(channel, 0.0)
+
+        # Perform cosine fit
+        if io_config == "cross":
+            fit_result = self.fit_cos(currents, optical_powers)
+        else:
+            fit_result = self.fit_cos_negative(currents, optical_powers)
+
+        # Store phase parameters
+        self.phase_params[channel] = {
+            'io_config': io_config,
+            'amp': fit_result['amp'],
+            'omega': fit_result['omega'],
+            'phase': fit_result['phase'],
+            'offset': fit_result['offset'],
+            'currents': currents.tolist(),
+            'optical_powers': optical_powers
+        }
+
+        print(f"Channel {channel} ({io_config}) Phase Characterization Complete")
+        print(f"Amp: {fit_result['amp']:.2e} mW")
+        print(f"Frequency: {fit_result['freq']:.2f} Hz")
+        print(f"Phase: {fit_result['phase']:.2f} rad")
+        
+
+    def fit_cos(self, xdata, ydata):
+        """Positive cosine fit"""
+        print("Fitting positive cosine...")
+        guess_freq = 1/20
+        guess_amp = np.std(ydata) * 2.**0.5
+        guess_offset = np.mean(ydata)
+        guess = [guess_amp, 2.*np.pi*guess_freq, 0., guess_offset]
+        
+        def cos_func(P, A, b, c, d):
+            return A * np.cos(b*P + c) + d
+
+        popt, pcov = optimize.curve_fit(
+            cos_func, xdata, ydata, p0=guess,
+            bounds=([0, 0, -np.pi, -np.inf], [np.inf, np.inf, np.pi, np.inf])
+        )
+
+        A, b, c, d = popt
+        return self._create_fit_result(A, b, c, d, cos_func, popt, pcov, guess)  # Pass pcov
+
+    def fit_cos_negative(self, xdata, ydata):
+        """Negative cosine fit"""
+        print("Fitting negative cosine...")
+        guess_freq = 1/20
+        guess_amp = np.std(ydata) * 2.**0.5
+        guess_offset = np.mean(ydata)
+        guess = [guess_amp, 2.*np.pi*guess_freq, 0., guess_offset]
+
+        def cos_func(P, A, b, c, d):
+            return -A * np.cos(b*P + c) + d
+
+        popt, pcov = optimize.curve_fit(
+            cos_func, xdata, ydata, p0=guess,
+            bounds=([0, 0, -np.pi, -np.inf], [np.inf, np.inf, np.pi, np.inf])
+        )
+
+        A, b, c, d = popt
+        return self._create_fit_result(A, b, c, d, cos_func, popt, pcov, guess)  # Pass pcov
+    
+    def _create_fit_result(self, A, b, c, d, cos_func, popt, pcov, guess):
+        """Package fit results consistently"""
+        print("Creating fit result...")
+        return {
+            'amp': A,
+            'omega': b,
+            'phase': c,
+            'offset': d,
+            'freq': b/(2.*np.pi),
+            'period': 1/(b/(2.*np.pi)),
+            'fitfunc': cos_func,
+            'maxcov': np.max(pcov),
+            'rawres': (guess, popt, pcov)
+        }
+    
+    def _create_calibration_plot_P(self, params, channel_type, target_channel, io_config):
+        """Generate phase calibration plot"""
+        print("Creating calibration plot...")
+        current = AppData.get_last_selection()
+        channel_symbol = "θ" if channel_type == "theta" else "φ"
+        
+        # Create plot with dark theme
+        fig, ax = plt.subplots(figsize=(8, 5))
+        fig.patch.set_facecolor('#2b2b2b')
+        ax.set_facecolor('#363636')
+        
+        # Plot data
+        ax.plot(params['currents'], params['optical_powers'], 
+            'o', color='white', markersize=6, label='Measured Data')
+        
+        # Plot fit - recreate the cosine function based on io_config
+        x_fit = np.linspace(min(params['currents']), max(params['currents']), 100)
+        
+        # Define the cosine function based on io_config
+        if io_config == "cross":
+            y_fit = params['amp'] * np.cos(params['omega']*x_fit + params['phase']) + params['offset']
+        else:  # bar
+            y_fit = -params['amp'] * np.cos(params['omega']*x_fit + params['phase']) + params['offset']
+            
+        ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=2.5, label='Cosine Fit')
+
+        # Labels and titles
+        title_str = f"Phase Characterization of {current['cross']}:{channel_symbol} at Channel {target_channel} ({io_config.capitalize()} Config)"
+        ax.set_title(title_str, color='white', fontsize=12, pad=20)
+        ax.set_xlabel("Current (mA)", color='white', fontsize=10)
+        ax.set_ylabel("Optical Power (mW)", color='white', fontsize=10)
+        
+        # Configure ticks and borders
+        ax.tick_params(colors='white', which='both')
+        for spine in ax.spines.values():
+            spine.set_color('white')
+            
+        # Legend styling
+        legend = ax.legend(frameon=True, facecolor='#2b2b2b', edgecolor='white')
+        for text in legend.get_texts():
+            text.set_color('white')
+
+        print("returning figure")
+        return fig
+
+
+    def _update_calibration_display_P(self, channel, io_config):
+        """Update UI with calibration results"""
+        print("Updating calibration display...")
+        # Change this line to use self.phase_params instead of self.calibration_params
+        params = self.phase_params.get(channel)
+        print(params)
+        if not params:
+            return
+            
+        # Get current channel type
+        channel_type = self.channel_type_var.get()
+        
+        # Generate and display plot
+        fig = self._create_calibration_plot_P(params, channel_type, channel, io_config)
+        self._display_plot_P(fig, channel)
+        print("Updated calibration display")
+
+
+
+    def _display_plot_P(self, fig, channel):
+        """Display matplotlib plot in a popup window"""
+        # Create popup window
+        fig.tight_layout()
+        # plot_window = ctk.CTkToplevel(self)
+        # plot_window.title(f"Channel {channel} Calibration Results")
+
+        # Convert plot to image with tight borders
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+        buf.seek(0)
+        img = Image.open(buf)
+        
+        # Create popup window (original functionality)
+        plot_window = ctk.CTkToplevel(self)
+        plot_window.title(f"Channel {channel} Calibration Results")  
+        plot_window.geometry("800x600")
+        
+
+        
+        # Create CTk images - one for popup, one for graph tab
+        popup_image = ctk.CTkImage(
+            light_image=img,
+            dark_image=img,
+            size=(750, 550)
+        )
+        
+        label = ctk.CTkLabel(plot_window, image=popup_image, text="")
+        label.pack(padx=10, pady=10)
+
+        # Add close button
+        close_btn = ctk.CTkButton(
+            plot_window, 
+            text="Close", 
+            command=plot_window.destroy
+        )
+        close_btn.pack(pady=5)
+
+        self.popup_image_ref = popup_image
+        print("displaying figure")
+        plt.close(fig)
+

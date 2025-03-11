@@ -843,7 +843,7 @@ class MyCalcFrame_main(customtkinter.CTkFrame):
         self.phiphase2.grid(column=1, row=6, padx=10, pady=(5,0), sticky="ew")
         self.button = customtkinter.CTkButton(self, text="Apply", width=self.button_width, command = self.applyphase)
         self.button.grid(column=2, row=6, padx=10, pady=(5,0), sticky="nsew")
-            #derived current given the phase
+        # derived current given the phase
         self.curr = customtkinter.CTkLabel(self, text = "Derived current (mA):")
         self.curr.grid(column=0, row=7, padx=10, pady=(5,0), sticky="e")
         self.curr2 = customtkinter.CTkLabel(self, text = "Null")
