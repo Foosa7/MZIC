@@ -36,7 +36,7 @@ class Window3Content(ctk.CTkFrame):
         self.tabview.add('U2')
         self.tabview.add('U3')
 
-        # For each tab, build a separate NxN of CTkEntries.
+        # For each tab, build a "grid"—now implemented with a single text box:
         self.unitary_entries_U1 = self.create_nxn_entries(self.tabview.tab('U1'))
         self.unitary_entries_U2 = self.create_nxn_entries(self.tabview.tab('U2'))
         self.unitary_entries_U3 = self.create_nxn_entries(self.tabview.tab('U3'))
@@ -88,18 +88,18 @@ class Window3Content(ctk.CTkFrame):
             'U1': (self.unitary_entries_U1, 'saved_unitary_U1'),
             'U2': (self.unitary_entries_U2, 'saved_unitary_U2'),
             'U3': (self.unitary_entries_U3, 'saved_unitary_U3'),
-            }
+        }
 
     def get_active_tab(self):
         '''
-        Returns the unitary entry grid (2D list) and corresponding AppData variable
+        Returns the unitary entry grid (2D list / text widget) and corresponding AppData variable
         for the currently selected tab.
         '''
         return self.get_unitary_mapping().get(self.tabview.get(), (None, None))
         
     def get_unitary_by_tab(self, tab_name):
         '''
-        Returns the unitary entry grid (2D list) and corresponding AppData variable
+        Returns the unitary entry grid (2D list / text widget) and corresponding AppData variable
         for a specific tab (U1, U2, U3).
         '''
         return self.get_unitary_mapping().get(tab_name, (None, None))
@@ -124,52 +124,68 @@ class Window3Content(ctk.CTkFrame):
                 print(f'Error in {operation} operation for {tab_name}: {e}')  # Log error 
 
     def create_nxn_entries(self, parent_frame):
-        '''Creates an NxN grid of CTkEntry fields inside parent_frame and returns a 2D list.'''
-        entries_2d = []
-        frame = ctk.CTkFrame(parent_frame, fg_color='gray20')
-        frame.pack(anchor='center', padx=5, pady=5)
-    
-        for i in range(self.n):
-            row_entries = []
-            for j in range(self.n):
-                e = ctk.CTkEntry(frame, width=55)
-                e.grid(row=i, column=j, padx=5, pady=5)
-                row_entries.append(e)
-            entries_2d.append(row_entries)
-        
-        return entries_2d
+        '''
+        Creates an NxN "grid" of CTkEntry fields.
+        '''
+        matrix_textbox = ctk.CTkTextbox(parent_frame, width=800, height=200)
+        matrix_textbox.pack(anchor='center', padx=5, pady=5)
+        return matrix_textbox
 
     def read_tab_entries(self, entries_2d) -> np.ndarray | None:
-        '''Returns NxN complex array from the given 2D entries, or None on error.'''
+        '''
+        Returns an NxN complex array parsed from the given 2D entries.
+        '''
+        text_content = entries_2d.get("1.0", "end").strip()
+        if not text_content:
+            return None
+        
+        lines = text_content.splitlines()
+        if len(lines) != self.n:
+            print(f"Expected {self.n} rows, found {len(lines)} lines.")
+            return None
+        
         data = []
-        for i in range(self.n):
+        for row_index, line in enumerate(lines):
+            parts = line.split()
+            if len(parts) != self.n:
+                print(f"Line {row_index} has {len(parts)} columns, expected {self.n}.")
+                return None
+            
             row_vals = []
-            for j in range(self.n):
-                val_str = entries_2d[i][j].get().strip()
-                if not val_str:
-                    val_str = '0'
+            for val_str in parts:
                 try:
                     val = complex(val_str)
                 except ValueError:
-                    print(f'Invalid entry at row={i}, col={j}: {val_str}')
+                    print(f"Invalid complex format '{val_str}' in row {row_index}.")
                     return None
                 row_vals.append(val)
             data.append(row_vals)
+
         return np.array(data, dtype=complex)
 
     def fill_tab_entries(self, entries_2d, matrix: np.ndarray):
-        '''Fill the NxN entries_2d from 'matrix'.'''
+        '''
+        Fill the NxN entries_2d from 'matrix'.
+        '''
         rows = min(self.n, matrix.shape[0])
         cols = min(self.n, matrix.shape[1])
+        lines = []
+
         for i in range(rows):
+            row_vals = []
             for j in range(cols):
                 val = matrix[i, j]
-                val_str = f'{val.real:.4f}'
-                if abs(val.imag) > 1e-12:
+                if abs(val.imag) < 1e-12:
+                    row_vals.append(f'{val.real:.4f}')
+                else:
                     sign = '+' if val.imag >= 0 else '-'
-                    val_str = f'{val.real:.4f}{sign}{abs(val.imag):.4f}j'
-                entries_2d[i][j].delete(0, 'end')
-                entries_2d[i][j].insert(0, val_str)
+                    row_vals.append(f'{val.real:.4f}{sign}{abs(val.imag):.4f}j')
+            lines.append(" ".join(row_vals))
+
+        entries_2d.configure(state='normal')
+        entries_2d.delete("1.0", "end")
+        entries_2d.insert("1.0", "\n".join(lines))
+        entries_2d.configure(state='normal')
 
     def decompose_unitary(self):
         '''Read NxN from the currently selected tab and decompose it.'''
@@ -250,7 +266,6 @@ class Window3Content(ctk.CTkFrame):
             self.fill_tab_entries(entries, mat)
             setattr(AppData, appdata_var, mat)  # Save dynamically
 
-
     def fill_random(self):
         '''Fill the currently selected tab with a random unitary matrix.'''
         mat = itf.random_unitary(self.n)
@@ -276,7 +291,7 @@ class Window3Content(ctk.CTkFrame):
             for child in container.winfo_children():
                 child.destroy()
     
-            # Recreate the grid and update reference
+            # Recreate the "grid" and update reference
             new_entries = self.create_nxn_entries(container)
             setattr(self, f'unitary_entries_{tab_name}', new_entries)
     
