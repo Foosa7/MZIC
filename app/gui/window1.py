@@ -64,6 +64,7 @@ class Window1Content(ctk.CTkFrame):
         control_frame.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
         control_frame.grid_rowconfigure(0, weight=1)
         control_frame.grid_columnconfigure(0, weight=1)
+        # self.graph_frame.pack_propagate(False)
         
         # Compact inner frame
         inner_frame = ctk.CTkFrame(control_frame, fg_color="transparent")
@@ -81,8 +82,8 @@ class Window1Content(ctk.CTkFrame):
             ("Apply", self._apply_config),
             ("Clear", self._clear_grid),
             ("Status", self._show_full_status),
-            ("Resistance", self._run_resistance_calibration),
-            ("Phase", self._run_phase_calibration)
+            ("R", self._run_resistance_calibration),
+            ("P", self._run_phase_calibration)
         ]
 
         # Configure grid columns for 7 buttons
@@ -95,7 +96,7 @@ class Window1Content(ctk.CTkFrame):
                 btn_frame, 
                 text=text,
                 command=cmd,
-                width=40 if col < 5 else 60,  # Narrower for first 5, wider for last 2
+                width=20,  #  if col < 5 else 60, Narrower for first 5, wider for last 2
                 height=24,
                 font=ctk.CTkFont(size=11 if col < 5 else 10)  # Smaller font for long labels
             )
@@ -106,15 +107,45 @@ class Window1Content(ctk.CTkFrame):
         notebook = ctk.CTkTabview(inner_frame, height=180)  # Fixed height
         notebook.grid(row=1, column=0, sticky="nsew", pady=(2, 0))
         inner_frame.grid_columnconfigure(0, weight=1)
-        
-        # Status tab
-        self.status_display = ctk.CTkTextbox(notebook.add("Status"), state="disabled")
-        self.status_display.pack(fill="both", expand=True)
-        
+
+        # When creating the graph tab
+        graph_tab = notebook.add("Graph")
+        self.graph_frame = ctk.CTkFrame(graph_tab)
+        self.graph_frame.pack(fill="both", expand=True, padx=0, pady=0)
+
+        # Configure the graph frame to expand properly
+        self.graph_frame.grid_columnconfigure(0, weight=1)
+        self.graph_frame.grid_rowconfigure(0, weight=1) 
+
+        # Create the image label with proper parameters for maximum space usage
+        self.graph_image_label = ctk.CTkLabel(
+            self.graph_frame, 
+            text="No plot to display", 
+            image=None,
+            corner_radius=0,
+            fg_color="transparent"
+        )
+        self.graph_image_label.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+
+        # Text label below the image
+        self.graph_text_label = ctk.CTkLabel(
+            self.graph_frame, 
+            text="",
+            anchor="center"
+        )
+        self.graph_text_label.grid(row=1, column=0, sticky="ew")
+
+
         # Mapping tab
         self.mapping_display = ctk.CTkTextbox(notebook.add("Mapping"))
         self.mapping_display.pack(fill="both", expand=True)
         
+
+        # Status tab
+        self.status_display = ctk.CTkTextbox(notebook.add("Status"), state="disabled")
+        self.status_display.pack(fill="both", expand=True)
+        
+
         # Compact error display
         self.error_display = ctk.CTkTextbox(
             inner_frame, 
@@ -516,28 +547,87 @@ class Window1Content(ctk.CTkFrame):
 
         return fig
 
-    def _display_plot_R(self, fig, channel):
-        """Display matplotlib plot in a popup window"""
-        # Create popup window
-        plot_window = ctk.CTkToplevel(self)
-        # plot_window.title(f"Channel {channel} Calibration Results")
-        plot_window.title(f"Channel {channel} Calibration Results")  
-        plot_window.geometry("800x600")
+    # def _display_plot_R(self, fig, channel):
+    #     """Display matplotlib plot in a popup window"""
+    #     # Create popup window
+    #     plot_window = ctk.CTkToplevel(self)
+    #     # plot_window.title(f"Channel {channel} Calibration Results")
+    #     plot_window.title(f"Channel {channel} Calibration Results")  
+    #     plot_window.geometry("800x600")
         
-        # Convert plot to image
+    #     # Convert plot to image
+    #     buf = io.BytesIO()
+    #     fig.savefig(buf, format='png', dpi=100)
+    #     buf.seek(0)
+    #     img = Image.open(buf)
+        
+    #     # Create CTk image and label
+    #     ctk_image = ctk.CTkImage(
+    #         light_image=img,
+    #         dark_image=img,
+    #         size=(750, 550)
+    #     )
+        
+    #     label = ctk.CTkLabel(plot_window, image=ctk_image, text="")
+    #     label.pack(padx=10, pady=10)
+        
+    #     # Add close button
+    #     close_btn = ctk.CTkButton(
+    #         plot_window, 
+    #         text="Close", 
+    #         command=plot_window.destroy
+    #     )
+    #     close_btn.pack(pady=5)
+        
+    #     plt.close(fig)
+
+
+    def _display_plot_R(self, fig, channel):
+        """Display matplotlib plot in a popup window and graph tab"""
+        # Adjust figure layout to reduce whitespace and maximize content area
+        fig.tight_layout()
+        
+        # Convert plot to image with tight borders
         buf = io.BytesIO()
-        fig.savefig(buf, format='png', dpi=100)
+        fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
         buf.seek(0)
         img = Image.open(buf)
         
-        # Create CTk image and label
-        ctk_image = ctk.CTkImage(
+        # Create CTk images - one for popup, one for graph tab
+        popup_image = ctk.CTkImage(
             light_image=img,
             dark_image=img,
             size=(750, 550)
         )
         
-        label = ctk.CTkLabel(plot_window, image=ctk_image, text="")
+        # Get the actual width of the graph frame
+        graph_frame_width = self.graph_frame.winfo_width()/2  # Reduce width for better aspect ratio
+        graph_frame_height = self.graph_frame.winfo_height()/2  # Subtract space for text label
+        # Remove graph for now
+        # graph_image = ctk.CTkImage(
+        #     light_image=img,
+        #     dark_image=img,
+        #     size=(graph_frame_width, graph_frame_height)
+        # )
+
+        # # Prevent size propagation before updating the image
+        # self.graph_frame.pack_propagate(False)
+
+        # # Create a wider image for the graph tab to better fill horizontal space
+        # graph_width = 100  # RIncreased width to better fill horizontal space
+        # graph_height = 80
+        # graph_image = ctk.CTkImage(
+        #     light_image=img,
+        #     dark_image=img,
+        #     size=(graph_width, graph_height)
+        # )
+        
+        # Create popup window (original functionality)
+        plot_window = ctk.CTkToplevel(self)
+        plot_window.title(f"Channel {channel} Calibration Results")  
+        plot_window.geometry("800x600")
+        
+        label = ctk.CTkLabel(plot_window, image=popup_image, text="")
         label.pack(padx=10, pady=10)
         
         # Add close button
@@ -548,7 +638,18 @@ class Window1Content(ctk.CTkFrame):
         )
         close_btn.pack(pady=5)
         
+        # Update the image in the graph tab
+        # self.graph_image_label.configure(image=graph_image, text="")
+        
+        # Update text label
+        # self.graph_text_label.configure(text=f"Channel {channel} Calibration Results")
+        
+        # Store references to prevent garbage collection
+        self.popup_image_ref = popup_image
+        # self.graph_image_ref = graph_image
+        
         plt.close(fig)
+
 
 ## Phase Calibration
 
@@ -619,6 +720,7 @@ class Window1Content(ctk.CTkFrame):
 
     def fit_cos(self, xdata, ydata):
         """Positive cosine fit"""
+        print("Fitting positive cosine...")
         guess_freq = 1/20
         guess_amp = np.std(ydata) * 2.**0.5
         guess_offset = np.mean(ydata)
@@ -637,6 +739,7 @@ class Window1Content(ctk.CTkFrame):
 
     def fit_cos_negative(self, xdata, ydata):
         """Negative cosine fit"""
+        print("Fitting negative cosine...")
         guess_freq = 1/20
         guess_amp = np.std(ydata) * 2.**0.5
         guess_offset = np.mean(ydata)
@@ -653,8 +756,9 @@ class Window1Content(ctk.CTkFrame):
         A, b, c, d = popt
         return self._create_fit_result(A, b, c, d, cos_func, popt, pcov, guess)  # Pass pcov
     
-    def _create_fit_result(self, A, b, c, d, fit_func, popt, pcov, guess):
+    def _create_fit_result(self, A, b, c, d, cos_func, popt, pcov, guess):
         """Package fit results consistently"""
+        print("Creating fit result...")
         return {
             'amp': A,
             'omega': b,
@@ -662,57 +766,42 @@ class Window1Content(ctk.CTkFrame):
             'offset': d,
             'freq': b/(2.*np.pi),
             'period': 1/(b/(2.*np.pi)),
-            'fitfunc': fit_func,
+            'fitfunc': cos_func,
             'maxcov': np.max(pcov),
             'rawres': (guess, popt, pcov)
         }
-
-
-    def _update_calibration_display_P(self, channel, io_config):
-        """Update UI with calibration results"""
-        params = self.calibration_params[io_config].get(channel)
-        if not params:
-            return
-            
-        # Get current channel type
-        channel_type = self.channel_type_var.get()
-        
-        # Generate and display plot
-        fig = self._create_calibration_plot_P(params, channel_type, channel, io_config)
-        self._display_plot_P(fig, channel)
     
-    def _create_calibration_plot(self, params, channel_type, target_channel, io_config):
+    def _create_calibration_plot_P(self, params, channel_type, target_channel, io_config):
+        """Generate phase calibration plot"""
+        print("Creating calibration plot...")
         current = AppData.get_last_selection()
         channel_symbol = "θ" if channel_type == "theta" else "φ"
         
+        # Create plot with dark theme
         fig, ax = plt.subplots(figsize=(8, 5))
         fig.patch.set_facecolor('#2b2b2b')
         ax.set_facecolor('#363636')
         
-        if io_config == "resistance":
-            # Resistance plot
-            ax.plot(params['currents'], params['voltages'], 
-                'o', color='white', markersize=6, label='Measured Data')
-            x_fit = np.linspace(min(params['currents']), max(params['currents']), 100)
-            y_fit = params['a']*x_fit**3 + params['c']*x_fit + params['d']
-            ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=2.5, label='Cubic Fit')
-            
-            title_str = f"Resistance Characterization of {current['cross']}:{channel_symbol} at Channel {target_channel}"
-            ax.set_xlabel("Current (mA)", color='white', fontsize=10)
-            ax.set_ylabel("Voltage (V)", color='white', fontsize=10)
-        else:
-            # Phase plot
-            ax.plot(params['currents'], params['optical_powers'], 
-                'o', color='white', markersize=6, label='Measured Data')
-            x_fit = np.linspace(min(params['currents']), max(params['currents']), 100)
-            y_fit = params['fitfunc'](x_fit, params['amp'], params['omega'], params['phase'], params['offset'])
-            ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=2.5, label='Cosine Fit')
-            
-            title_str = f"Phase Characterization of {current['cross']}:{channel_symbol} at Channel {target_channel} ({io_config.capitalize()} Config)"
-            ax.set_xlabel("Current (mA)", color='white', fontsize=10)
-            ax.set_ylabel("Optical Power (mW)", color='white', fontsize=10)
+        # Plot data
+        ax.plot(params['currents'], params['optical_powers'], 
+            'o', color='white', markersize=6, label='Measured Data')
         
+        # Plot fit - recreate the cosine function based on io_config
+        x_fit = np.linspace(min(params['currents']), max(params['currents']), 100)
+        
+        # Define the cosine function based on io_config
+        if io_config == "cross":
+            y_fit = params['amp'] * np.cos(params['omega']*x_fit + params['phase']) + params['offset']
+        else:  # bar
+            y_fit = -params['amp'] * np.cos(params['omega']*x_fit + params['phase']) + params['offset']
+            
+        ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=2.5, label='Cosine Fit')
+
+        # Labels and titles
+        title_str = f"Phase Characterization of {current['cross']}:{channel_symbol} at Channel {target_channel} ({io_config.capitalize()} Config)"
         ax.set_title(title_str, color='white', fontsize=12, pad=20)
+        ax.set_xlabel("Current (mA)", color='white', fontsize=10)
+        ax.set_ylabel("Optical Power (mW)", color='white', fontsize=10)
         
         # Configure ticks and borders
         ax.tick_params(colors='white', which='both')
@@ -724,64 +813,59 @@ class Window1Content(ctk.CTkFrame):
         for text in legend.get_texts():
             text.set_color('white')
 
+        print("returning figure")
         return fig
 
 
-    def _create_calibration_plot_P(self, params, channel_type, target_channel, io_config):
-        """Generate phase calibration plot"""
-        current = AppData.get_last_selection()
-        fig, ax = plt.subplots(figsize=(8, 5))
+    def _update_calibration_display_P(self, channel, io_config):
+        """Update UI with calibration results"""
+        print("Updating calibration display...")
+        # Change this line to use self.phase_params instead of self.calibration_params
+        params = self.phase_params.get(channel)
+        print(params)
+        if not params:
+            return
+            
+        # Get current channel type
+        channel_type = self.channel_type_var.get()
         
-        # Dark theme styling
-        fig.patch.set_facecolor('#2b2b2b')
-        ax.set_facecolor('#363636')
-        ax.tick_params(colors='white')
-        for spine in ax.spines.values():
-            spine.set_color('white')
+        # Generate and display plot
+        fig = self._create_calibration_plot_P(params, channel_type, channel, io_config)
+        self._display_plot_P(fig, channel)
+        print("Updated calibration display")
 
-        # Plot data
-        ax.plot(params['currents'], params['optical_powers'], 
-               'o', color='white', markersize=6, label='Measured')
-        
-        # Plot fit
-        x_fit = np.linspace(min(params['currents']), max(params['currents']), 100)
-        y_fit = params['fit_func'](x_fit, *params['amp'], *params['omega'], 
-                                 *params['phase'], *params['offset'])
-        ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=2.5, label='Fit')
 
-        # Labels and titles
-        title = f"Phase Calibration: {current['cross']}-{current['arm']}\n"
-        title += f"{channel_type.capitalize()} Channel {target_channel} ({io_config} Config)"
-        ax.set_title(title, color='white', fontsize=12)
-        ax.set_xlabel("Current (mA)", color='white')
-        ax.set_ylabel("Optical Power (mW)", color='white')
-        
-        return fig
 
     def _display_plot_P(self, fig, channel):
         """Display matplotlib plot in a popup window"""
         # Create popup window
-        plot_window = ctk.CTkToplevel(self)
+        fig.tight_layout()
+        # plot_window = ctk.CTkToplevel(self)
         # plot_window.title(f"Channel {channel} Calibration Results")
-        plot_window.title(f"Channel {channel} Calibration Results")  
-        plot_window.geometry("800x600")
-        
-        # Convert plot to image
+
+        # Convert plot to image with tight borders
         buf = io.BytesIO()
-        fig.savefig(buf, format='png', dpi=100)
+        fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
         buf.seek(0)
         img = Image.open(buf)
         
-        # Create CTk image and label
-        ctk_image = ctk.CTkImage(
+        # Create popup window (original functionality)
+        plot_window = ctk.CTkToplevel(self)
+        plot_window.title(f"Channel {channel} Calibration Results")  
+        plot_window.geometry("800x600")
+        
+
+        
+        # Create CTk images - one for popup, one for graph tab
+        popup_image = ctk.CTkImage(
             light_image=img,
             dark_image=img,
             size=(750, 550)
         )
         
-        label = ctk.CTkLabel(plot_window, image=ctk_image, text="")
+        label = ctk.CTkLabel(plot_window, image=popup_image, text="")
         label.pack(padx=10, pady=10)
-        
+
         # Add close button
         close_btn = ctk.CTkButton(
             plot_window, 
@@ -789,5 +873,8 @@ class Window1Content(ctk.CTkFrame):
             command=plot_window.destroy
         )
         close_btn.pack(pady=5)
-        
+
+        self.popup_image_ref = popup_image
+        print("displaying figure")
         plt.close(fig)
+
