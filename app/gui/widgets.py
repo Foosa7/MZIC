@@ -83,74 +83,65 @@ class DeviceControlWidget(ctk.CTkFrame):
         )
         self.disconnect_button.pack(fill="x", pady=2) #grid(row=1, column=0, padx=10, pady=10, sticky="ew")
     
-    # def update_device_info(self, params):
-    #     if params:
-    #         device_id = params.get("Device id", "Disconnected")
-    #         firmware = params.get("Firmware", "-")
-    #         channels = params.get("Available channels", "-")
-    #         current_limit = params.get("Global Current Limit", "-")
 
-    #         model = params.get("Model", "-") # Model name
-    #         serial = params.get("Serial", "-")  # Serial number
-    #         wavelength = params.get("Wavelength", "-") # Wavelength in nm
-    #         power_range = params.get("Power Range", "-") # Power range in W
-            
-    #         # Update Qontrol parameters
-    #         self.device_label.configure(text=f"Device: Qontroller '{device_id}'")
-    #         self.firmware_label.configure(text=f"Firmware: {firmware}")
-    #         self.channels_label.configure(text=f"Channels: {channels}")
-    #         self.current_limit_label.configure(text=f"Current limit: {current_limit} mA")
-            
-    #         # Update Thorlabs parameters
-    #         self.thorlabs_model_label.configure(text=f"Thorlabs Model: {model}")
-    #         self.thorlabs_serial_label.configure(text=f"Serial: {serial}")
-    #         self.thorlabs_wavelength_label.configure(text=f"Wavelength: {wavelength} nm")
-    #         self.thorlabs_power_label.configure(text=f"Power Range: {power_range}")
-
-    #     else:
-    #         # Clear all parameters
-    #         self.status_label.configure(text="Device Control")
-    #         self.device_label.configure(text="Device: -")
-    #         self.firmware_label.configure(text="Firmware: -")
-    #         self.channels_label.configure(text="Channels: -")
-    #         self.current_limit_label.configure(text="Current limit: -")
-            
-    #         # Clear Thorlabs-specific parameters
-    #         self.thorlabs_model_label.configure(text="Thorlabs Model: -")
-    #         self.thorlabs_serial_label.configure(text="Serial: -")
-    #         self.thorlabs_wavelength_label.configure(text="Wavelength: - nm")
-    #         self.thorlabs_power_label.configure(text="Power Range: -")
-
-
-    # In DeviceControlWidget class
     def update_device_info(self, params, device_type):
-        """Handle both Qontrol and Thorlabs updates with type checking"""
+        """Handle Qontrol and multiple Thorlabs updates with type checking"""
+        # Extract device index for thorlabs devices (thorlabs, thorlabs1, thorlabs2, etc.)
+        
+        if not device_type:
+            self._clear_all_labels()
+            return
+        
+        # If we're updating Qontrol device
         if params and device_type == "qontrol":
             # Update Qontrol parameters
             self.device_label.configure(text=f"Device: Qontroller '{params.get('Device id', '-')}'")
             self.firmware_label.configure(text=f"Firmware: {params.get('Firmware', '-')}")
             self.channels_label.configure(text=f"Channels: {params.get('Available channels', '-')}")
-            self.current_limit_label.configure(text=f"Current limit: {params.get('Global Current Limit', '-')} mA")
+            self.current_limit_label.configure(text=f"Current limit: {params.get('Global Current Limit', '-')} mA")    
+        
+        # If we're updating (one or more) Thorlabs device(s)
+        elif params and device_type.startswith("thorlabs"):
+            
+            device_index = device_type[8:]  # Extract index number if present
+            
+            if device_index == "":
+                self.thorlabs_model_label.configure(
+                    text=f"Thorlabs 1 Model: {params.get('Model', '-')} (SN: {params.get('Serial', '-')})"    
+                )
+            else:
+                attr_name = f"thorlabs_model_label{device_index}"
+                if not hasattr(self, attr_name):
+                    label = ctk.CTkLabel(self.info_frame, anchor="w")
+                    setattr(self, attr_name, label)
+                    label.pack(fill="x", padx=10, pady=(0,2))
+                label = getattr(self, attr_name)
+                label.configure(
+                    text=f"Thorlabs {device_index} Model: {params.get('Model', '-')} (SN: {params.get('Serial', '-')})"    
+                )
+                
+        elif device_type.startswith("thorlabs"):
+            device_index = device_type[8:]
+            
+            if device_index == "":
+                self.thorlabs_model_label.configure(text="Thorlabs Model: -")
+            else:
+                attr_name = f"thorlabs_model_label{device_index}"
+                if hasattr(self, attr_name):
+                    getattr(self, attr_name).configure(text=f"Thorlabs {device_index} Model: -")
+                
+    def _clear_all_labels(self):
+        self.device_label.configure(text="Device: -")
+        self.firmware_label.configure(text="Firmware: -")
+        self.channels_label.configure(text="Channels: -")
+        self.current_limit_label.configure(text="Current limit: -")
+        self.thorlabs_model_label.configure(text="Thorlabs Model: -")
+        
+        for attr_name in dir(self):
+            if attr_name.startswith("thorlabs_model_label") and attr_name != "thorlabs_model_label":
+                get_attr(self, attr_name).configure(text=f"Thorlabs {attr_name[19:]} Model: -")
 
-        elif params and device_type == "thorlabs":
-            # Update Thorlabs parameters
-            self.thorlabs_model_label.configure(text=f"Thorlabs Model: {params.get('Model', '-')}")
-            # self.thorlabs_serial_label.configure(text=f"Serial: {params.get('Serial', '-')}")
-            # self.thorlabs_wavelength_label.configure(text=f"Wavelength: {params.get('Wavelength', '-')} nm")
-            # self.thorlabs_power_label.configure(text=f"Power Range: {params.get('Power Range', '-')}")
-
-        else:
-            # Clear all parameters
-            self.device_label.configure(text="Device: -")
-            self.firmware_label.configure(text="Firmware: -")
-            self.channels_label.configure(text="Channels: -")
-            self.current_limit_label.configure(text="Current limit: -")
-            self.thorlabs_model_label.configure(text="Thorlabs Model: -")
-            # self.thorlabs_serial_label.configure(text="Serial: -")
-            # self.thorlabs_wavelength_label.configure(text="Wavelength: - nm")
-            # self.thorlabs_power_label.configure(text="Power Range: -")
-
-
+    
 class AppControlWidget(ctk.CTkFrame):
     def __init__(self, master, import_command=None, export_command=None, 
                 mesh_change_command=None, config=None, *args, **kwargs):

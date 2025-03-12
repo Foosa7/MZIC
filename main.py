@@ -1,5 +1,4 @@
 # main.py
-
 from app.imports import *
 
 SETTINGS_PATH = os.path.join(os.path.dirname(__file__), "config", "settings.json")
@@ -13,27 +12,57 @@ def main():
     with open(SETTINGS_PATH, "r") as f:
         config = json.load(f)
 
-    # Initialize devices (replace with Mock devices for testing)
-    qontrol = QontrolDevice(config=config)  # Replace with QontrolDevice for real hardware
-    # qontrol = MockQontrol(config=config) # Replace with QontrolDevice for real hardware
-    thorlabs = ThorlabsDevice(config=config)  # Replace with ThorlabsDevice for real hardware
-    # thorlabs = MockThorlabsPM100()  # Replace with ThorlabsDevice for real hardware
+    # List available Thorlabs devices
+    available_devices = ThorlabsDevice.list_available_devices()
+    print(f"Found {len(available_devices)} Thorlabs devices:")
+    for i, device in enumerate(available_devices):
+        print(f"{i+1}. {device['model']} (SN: {device['serial']})")
+    
+    # Initialize devices
+    qontrol = QontrolDevice(config=config)
+    
+    # Connect to multiple Thorlabs devices if available
+    thorlabs_devices = []
+    
+    if available_devices:
+        # Connect to the first device
+        thorlabs1 = ThorlabsDevice.get_device(
+            serial=available_devices[0]['serial'], 
+            config=config
+        )
+        thorlabs_devices.append(thorlabs1)
+        
+        # Connect to additional devices if available
+        if len(available_devices) > 1:
+            thorlabs2 = ThorlabsDevice.get_device(
+                serial=available_devices[1]['serial'], 
+                config=config
+            )
+            thorlabs_devices.append(thorlabs2)
+            
+        if len(available_devices) > 2:
+            thorlabs3 = ThorlabsDevice.get_device(
+                serial=available_devices[2]['serial'], 
+                config=config
+            )
+            thorlabs_devices.append(thorlabs3)
+    else:
+        # No devices found, use a mock device
+        thorlabs1 = ThorlabsDevice(config=config)
+        thorlabs.connect()
+        thorlabs_devices.append(thorlabs1)
 
-    # Connect to devices
+    # Connect to Qontrol device
     qontrol.connect()
-    thorlabs.connect()
 
-    # Start the GUI application
-    app = MainWindow(qontrol, thorlabs, config)
+    # Start the GUI application (you'll need to modify your MainWindow to handle multiple power meters)
+    app = MainWindow(qontrol, thorlabs_devices, config)
     app.mainloop()
 
     # Disconnect devices on exit
     qontrol.disconnect()
-    thorlabs.disconnect()
+    for device in thorlabs_devices:
+        device.disconnect()
 
 if __name__ == "__main__":
     main()
-
-
-# f1- 20, 46
-# g3- 23, 51
