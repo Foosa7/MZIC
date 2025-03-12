@@ -27,12 +27,12 @@ def clements_to_chip(clements_bs_list):
         bs.theta = bs.theta % (2*np.pi)
         if abs(bs.theta) < 1e-3:
             bs.theta = 0
-        bs.theta = format(bs.theta,'.3f')
+        bs.theta = format(bs.theta/np.pi,'.3f')
      
         
         bs.phi = bs.phi % (2*np.pi)
         if abs(bs.phi) < 1e-3:
             bs.phi = 0
-        bs.phi = format(bs.phi,'.3f')
+        bs.phi = format(bs.phi/np.pi,'.3f')
     
 
