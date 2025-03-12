@@ -5,6 +5,7 @@
     "heaterid6x6": [0, 1, 2, 3, 4, 5],
     "heaterid8x8": [0, 1, 2, 3, 4, 5, 6, 7],
     "default_mesh": "8x8",
-    "options": ["4x4", "6x6", "8x8", "12x12"]
+    "options": ["4x4", "6x6", "8x8", "12x12"],
+    "default_config": "C:\\Users\\hp-ma\\Downloads\\newcal.pkl"
   }
   

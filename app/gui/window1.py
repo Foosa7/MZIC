@@ -1,6 +1,8 @@
 # app/gui/window1.py
 from app.imports import *
 
+from decimal import *
+import copy
 import sympy as sp
 from app.utils.appdata import AppData
 import io
@@ -42,7 +44,7 @@ class Window1Content(ctk.CTkFrame):
         # Build UI components
         self._create_grid_container()
         self._create_compact_control_panel()  # Changed to compact version
-        self._create_calibration_controls()
+        # self._create_calibration_controls()
         self._create_status_displays()
         
         # Initial setup
@@ -90,8 +92,8 @@ class Window1Content(ctk.CTkFrame):
 
         # Add to your controls list in _create_compact_control_panel method:
         controls = [
-            ("Import", self._import_config),
-            ("Export", self._export_config),
+            # ("Import", self._import_config),
+            # ("Export", self._export_config),
             ("Apply", self._apply_config),
             ("Clear", self._clear_grid),
             ("Status", self._show_full_status),
@@ -100,9 +102,7 @@ class Window1Content(ctk.CTkFrame):
             ("Phase", self.apply_phase_new)  # Add this new button
         ]
 
-
-        # Configure grid columns for 7 buttons
-        for col in range(7):
+        for col in range(5):
             btn_frame.grid_columnconfigure(col, weight=1)
 
         # Create buttons with adjusted styling
@@ -111,9 +111,9 @@ class Window1Content(ctk.CTkFrame):
                 btn_frame, 
                 text=text,
                 command=cmd,
-                width=20,  #  if col < 5 else 60, Narrower for first 5, wider for last 2
+                width=20, 
                 height=24,
-                font=ctk.CTkFont(size=11 if col < 5 else 10)  # Smaller font for long labels
+                font=ctk.CTkFont(size=12) 
             )
             btn.grid(row=0, column=col, padx=1, sticky="nsew")
 
@@ -164,7 +164,7 @@ class Window1Content(ctk.CTkFrame):
         # Compact error display
         self.error_display = ctk.CTkTextbox(
             inner_frame, 
-            height=60,  # Reduced height
+            height=100,  # Reduced height
             state="disabled"
         )
         self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
@@ -205,6 +205,7 @@ class Window1Content(ctk.CTkFrame):
     def _event_update_handler(self, event=None):
         """Handle event-driven updates"""
         current = AppData.get_last_selection()
+        # print(self.custom_grid.export_paths_json())
         # print(f"Live selection: {current['cross']}-{current['arm']}")
         # modes = self.get_cross_modes()  # self refers to Example instance
         # for cross_label, mode in modes.items():
@@ -293,6 +294,20 @@ class Window1Content(ctk.CTkFrame):
         except Exception as e:
             self._show_error(f"Device update failed: {str(e)}")
 
+    # def _update_device(self):
+    #     """Update Qontrol device with current values"""
+    #     try:
+    #         # Check if we have a phase grid config, otherwise use the regular export
+    #         if hasattr(self, 'phase_grid_config'):
+    #             config = self.phase_grid_config
+    #         else:
+    #             config = json.loads(self.custom_grid.export_paths_json())
+                
+    #         apply_grid_mapping(self.qontrol, config, self.grid_size)
+    #     except Exception as e:
+    #         self._show_error(f"Device update failed: {str(e)}")
+
+
     def _export_config(self):
         """Export current configuration"""
         try:
@@ -360,320 +375,179 @@ class Window1Content(ctk.CTkFrame):
         """Force apply current configuration"""
         self._update_device()
 
-    # def apply_phase_new(self):
-    #     """Apply phase settings to the entire grid based on phase calibration data"""
-    #     try:
-    #         # Get current grid configuration
-    #         current_config = json.loads(self.custom_grid.export_paths_json())
-    #         if not current_config:
-    #             self._show_error("No grid configuration found")
-    #             return
-                
-    #         # Get current selection to determine which channel to use
-    #         current = AppData.get_last_selection()
-    #         if not current or 'cross' not in current or not current['cross']:
-    #             self._show_error("No cross selected. Please select a cross first.")
-    #             return
-                
-    #         # Get theta/phi channels for current selection
-    #         theta_ch, phi_ch = self._get_current_channels()
-    #         if theta_ch is None or phi_ch is None:
-    #             self._show_error("Invalid channel selection")
-    #             return
-                
-    #         # Get current I/O configuration and channel type
-    #         io_config = self.io_config_var.get()
-    #         channel_type = self.channel_type_var.get()
-    #         target_channel = theta_ch if channel_type == "theta" else phi_ch
-                
-    #         # Get phase parameters for the selected channel
-    #         params = self.phase_params.get(target_channel)
-    #         if not params:
-    #             self._show_error("Phase calibration data missing. Please characterize the phase shifter first.")
-    #             return
-                
-    #         # Extract calibration parameters
-    #         A = params['amp']
-    #         b = params['omega']
-    #         c = params['phase']
-    #         d = params['offset']
-            
-    #         # Get resistance parameters for the selected channel
-    #         r_params = self.resistance_params.get(target_channel)
-    #         if not r_params:
-    #             self._show_error("Resistance calibration data missing. Please characterize the resistance first.")
-    #             return
-                
-    #         # Create a dialog to get the desired phase value
-    #         dialog = ctk.CTkInputDialog(
-    #             text=f"Enter desired phase (in π units) for {current['cross']}:", 
-    #             title="Apply Phase"
-    #         )
-    #         phi_input = dialog.get_input()
-            
-    #         if not phi_input:
-    #             return  # User canceled
-                
-    #         # Validate input
-    #         try:
-    #             phi = float(phi_input)
-    #         except ValueError:
-    #             self._show_error("Invalid phase value. Please enter a number.")
-    #             return
-                
-    #         # Check if phase is within valid range
-    #         if phi < c/np.pi:
-    #             self._show_error(f"Entered phase less than the offset phase ({c/np.pi:.2f}π) of this phase shifter. Enter a greater value.")
-    #             return
-                
-    #         # Calculate current based on phase
-    #         if channel_type == "theta":
-    #             # Update theta value in the current configuration
-    #             if current['cross'] in current_config:
-    #                 current_config[current['cross']]["theta"] = str(phi)
-                    
-    #             # Calculate current to apply
-    #             P = abs((phi*np.pi - c) / b)  # Heating power for phi phase shift
-                
-    #             # Use cubic+linear model if available, otherwise use linear model
-    #             if 'a' in r_params and 'c' in r_params:  # Cubic+linear model
-    #                 # Define symbols for solving equation
-    #                 I = sp.symbols('I')
-    #                 P_watts = P/1000  # Convert to watts
-    #                 R0 = r_params['c']  # Linear resistance term
-    #                 alpha = r_params['a']/R0 if R0 != 0 else 0  # Nonlinearity parameter
-                    
-    #                 # Define equation: P/R0 = I^2 + alpha*I^4
-    #                 eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
-                    
-    #                 # Solve the equation
-    #                 solutions = sp.solve(eq, I)
-                    
-    #                 # Filter and choose the real, positive solution
-    #                 positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
-    #                 if positive_solutions:
-    #                     current_to_apply = float(1000 * positive_solutions[0])  # Convert to mA
-    #                 else:
-    #                     current_to_apply = float(round(1000 * np.sqrt(P/(R0*1000)), 2))  # Fallback to linear model
-    #             else:  # Linear model
-    #                 R = r_params.get('c', 50.0)  # Use linear resistance or default to 50 ohms
-    #                 current_to_apply = float(round(1000 * np.sqrt(P/(R*1000)), 2))  # Calculate current in mA
-                    
-    #             # Apply the current to the device
-    #             self.qontrol.set_current(target_channel, current_to_apply/1000.0)  # Convert mA to A
-    #             print(f"Applied {current_to_apply:.2f} mA to channel {target_channel} for phase {phi}π")
-                
-    #         elif channel_type == "phi":
-    #             # Update phi value in the current configuration
-    #             if current['cross'] in current_config:
-    #                 current_config[current['cross']]["phi"] = str(phi)
-                    
-    #             # Calculate current using the same logic as for theta
-    #             P = abs((phi*np.pi - c) / b)
-                
-    #             if 'a' in r_params and 'c' in r_params:
-    #                 I = sp.symbols('I')
-    #                 P_watts = P/1000
-    #                 R0 = r_params['c']
-    #                 alpha = r_params['a']/R0 if R0 != 0 else 0
-                    
-    #                 eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
-    #                 solutions = sp.solve(eq, I)
-                    
-    #                 positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
-    #                 if positive_solutions:
-    #                     current_to_apply = float(1000 * positive_solutions[0])
-    #                 else:
-    #                     current_to_apply = float(round(1000 * np.sqrt(P/(R0*1000)), 2))
-    #             else:
-    #                 R = r_params.get('c', 50.0)
-    #                 current_to_apply = float(round(1000 * np.sqrt(P/(R*1000)), 2))
-                    
-    #             # Apply the current to the device
-    #             # self.qontrol.set_current(target_channel, current_to_apply/1000.0)
-    #             print(f"Applied {current_to_apply:.2f} mA to channel {target_channel} for phase {phi}π")
-            
-    #         # Update the grid display with new configuration
-    #         self.custom_grid.import_paths_json(json.dumps(current_config))
-            
-    #         # Update device with new configuration
-    #         self._update_device()
-            
-    #         return json.dumps(current_config)
-            
-    #     except Exception as e:
-    #         self._show_error(f"Failed to apply phase: {str(e)}")
-    #         import traceback
-    #         traceback.print_exc()
-    #         return None
-
-
     def apply_phase_new(self):
-        """Apply phase settings to the entire grid based on phase calibration data"""
+        """
+        Apply phase settings to the entire grid based on phase calibration data.
+        Processes all theta and phi values in the current grid configuration.
+        """
         try:
             # Get current grid configuration
-            current_config = json.loads(self.custom_grid.export_paths_json())
-            if not current_config:
+            grid_config = json.loads(self.custom_grid.export_paths_json())
+            if not grid_config:
                 self._show_error("No grid configuration found")
                 return
                 
-            # Get current selection to determine which channel to use
-            current = AppData.get_last_selection()
-            if not current or 'cross' not in current or not current['cross']:
-                self._show_error("No cross selected. Please select a cross first.")
-                return
-                
-            # Get theta/phi channels for current selection
-            theta_ch, phi_ch = self._get_current_channels()
-            if theta_ch is None or phi_ch is None:
-                self._show_error("Invalid channel selection")
-                return
-                
-            # Get current I/O configuration and channel type
-            io_config = self.io_config_var.get()
-            channel_type = self.channel_type_var.get()
-            target_channel = theta_ch if channel_type == "theta" else phi_ch
+            # Create label mapping for channel assignments
+            label_map = create_label_mapping(8)  # Assuming 8x8 grid
             
-            # Similar to your previous approach, create a nested array structure
-            calpararrays = [
-                [self.app.caliparamlist_lincub_cross, self.app.caliparamlist_lincub_bar]
-            ]
+            # Create a new configuration with current values
+            phase_grid_config = copy.deepcopy(grid_config)
+            
+            # Track successful and failed applications
+            applied_channels = []
+            failed_channels = []
+            
+            # Process each cross in the grid
+            for cross_label, data in grid_config.items():
+                # Skip if this cross isn't in our mapping
+                if cross_label not in label_map:
+                    continue
+                    
+                theta_ch, phi_ch = label_map[cross_label]
+                theta_val = data.get("theta", "0")
+                phi_val = data.get("phi", "0")
 
-            print(calpararrays)
+                # Process theta channel
+                if theta_ch is not None and theta_val:
+                    try:
+                        theta_float = float(theta_val)
+                        current_theta = self._calculate_current_for_phase(theta_ch, theta_float, "cross", "bar")
+                        if current_theta is not None:
+                            # Quantize to 5 decimal places
+                            current_theta = round(current_theta, 5)
+                            # Update the phase_grid_config with current value
+                            phase_grid_config[cross_label]["theta"] = str(current_theta)  # Store in A
+                            applied_channels.append(f"{cross_label}:θ = {current_theta:.5f} mA")
+                        else:
+                            failed_channels.append(f"{cross_label}:θ (no calibration)")
+                    except Exception as e:
+                        failed_channels.append(f"{cross_label}:θ ({str(e)})")
+
+                # Process phi channel
+                if phi_ch is not None and phi_val:
+                    try:
+                        phi_float = float(phi_val)
+                        current_phi = self._calculate_current_for_phase(phi_ch, phi_float, "cross", "bar")
+                        if current_phi is not None:
+                            # Quantize to 5 decimal places
+                            current_phi = round(current_phi, 5)
+                            # Update the phase_grid_config with current value
+                            phase_grid_config[cross_label]["phi"] = str(current_phi)  # Store in A
+                            applied_channels.append(f"{cross_label}:φ = {current_phi:.5f} mA")
+                        else:
+                            failed_channels.append(f"{cross_label}:φ (no calibration)")
+                    except Exception as e:
+                        failed_channels.append(f"{cross_label}:φ ({str(e)})")
             
-            # Select the appropriate array based on IO configuration
-            IOconfig_index = 0 if io_config == "cross" else 1
-            fit_index = 0  # Assuming we're using the first fit type
+            # Store the phase grid config for later use
+            self.phase_grid_config = phase_grid_config
             
-            # Get the current array and settings
-            currentarray = calpararrays[fit_index][IOconfig_index]
-            
-            # Check if the target channel exists and is not "Null"
-            if target_channel >= len(currentarray) or currentarray[target_channel] == "Null":
-                self._show_error("Phase calibration data missing for this channel. Please characterize the phase shifter first.")
-                return
+            # Only show error message if there are failures
+            if failed_channels:
+                result_message = f"Failed to apply to {len(failed_channels)} channels"
+                messagebox.showinfo("Phase Application", result_message)
                 
-            # Get the current settings for this channel
-            currentsettings = currentarray[target_channel]
+            # Update the mapping display with detailed results
+            self.mapping_display.configure(state="normal")
+            self.mapping_display.delete("1.0", "end")
+            self.mapping_display.insert("1.0", "Phase Application Results:\n\n")
+            self.mapping_display.insert("end", "Successfully applied:\n")
+            for channel in applied_channels:
+                self.mapping_display.insert("end", f"• {channel}\n")
+            if failed_channels:
+                self.mapping_display.insert("end", "\nFailed to apply:\n")
+                for channel in failed_channels:
+                    self.mapping_display.insert("end", f"• {channel}\n")
+            self.mapping_display.configure(state="disabled")
             
-            # Extract calibration parameters
-            A = currentsettings['amp']
-            b = currentsettings['omega']
-            c = currentsettings['phase']
-            d = currentsettings['offset']
-            
-            # Get resistance parameters for the selected channel
-            if target_channel >= len(self.app.resistance_parameter_list):
-                self._show_error("Resistance calibration data missing. Please characterize the resistance first.")
-                return
-            
-            r_params = self.app.resistance_parameter_list[target_channel]
-            if not r_params or len(r_params) < 2:
-                self._show_error("Resistance calibration data incomplete. Please characterize the resistance first.")
-                return
-                
-            # Create a dialog to get the desired phase value
-            dialog = ctk.CTkInputDialog(
-                text=f"Enter desired phase (in π units) for {current['cross']}:", 
-                title="Apply Phase"
-            )
-            phi_input = dialog.get_input()
-            
-            if not phi_input:
-                return  # User canceled
-                
-            # Validate input
+            print(phase_grid_config)
+
             try:
-                phi = float(phi_input)
-            except ValueError:
-                self._show_error("Invalid phase value. Please enter a number.")
-                return
-                
-            # Check if phase is within valid range
-            if phi < c/np.pi:
-                self._show_error(f"Entered phase less than the offset phase ({c/np.pi:.2f}π) of this phase shifter. Enter a greater value.")
-                return
-                
-            # Calculate current based on phase
-            if channel_type == "theta":
-                # Update theta value in the current configuration
-                if current['cross'] in current_config:
-                    current_config[current['cross']]["theta"] = str(phi)
-                    
-                # Calculate current to apply
-                P = abs((phi*np.pi - c) / b)  # Heating power for phi phase shift
-                
-                # Use cubic+linear model if available, otherwise use linear model
-                if len(r_params) >= 2:  # Assuming [a, c] format for cubic+linear
-                    # Define symbols for solving equation
-                    I = sp.symbols('I')
-                    P_watts = P/1000  # Convert to watts
-                    R0 = r_params[1]  # Linear resistance term (c)
-                    alpha = r_params[0]/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
-                    
-                    # Define equation: P/R0 = I^2 + alpha*I^4
-                    eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
-                    
-                    # Solve the equation
-                    solutions = sp.solve(eq, I)
-                    
-                    # Filter and choose the real, positive solution
-                    positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
-                    if positive_solutions:
-                        current_to_apply = float(1000 * positive_solutions[0])  # Convert to mA
-                    else:
-                        current_to_apply = float(round(1000 * np.sqrt(P/(R0*1000)), 2))  # Fallback to linear model
-                else:  # Linear model
-                    R = self.app.linear_resistance_list[target_channel] if target_channel < len(self.app.linear_resistance_list) else 50.0
-                    current_to_apply = float(round(1000 * np.sqrt(P/(R*1000)), 2))  # Calculate current in mA
-                    
-                # Apply the current to the device
-                self.qontrol.set_current(target_channel, current_to_apply/1000.0)  # Convert mA to A
-                print(f"Applied {current_to_apply:.2f} mA to channel {target_channel} for phase {phi}π")
-                
-            elif channel_type == "phi":
-                # Update phi value in the current configuration
-                if current['cross'] in current_config:
-                    current_config[current['cross']]["phi"] = str(phi)
-                    
-                # Calculate current using the same logic as for theta
-                P = abs((phi*np.pi - c) / b)
-                
-                if len(r_params) >= 2:
-                    I = sp.symbols('I')
-                    P_watts = P/1000
-                    R0 = r_params[1]
-                    alpha = r_params[0]/R0 if R0 != 0 else 0
-                    
-                    eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
-                    solutions = sp.solve(eq, I)
-                    
-                    positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
-                    if positive_solutions:
-                        current_to_apply = float(1000 * positive_solutions[0])
-                    else:
-                        current_to_apply = float(round(1000 * np.sqrt(P/(R0*1000)), 2))
-                else:
-                    R = self.app.linear_resistance_list[target_channel] if target_channel < len(self.app.linear_resistance_list) else 50.0
-                    current_to_apply = float(round(1000 * np.sqrt(P/(R*1000)), 2))
-                    
-                # Apply the current to the device
-                self.qontrol.set_current(target_channel, current_to_apply/1000.0)
-                print(f"Applied {current_to_apply:.2f} mA to channel {target_channel} for phase {phi}π")
-            
-            # Update the grid display with new configuration
-            self.custom_grid.import_paths_json(json.dumps(current_config))
-            
-            # Update device with new configuration
-            self._update_device()
-            
-            return json.dumps(current_config)
+                # config = self.custom_grid.export_paths_json()
+                config_json = json.dumps(phase_grid_config)
+                apply_grid_mapping(self.qontrol, config_json, self.grid_size)
+            except Exception as e:
+                self._show_error(f"Device update failed: {str(e)}")        
+
+            return phase_grid_config
             
         except Exception as e:
-            self._show_error(f"Failed to apply phase: {str(e)}")
+            self._show_error(f"Failed to apply phases: {str(e)}")
             import traceback
             traceback.print_exc()
             return None
+
+    def _calculate_current_for_phase(self, channel, phase_value, *io_configs):
+        """
+        Calculate current for a given phase value, trying multiple IO configurations.
+        Returns current in mA or None if calculation fails.
+        """
+        # Try each IO configuration in order until one works
+        for io_config in io_configs:
+            # Check for cross calibration data
+            if io_config == "cross" and channel < len(self.app.caliparamlist_lincub_cross) and self.app.caliparamlist_lincub_cross[channel] != "Null":
+                params = self.app.caliparamlist_lincub_cross[channel]
+                return self._calculate_current_from_params(channel, phase_value, params)
+                
+            # Check for bar calibration data
+            elif io_config == "bar" and channel < len(self.app.caliparamlist_lincub_bar) and self.app.caliparamlist_lincub_bar[channel] != "Null":
+                params = self.app.caliparamlist_lincub_bar[channel]
+                return self._calculate_current_from_params(channel, phase_value, params)
+        
+        return None
+
+    def _calculate_current_from_params(self, channel, phase_value, params):
+        """Calculate current from phase parameters"""
+        # Extract calibration parameters
+        A = params['amp']
+        b = params['omega']
+        c = params['phase']
+        d = params['offset']
+        
+        # Check if phase is within valid range
+        if phase_value < c/np.pi:
+            print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi:.2f}π for channel {channel}")
+            # Multiply phase_value by 2 and continue with calculation
+            phase_value = phase_value * 2
+            print(f"Using adjusted phase value: {phase_value}π")
+
+        # Calculate heating power for this phase shift
+        P = abs((phase_value*np.pi - c) / b)
+        
+        # Get resistance parameters
+        if channel < len(self.app.resistance_parameter_list):
+            r_params = self.app.resistance_parameter_list[channel]
+            
+            # Use cubic+linear model if available
+            if len(r_params) >= 2:
+                # Define symbols for solving equation
+                I = sp.symbols('I')
+                P_watts = P/1000  # Convert to watts
+                R0 = r_params[1]  # Linear resistance term (c)
+                alpha = r_params[0]/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
+                
+                # Define equation: P/R0 = I^2 + alpha*I^4
+                eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
+                
+                # Solve the equation
+                solutions = sp.solve(eq, I)
+                
+                # Filter and choose the real, positive solution
+                positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+                if positive_solutions:
+                    return float(1000 * positive_solutions[0])  # Convert to mA 
+                else:
+                    # Fallback to linear model
+                    R0 = r_params[1]
+                    return float(round(1000 * np.sqrt(P/(R0*1000)), 2))
+            else:
+                # Use linear model
+                R = self.app.linear_resistance_list[channel] if channel < len(self.app.linear_resistance_list) else 50.0
+                return float(round(1000 * np.sqrt(P/(R*1000)), 2))
+        else:
+            # No resistance parameters, use default
+            return float(round(1000 * np.sqrt(P/(50.0*1000)), 2))
+
 
 
     def _show_full_status(self):
@@ -699,45 +573,6 @@ class Window1Content(ctk.CTkFrame):
         """Handle grid size changes"""
         self.grid_size = new_size
         self.build_grid(new_size)
-
-    def _create_calibration_controls(self):
-        """Add calibration section with separate buttons"""
-        calibration_frame = ctk.CTkFrame(self.control_panel)
-        calibration_frame.pack(pady=10, fill='x')
-
-        # Channel selection display
-        self.current_channel_label = ctk.CTkLabel(calibration_frame, text="No channel selected")
-        self.current_channel_label.pack(pady=5)
-
-        # Create container frame for side-by-side layout
-        io_config_frame = ctk.CTkFrame(calibration_frame, fg_color="transparent")
-        io_config_frame.pack(pady=5, fill='x')
-
-        # Cross/Bar selector
-        self.io_config_var = ctk.StringVar(value="cross")
-        config_frame = ctk.CTkFrame(io_config_frame, fg_color="transparent")
-        config_frame.grid(row=0, column=0, padx=(0,10))  # Right padding
-        ctk.CTkRadioButton(config_frame, text="Cross", variable=self.io_config_var, value="cross").pack(side='left')
-        ctk.CTkRadioButton(config_frame, text="Bar", variable=self.io_config_var, value="bar").pack(side='left', padx=5)
-
-        # Theta/Phi selector
-        self.channel_type_var = ctk.StringVar(value="theta")
-        type_frame = ctk.CTkFrame(io_config_frame, fg_color="transparent")
-        type_frame.grid(row=0, column=1, padx=(10,0))  # Left padding
-        ctk.CTkRadioButton(type_frame, text="θ", variable=self.channel_type_var, value="theta").pack(side='left')
-        ctk.CTkRadioButton(type_frame, text="φ", variable=self.channel_type_var, value="phi").pack(side='left', padx=5)
-
-        # Configure grid columns for equal spacing
-        io_config_frame.grid_columnconfigure(0, weight=1)
-        io_config_frame.grid_columnconfigure(1, weight=1)
-
-        # Calibration buttons
-        btn_frame = ctk.CTkFrame(calibration_frame, fg_color="transparent")
-        btn_frame.pack(pady=10)
-
-        # Configure grid columns
-        btn_frame.grid_columnconfigure(0, weight=1)
-        btn_frame.grid_columnconfigure(1, weight=1)
 
     def _get_current_channels(self, event=None):
         """Get theta/phi channels for current selection"""
@@ -793,11 +628,6 @@ class Window1Content(ctk.CTkFrame):
         X = np.vstack([currents**3, currents, np.ones_like(currents)]).T
         coefficients, residuals, _, _ = np.linalg.lstsq(X, voltages, rcond=None)
         a, c, d = coefficients
-
-
-        # Calculate differential resistance (dV/dI)
-        # resistance = 3*a*currents**2 + c  # Derivative of cubic fit
-        # Calculate resistance using the cubic+linear model
 
         resistance = a * currents**2 + c  # Modified from derivative-based calculation
 
