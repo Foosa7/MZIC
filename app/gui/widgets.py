@@ -87,58 +87,59 @@ class DeviceControlWidget(ctk.CTkFrame):
     def update_device_info(self, params, device_type):
         """Handle Qontrol and multiple Thorlabs updates with type checking"""
         # Extract device index for thorlabs devices (thorlabs, thorlabs1, thorlabs2, etc.)
-        device_index = ""
-        if device_type.startswith("thorlabs") and len(device_type) > 8:
-            device_index = device_type[8:]  # Extract index number if present
         
+        if not device_type:
+            self._clear_all_labels()
+            return
+        
+        # If we're updating Qontrol device
         if params and device_type == "qontrol":
             # Update Qontrol parameters
             self.device_label.configure(text=f"Device: Qontroller '{params.get('Device id', '-')}'")
             self.firmware_label.configure(text=f"Firmware: {params.get('Firmware', '-')}")
             self.channels_label.configure(text=f"Channels: {params.get('Available channels', '-')}")
-            self.current_limit_label.configure(text=f"Current limit: {params.get('Global Current Limit', '-')} mA")
-
-        elif params and device_type.startswith("thorlabs"):
-            # Update Thorlabs parameters with device index if applicable
-            device_suffix = f" {device_index}" if device_index else ""
-            self.thorlabs_model_label.configure(
-                text=f"Model: {params.get('Model', '-')}({params.get('Serial', '-')})"
-            )
-            
-            # Create or update additional labels for multiple devices if needed
-            if device_index and not hasattr(self, f"thorlabs_model_label{device_index}"):
-                # Create new label for additional device
-                setattr(self, f"thorlabs_model_label{device_index}", 
-                    ctk.CTkLabel(self.info_frame, text=f"Thorlabs{device_suffix} Model: -", anchor="w"))
-                getattr(self, f"thorlabs_model_label{device_index}").pack(fill="x", padx=10, pady=(0, 2))
-            
-            # Update the specific device label if it exists
-            if device_index and hasattr(self, f"thorlabs_model_label{device_index}"):
-                getattr(self, f"thorlabs_model_label{device_index}").configure(
-                    text=f"Model: {params.get('Model', '-')}({params.get('Serial', '-')})"
-                )
-
-        elif device_type is None:
-            # Clear all parameters
-            self.device_label.configure(text="Device: -")
-            self.firmware_label.configure(text="Firmware: -")
-            self.channels_label.configure(text="Channels: -")
-            self.current_limit_label.configure(text="Current limit: -")
-            self.thorlabs_model_label.configure(text="Thorlabs Model: -")
-            
-            # Clear any additional thorlabs device labels
-            for attr_name in dir(self):
-                if attr_name.startswith("thorlabs_model_label") and attr_name != "thorlabs_model_label":
-                    getattr(self, attr_name).configure(text=f"Thorlabs {attr_name[19:]} Model: -")
+            self.current_limit_label.configure(text=f"Current limit: {params.get('Global Current Limit', '-')} mA")    
         
-        elif device_type.startswith("thorlabs"):
-            # Clear only the specific thorlabs device
-            if device_index and hasattr(self, f"thorlabs_model_label{device_index}"):
-                getattr(self, f"thorlabs_model_label{device_index}").configure(
-                    text=f"Thorlabs {device_index} Model: -"
+        # If we're updating (one or more) Thorlabs device(s)
+        elif params and device_type.startswith("thorlabs"):
+            
+            device_index = device_type[8:]  # Extract index number if present
+            
+            if device_index == "":
+                self.thorlabs_model_label.configure(
+                    text=f"Thorlabs 0 (SN: {params.get('Serial', '-')})"    
                 )
             else:
+                attr_name = f"thorlabs_model_label{device_index}"
+                if not hasattr(self, attr_name):
+                    label = ctk.CTkLabel(self.info_frame, anchor="w")
+                    setattr(self, attr_name, label)
+                    label.pack(fill="x", padx=10, pady=(0,2))
+                label = getattr(self, attr_name)
+                label.configure(
+                    text=f"Thorlabs {device_index} (SN: {params.get('Serial', '-')})"    
+                )
+                
+        elif device_type.startswith("thorlabs"):
+            device_index = device_type[8:]
+            
+            if device_index == "":
                 self.thorlabs_model_label.configure(text="Thorlabs Model: -")
+            else:
+                attr_name = f"thorlabs_model_label{device_index}"
+                if hasattr(self, attr_name):
+                    getattr(self, attr_name).configure(text=f"Thorlabs {device_index} Model: -")
+                
+    def _clear_all_labels(self):
+        self.device_label.configure(text="Device: -")
+        self.firmware_label.configure(text="Firmware: -")
+        self.channels_label.configure(text="Channels: -")
+        self.current_limit_label.configure(text="Current limit: -")
+        self.thorlabs_model_label.configure(text="Thorlabs Model: -")
+        
+        for attr_name in dir(self):
+            if attr_name.startswith("thorlabs_model_label") and attr_name != "thorlabs_model_label":
+                get_attr(self, attr_name).configure(text=f"Thorlabs {attr_name[19:]} Model: -")
 
     
 class AppControlWidget(ctk.CTkFrame):
