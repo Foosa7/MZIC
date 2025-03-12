@@ -1,5 +1,6 @@
 # app/utils/mzi_lut.py
 import json
+import math
 from app.imports import *
 
 # Label sequence matching the physical layout

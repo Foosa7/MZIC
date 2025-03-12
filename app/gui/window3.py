@@ -2,6 +2,7 @@
 
 from app.imports import *
 import tkinter.filedialog as filedialog
+import math
 
 from app.utils.unitary import mzi_lut
 from app.utils.unitary import mzi_convention
