@@ -10,11 +10,24 @@ class AppData:
     saved_unitary_U2 = None     
     saved_unitary_U3 = None    
 
+    # @classmethod
+    # def update_last_selection(cls, cross, arm):
+    #     cls.last_selected["cross"] = cross.split('-')[0]  # Handle composite labels
+    #     cls.last_selected["arm"] = arm.split('-')[0]
+
     @classmethod
     def update_last_selection(cls, cross, arm):
-        cls.last_selected["cross"] = cross.split('-')[0]  # Handle composite labels
-        cls.last_selected["arm"] = arm.split('-')[0]
-        
+        if cross is not None:
+            cls.last_selected["cross"] = cross.split('-')[0]  # Handle composite labels
+        else:
+            cls.last_selected["cross"] = ""
+            
+        if arm is not None:
+            cls.last_selected["arm"] = arm.split('-')[0]
+        else:
+            cls.last_selected["arm"] = ""
+
+
     @classmethod 
     def get_last_selection(cls):
         with cls._last_selection_lock:
@@ -31,7 +44,7 @@ class AppData:
             "Cubic + linear fit (V = R₀ ( I + αI³)"
         ]
         self.default_fit = self.fit_func[1]
-        self.IOconfig_options = ["Cross", "Bar", "50:50", "Custom"]
+        self.IOconfig_options = ["Cross", "Bar", "split", "Custom"]
         self.default_IOconfig = self.IOconfig_options[0]
 
 

@@ -193,7 +193,7 @@ class Window1Content(ctk.CTkFrame):
     def _start_status_updates(self):
         """Start periodic status updates"""
         self._update_system_status()
-        self.after(10000, self._start_status_updates)
+        self.after(5000, self._start_status_updates)
 
     def _update_system_status(self):
         """Update both status and error displays"""
@@ -365,32 +365,85 @@ class Window1Content(ctk.CTkFrame):
         cover.destroy()
 
     def _clear_grid(self):
-        """Clear all selections and reset the grid"""
-        # try:
+        """Clear all selections and reset the grid, setting all values to zero"""
+        try:
             # Clear all selections
-        for path in self.custom_grid.paths:
-            if path.line_id in self.custom_grid.selected_paths:
-                self.custom_grid.canvas.itemconfig(path.line_id, fill="white")
-        self.custom_grid.selected_paths.clear()
+            for path in self.custom_grid.paths:
+                if path.line_id in self.custom_grid.selected_paths:
+                    self.custom_grid.canvas.itemconfig(path.line_id, fill="white")
+            self.custom_grid.selected_paths.clear()
+            
+            # Clear all input boxes
+            for cross_label in list(self.custom_grid.input_boxes.keys()):
+                self.custom_grid.delete_input_boxes(cross_label)
+            
+            # Reset last selection
+            self.custom_grid.last_selection = {"cross": None, "arm": None}
+            AppData.update_last_selection(None, None)
+            
+            # Update the selection display
+            self.custom_grid.update_selection()
+            
+            # Trigger the selection updated event
+            self.custom_grid.event_generate("<<SelectionUpdated>>")
+            
+            # Create a zero-value configuration for all crosspoints
+            zero_config = self._create_zero_config()
+            
+            # Apply the zero configuration to the device
+            apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
+            
+            print("Grid cleared and all values set to zero")
+        except Exception as e:
+            self._show_error(f"Failed to clear grid: {str(e)}")
+            print(f"Error in clear grid: {e}")
+
+    def _create_zero_config(self):
+        """Create a configuration with all theta and phi values set to zero"""
+        n = int(self.grid_size.split('x')[0])
+        zero_config = {}
         
-        # Clear all input boxes
-        for cross_label in list(self.custom_grid.input_boxes.keys()):
-            self.custom_grid.delete_input_boxes(cross_label)
+        # Generate all possible crosspoint labels (A1, A2, B1, etc.)
+        for row in range(n):
+            row_letter = chr(65 + row)  # A, B, C, etc.
+            for col in range(1, n+1):
+                cross_label = f"{row_letter}{col}"
+                zero_config[cross_label] = {
+                    "arms": ["TL", "TR", "BL", "BR"],  # Include all arms
+                    "theta": "0",
+                    "phi": "0"
+                }
         
-        # Reset last selection
-        self.custom_grid.last_selection = {"cross": None, "arm": None}
-        AppData.update_last_selection(None, None)
+        return json.dumps(zero_config)
+
+
+    # def _clear_grid(self):
+    #     """Clear all selections and reset the grid"""
+    #     # try:
+    #         # Clear all selections
+    #     for path in self.custom_grid.paths:
+    #         if path.line_id in self.custom_grid.selected_paths:
+    #             self.custom_grid.canvas.itemconfig(path.line_id, fill="white")
+    #     self.custom_grid.selected_paths.clear()
         
-        # Update the selection display
-        self.custom_grid.update_selection()
+    #     # Clear all input boxes
+    #     for cross_label in list(self.custom_grid.input_boxes.keys()):
+    #         self.custom_grid.delete_input_boxes(cross_label)
         
-        # Trigger the selection updated event
-        self.custom_grid.event_generate("<<SelectionUpdated>>")
+    #     # Reset last selection
+    #     self.custom_grid.last_selection = {"cross": None, "arm": None}
+    #     AppData.update_last_selection(None, None)
         
-        # print("Grid cleared successfully")
-        # except Exception as e:
-            # self._show_error(f"Failed to clear grid: {str(e)}")
-            # print                    
+    #     # Update the selection display
+    #     self.custom_grid.update_selection()
+        
+    #     # Trigger the selection updated event
+    #     self.custom_grid.event_generate("<<SelectionUpdated>>")
+        
+    #     # print("Grid cleared successfully")
+    #     # except Exception as e:
+    #         # self._show_error(f"Failed to clear grid: {str(e)}")
+    #         # print                    
 
     def _apply_config(self):
         """Force apply current configuration"""
@@ -427,6 +480,7 @@ class Window1Content(ctk.CTkFrame):
                 theta_ch, phi_ch = label_map[cross_label]
                 theta_val = data.get("theta", "0")
                 phi_val = data.get("phi", "0")
+                # print(f"Processing {cross_label}: θ={theta_val}, φ={phi_val}")
 
                 # Process theta channel
                 if theta_ch is not None and theta_val:
@@ -437,7 +491,7 @@ class Window1Content(ctk.CTkFrame):
                             # Quantize to 5 decimal places
                             current_theta = round(current_theta, 5)
                             # Update the phase_grid_config with current value
-                            phase_grid_config[cross_label]["theta"] = str(current_theta)  # Store in A
+                            phase_grid_config[cross_label]["theta"] = str(current_theta) 
                             applied_channels.append(f"{cross_label}:θ = {current_theta:.5f} mA")
                         else:
                             failed_channels.append(f"{cross_label}:θ (no calibration)")
@@ -453,7 +507,7 @@ class Window1Content(ctk.CTkFrame):
                             # Quantize to 5 decimal places
                             current_phi = round(current_phi, 5)
                             # Update the phase_grid_config with current value
-                            phase_grid_config[cross_label]["phi"] = str(current_phi)  # Store in A
+                            phase_grid_config[cross_label]["phi"] = str(current_phi)  
                             applied_channels.append(f"{cross_label}:φ = {current_phi:.5f} mA")
                         else:
                             failed_channels.append(f"{cross_label}:φ (no calibration)")
@@ -481,7 +535,7 @@ class Window1Content(ctk.CTkFrame):
                     self.mapping_display.insert("end", f"• {channel}\n")
             self.mapping_display.configure(state="disabled")
             
-            print(phase_grid_config)
+            # print(phase_grid_config)
 
             try:
                 # config = self.custom_grid.export_paths_json()
