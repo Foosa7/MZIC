@@ -160,6 +160,27 @@ class Window1Content(ctk.CTkFrame):
         self.status_display = ctk.CTkTextbox(notebook.add("Status"), state="disabled")
         self.status_display.pack(fill="both", expand=True)
         
+        # Measure tab
+        self.measure_display = ctk.CTkTextbox(notebook.add("Measure"))
+        self.measure_display.pack(fill="both", expand=True)  
+        
+        
+        # Label: "Recording time (s)"
+        self.measure_time_label = ctk.CTkLabel(notebook.tab("Measure"), text="Recording time (s):")
+        self.measure_time_label.pack(pady=2)
+
+        # Entry for user to specify how long to record
+        self.measure_time_entry = ctk.CTkEntry(notebook.tab("Measure"))
+        self.measure_time_entry.insert(0, "5")  # Default to 5 seconds
+        self.measure_time_entry.pack(pady=2)
+        
+        # "Record power" button
+        self.record_power_button = ctk.CTkButton(
+            notebook.tab("Measure"), 
+            text="Record power", 
+            command=self._record_power
+        )
+        self.record_power_button.pack(pady=2)        
 
         # Compact error display
         self.error_display = ctk.CTkTextbox(
@@ -508,7 +529,7 @@ class Window1Content(ctk.CTkFrame):
         if phase_value < c/np.pi:
             print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi:.2f}π for channel {channel}")
             # Multiply phase_value by 2 and continue with calculation
-            phase_value = phase_value * 2
+            phase_value = phase_value + 2
             print(f"Using adjusted phase value: {phase_value}π")
 
         # Calculate heating power for this phase shift
@@ -1047,3 +1068,61 @@ class Window1Content(ctk.CTkFrame):
         print("displaying figure")
         plt.close(fig)
 
+    def _record_power(self):
+        """
+        Loads simulated power data, saves it to a variable and .txt,
+        then pops up a figure with site1/site2/site3 vs time.
+        """
+
+        # Define save directory
+        save_dir = "measurements"
+        
+        # Ensure the folder exists
+        os.makedirs(save_dir, exist_ok=True)
+
+        # Get user-specified duration 
+        record_time_str = self.measure_time_entry.get()
+        try:
+            record_time = float(record_time_str)
+        except ValueError:
+            record_time = 5.0  # default if parsing fails
+
+        # Timestamp
+        now = datetime.now()
+        timestamp_str = now.strftime("%Y-%m-%d %H:%M:%S")
+        file_timestamp = now.strftime("%Y%m%d_%H%M%S")  # for filenames
+    
+        print(f"[INFO] Starting measurement at {timestamp_str} for {record_time} seconds...")
+        
+        # (temp) Load simulated data from power_data_cw.npy
+        data = np.load("power_data_cw.npy")  # shape expected: (#points, 3)
+        
+        # Store in a variable so we can reference it later if needed
+        self.measured_power_data = data
+
+        # Construct file paths
+        data_filename = os.path.join(save_dir, f"measurement_{file_timestamp}.txt")
+        plot_filename = os.path.join(save_dir, f"measurement_{file_timestamp}.png")
+
+        # Save to data .txt with timestamp in the header
+        np.savetxt(
+            data_filename,
+            data, 
+            header=f"Timestamp: {timestamp_str}\nOutput1 Output2 Output3",
+            comments=''
+        )
+        
+        # Plot the three curves vs. time
+        time_axis = np.linspace(0, record_time, data.shape[0])
+        plt.figure()
+        plt.plot(time_axis, data[:, 0], label="Site 1")
+        plt.plot(time_axis, data[:, 1], label="Site 2")
+        plt.plot(time_axis, data[:, 2], label="Site 3")
+        plt.xlabel("Time (s)")
+        plt.ylabel("Power")
+        plt.legend()
+        plt.show()
+        
+        plt.savefig(plot_filename, dpi=150)
+        
+        print("[INFO] Measurement completed.")

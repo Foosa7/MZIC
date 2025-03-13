@@ -266,14 +266,14 @@ class WindowSelectionWidget(ctk.CTkFrame):
         )
         self.radio3.pack(side="top", fill="x", padx=5, pady=5)
         
-        self.radio4 = ctk.CTkRadioButton(
-            self.radio_frame,
-            text="Window 4",
-            variable=self.radio_var,
-            value="Window 4",
-            command=self.on_radio_change
-        )
-        self.radio4.pack(side="top", fill="x", padx=5, pady=5)
+        # self.radio4 = ctk.CTkRadioButton(
+        #     self.radio_frame,
+        #     text="Window 4",
+        #     variable=self.radio_var,
+        #     value="Window 4",
+        #     command=self.on_radio_change
+        # )
+        # self.radio4.pack(side="top", fill="x", padx=5, pady=5)
         
         self.change_command = change_command
 
