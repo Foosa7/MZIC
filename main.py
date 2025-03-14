@@ -1,10 +1,19 @@
 # main.py
 from app.imports import *
+import ctypes
 
 SETTINGS_PATH = os.path.join(os.path.dirname(__file__), "config", "settings.json")
 
 def main():
+
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        print("Set DPI awareness")
+    except:
+        pass
+        print("Failed to set DPI awareness")
     # Initialize the GUI theme
+
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")
 

@@ -353,3 +353,41 @@ class PlotWidget(ctk.CTkFrame):
         self.ax.clear()
         self._configure_plot_style()
         self.canvas.draw()
+
+
+class CalibrationControlWidget(ctk.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        self.create_calibration_controls()
+
+    def create_calibration_controls(self):
+        """Add calibration section with separate buttons"""
+        self.calibration_frame = ctk.CTkFrame(self)
+        self.calibration_frame.pack(pady=10, fill='x', expand=True)
+
+        # Channel selection display
+        self.current_channel_label = ctk.CTkLabel(self.calibration_frame, text="No channel selected")
+        self.current_channel_label.pack(pady=0)
+
+        # Create container frame for side-by-side layout
+        io_config_frame = ctk.CTkFrame(self.calibration_frame, fg_color="transparent")
+        io_config_frame.pack(pady=5, fill='x')
+
+        # Theta/Phi selector
+        self.channel_type_var = ctk.StringVar(value="theta")
+        type_frame = ctk.CTkFrame(io_config_frame, fg_color="transparent")
+        type_frame.pack(side='left', padx=(10,0), expand=True)
+        ctk.CTkRadioButton(type_frame, text="θ", variable=self.channel_type_var, value="theta").pack(side='left')
+        ctk.CTkRadioButton(type_frame, text="φ", variable=self.channel_type_var, value="phi").pack(side='left', padx=5)
+
+        # Configure grid columns for equal spacing
+        io_config_frame.grid_columnconfigure(0, weight=1)
+        io_config_frame.grid_columnconfigure(1, weight=1)
+
+        # Calibration buttons
+        btn_frame = ctk.CTkFrame(self.calibration_frame, fg_color="transparent")
+        btn_frame.pack(pady=10, fill='x')
+
+        # Configure grid columns
+        btn_frame.grid_columnconfigure(0, weight=1)
+        btn_frame.grid_columnconfigure(1, weight=1)

@@ -4,6 +4,8 @@ import customtkinter as ctk
 import tkinter.messagebox as messagebox
 import app.gui.widgets as widgets
 import app.gui.window1 as window1
+from app.gui.widgets import CalibrationControlWidget
+
 from app.gui.window1 import Window1Content  # Import the Window1Content widget
 from app.gui.window2 import Window2Content  # Import the Window2Content widget
 from app.gui.window3 import Window3Content  # Import the Window3Content widget
@@ -67,6 +69,17 @@ class MainWindow(ctk.CTk):
         )
         self.windowSelection.pack(anchor="nw", padx=10, pady=(5, 10), fill="x")
  
+        # Add calibration controls
+        self.calibration_control = CalibrationControlWidget(self.left_panel)
+        self.calibration_control.pack(anchor="nw", padx=10, pady=(5, 10), fill="x")
+
+        # # Add other widgets...
+        # self.windowSelection.pack(anchor="nw", padx=10, pady=(5, 10), fill="x")
+
+        # # Add calibration control widget
+        # self.calibration_control = CalibrationControlWidget(self.left_panel)
+        # self.calibration_control.pack(anchor="nw", padx=10, pady=(5, 10), fill="x")        
+
         # Initially, load the content for Window 1.
         self.load_window_content("Window 1")
         

@@ -26,6 +26,7 @@ class Window1Content(ctk.CTkFrame):
         self.calibration_params = {'cross': {}, 'bar': {}}
         self.phase_params = {}
         self.io_config_var = ctk.StringVar(value="cross")
+        self.channel_type_var = ctk.StringVar(value="theta")
         self.app = app  # Store the AppData instance
 
         # Configure main layout
@@ -119,20 +120,30 @@ class Window1Content(ctk.CTkFrame):
 
 
         # Compact notebook for displays
-        notebook = ctk.CTkTabview(inner_frame, height=180)  # Fixed height
+        notebook = ctk.CTkTabview(inner_frame, height=180, width=300)  # Fixed  height, width
+        notebook.grid_propagate(False)
         notebook.grid(row=1, column=0, sticky="nsew", pady=(2, 0))
         inner_frame.grid_columnconfigure(0, weight=1)
 
-        # When creating the graph tab
-        graph_tab = notebook.add("Graph")
-        self.graph_frame = ctk.CTkFrame(graph_tab)
-        self.graph_frame.pack(fill="both", expand=True, padx=0, pady=0)
+        # # Graph tab
+        # graph_tab = notebook.add("Graph")
+        # self.graph_frame = ctk.CTkFrame(graph_tab)
+        # self.graph_frame.pack(fill="both", expand=True, padx=0, pady=0)
+        # self.graph_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        # self.graph_frame.grid_columnconfigure(0, weight=1)
+        # self.graph_frame.grid_rowconfigure(0, weight=1) 
 
-        # Configure the graph frame to expand properly
+        # Measure tab
+        graph_frame = notebook.add("Graph")
+        graph_frame.grid_columnconfigure(0, weight=1)
+        graph_frame.grid_rowconfigure(1, weight=1)
+        
+        self.graph_frame = ctk.CTkFrame(graph_frame)
+        self.graph_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        
         self.graph_frame.grid_columnconfigure(0, weight=1)
-        self.graph_frame.grid_rowconfigure(0, weight=1) 
+        self.graph_frame.grid_rowconfigure(0, weight=1)
 
-        # Create the image label with proper parameters for maximum space usage
         self.graph_image_label = ctk.CTkLabel(
             self.graph_frame, 
             text="No plot to display", 
@@ -142,14 +153,12 @@ class Window1Content(ctk.CTkFrame):
         )
         self.graph_image_label.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
 
-        # Text label below the image
         self.graph_text_label = ctk.CTkLabel(
             self.graph_frame, 
             text="",
             anchor="center"
         )
         self.graph_text_label.grid(row=1, column=0, sticky="ew")
-
 
         # Mapping tab
         self.mapping_display = ctk.CTkTextbox(notebook.add("Mapping"))
@@ -161,26 +170,48 @@ class Window1Content(ctk.CTkFrame):
         self.status_display.pack(fill="both", expand=True)
         
         # Measure tab
-        self.measure_display = ctk.CTkTextbox(notebook.add("Measure"))
-        self.measure_display.pack(fill="both", expand=True)  
+        measure_tab = notebook.add("Measure")
+        measure_tab.grid_columnconfigure(0, weight=1)
+        measure_tab.grid_rowconfigure(1, weight=1)
         
+        self.measure_plot_frame = ctk.CTkFrame(measure_tab)
+        self.measure_plot_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
         
-        # Label: "Recording time (s)"
-        self.measure_time_label = ctk.CTkLabel(notebook.tab("Measure"), text="Recording time (s):")
-        self.measure_time_label.pack(pady=2)
-
-        # Entry for user to specify how long to record
-        self.measure_time_entry = ctk.CTkEntry(notebook.tab("Measure"))
-        self.measure_time_entry.insert(0, "5")  # Default to 5 seconds
-        self.measure_time_entry.pack(pady=2)
+        self.measure_plot_frame.grid_columnconfigure(0, weight=1)
+        self.measure_plot_frame.grid_rowconfigure(0, weight=1)
         
-        # "Record power" button
+        self.measure_image_label = ctk.CTkLabel(
+            self.measure_plot_frame,
+            text="No measurement data",
+            image=None,
+            corner_radius=0,
+            fg_color="transparent"
+        )
+        self.measure_image_label.grid(row=0, column=0, sticky="nsew")
+        
+        self.measure_status_label = ctk.CTkLabel(
+            measure_tab,
+            text="",
+            anchor="center"
+        )
+        self.measure_status_label.grid(row=1, column=0, sticky="ew")
+        
+        controls_frame = ctk.CTkFrame(measure_tab)
+        controls_frame.grid(row=2, column=0, sticky="ew", pady=5)
+        
+        self.measure_time_label = ctk.CTkLabel(controls_frame, text="Recording time (s):")
+        self.measure_time_label.pack(side="left", padx=5)
+        
+        self.measure_time_entry = ctk.CTkEntry(controls_frame, width=60)
+        self.measure_time_entry.insert(0, "5")
+        self.measure_time_entry.pack(side="left", padx=5)
+        
         self.record_power_button = ctk.CTkButton(
-            notebook.tab("Measure"), 
+            controls_frame,
             text="Record power", 
             command=self._record_power
         )
-        self.record_power_button.pack(pady=2)        
+        self.record_power_button.pack(side="left", padx=5)
 
         # Compact error display
         self.error_display = ctk.CTkTextbox(
@@ -193,7 +224,7 @@ class Window1Content(ctk.CTkFrame):
     def _start_status_updates(self):
         """Start periodic status updates"""
         self._update_system_status()
-        self.after(5000, self._start_status_updates)
+        self.after(10000, self._start_status_updates)
 
     def _update_system_status(self):
         """Update both status and error displays"""
@@ -365,85 +396,32 @@ class Window1Content(ctk.CTkFrame):
         cover.destroy()
 
     def _clear_grid(self):
-        """Clear all selections and reset the grid, setting all values to zero"""
-        try:
+        """Clear all selections and reset the grid"""
+        # try:
             # Clear all selections
-            for path in self.custom_grid.paths:
-                if path.line_id in self.custom_grid.selected_paths:
-                    self.custom_grid.canvas.itemconfig(path.line_id, fill="white")
-            self.custom_grid.selected_paths.clear()
-            
-            # Clear all input boxes
-            for cross_label in list(self.custom_grid.input_boxes.keys()):
-                self.custom_grid.delete_input_boxes(cross_label)
-            
-            # Reset last selection
-            self.custom_grid.last_selection = {"cross": None, "arm": None}
-            AppData.update_last_selection(None, None)
-            
-            # Update the selection display
-            self.custom_grid.update_selection()
-            
-            # Trigger the selection updated event
-            self.custom_grid.event_generate("<<SelectionUpdated>>")
-            
-            # Create a zero-value configuration for all crosspoints
-            zero_config = self._create_zero_config()
-            
-            # Apply the zero configuration to the device
-            apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
-            
-            print("Grid cleared and all values set to zero")
-        except Exception as e:
-            self._show_error(f"Failed to clear grid: {str(e)}")
-            print(f"Error in clear grid: {e}")
-
-    def _create_zero_config(self):
-        """Create a configuration with all theta and phi values set to zero"""
-        n = int(self.grid_size.split('x')[0])
-        zero_config = {}
+        for path in self.custom_grid.paths:
+            if path.line_id in self.custom_grid.selected_paths:
+                self.custom_grid.canvas.itemconfig(path.line_id, fill="white")
+        self.custom_grid.selected_paths.clear()
         
-        # Generate all possible crosspoint labels (A1, A2, B1, etc.)
-        for row in range(n):
-            row_letter = chr(65 + row)  # A, B, C, etc.
-            for col in range(1, n+1):
-                cross_label = f"{row_letter}{col}"
-                zero_config[cross_label] = {
-                    "arms": ["TL", "TR", "BL", "BR"],  # Include all arms
-                    "theta": "0",
-                    "phi": "0"
-                }
+        # Clear all input boxes
+        for cross_label in list(self.custom_grid.input_boxes.keys()):
+            self.custom_grid.delete_input_boxes(cross_label)
         
-        return json.dumps(zero_config)
-
-
-    # def _clear_grid(self):
-    #     """Clear all selections and reset the grid"""
-    #     # try:
-    #         # Clear all selections
-    #     for path in self.custom_grid.paths:
-    #         if path.line_id in self.custom_grid.selected_paths:
-    #             self.custom_grid.canvas.itemconfig(path.line_id, fill="white")
-    #     self.custom_grid.selected_paths.clear()
+        # Reset last selection
+        self.custom_grid.last_selection = {"cross": None, "arm": None}
+        AppData.update_last_selection(None, None)
         
-    #     # Clear all input boxes
-    #     for cross_label in list(self.custom_grid.input_boxes.keys()):
-    #         self.custom_grid.delete_input_boxes(cross_label)
+        # Update the selection display
+        self.custom_grid.update_selection()
         
-    #     # Reset last selection
-    #     self.custom_grid.last_selection = {"cross": None, "arm": None}
-    #     AppData.update_last_selection(None, None)
+        # Trigger the selection updated event
+        self.custom_grid.event_generate("<<SelectionUpdated>>")
         
-    #     # Update the selection display
-    #     self.custom_grid.update_selection()
-        
-    #     # Trigger the selection updated event
-    #     self.custom_grid.event_generate("<<SelectionUpdated>>")
-        
-    #     # print("Grid cleared successfully")
-    #     # except Exception as e:
-    #         # self._show_error(f"Failed to clear grid: {str(e)}")
-    #         # print                    
+        # print("Grid cleared successfully")
+        # except Exception as e:
+            # self._show_error(f"Failed to clear grid: {str(e)}")
+            # print                    
 
     def _apply_config(self):
         """Force apply current configuration"""
@@ -480,7 +458,6 @@ class Window1Content(ctk.CTkFrame):
                 theta_ch, phi_ch = label_map[cross_label]
                 theta_val = data.get("theta", "0")
                 phi_val = data.get("phi", "0")
-                # print(f"Processing {cross_label}: θ={theta_val}, φ={phi_val}")
 
                 # Process theta channel
                 if theta_ch is not None and theta_val:
@@ -491,7 +468,7 @@ class Window1Content(ctk.CTkFrame):
                             # Quantize to 5 decimal places
                             current_theta = round(current_theta, 5)
                             # Update the phase_grid_config with current value
-                            phase_grid_config[cross_label]["theta"] = str(current_theta) 
+                            phase_grid_config[cross_label]["theta"] = str(current_theta)  # Store in A
                             applied_channels.append(f"{cross_label}:θ = {current_theta:.5f} mA")
                         else:
                             failed_channels.append(f"{cross_label}:θ (no calibration)")
@@ -507,7 +484,7 @@ class Window1Content(ctk.CTkFrame):
                             # Quantize to 5 decimal places
                             current_phi = round(current_phi, 5)
                             # Update the phase_grid_config with current value
-                            phase_grid_config[cross_label]["phi"] = str(current_phi)  
+                            phase_grid_config[cross_label]["phi"] = str(current_phi)  # Store in A
                             applied_channels.append(f"{cross_label}:φ = {current_phi:.5f} mA")
                         else:
                             failed_channels.append(f"{cross_label}:φ (no calibration)")
@@ -535,7 +512,7 @@ class Window1Content(ctk.CTkFrame):
                     self.mapping_display.insert("end", f"• {channel}\n")
             self.mapping_display.configure(state="disabled")
             
-            # print(phase_grid_config)
+            print(phase_grid_config)
 
             try:
                 # config = self.custom_grid.export_paths_json()
@@ -733,20 +710,6 @@ class Window1Content(ctk.CTkFrame):
         # print(f"V(I) = {a:.2e}·I³ + {c:.2e}·I + {d:.2e}")
         # print(f"Max Current: {end_current:.1f} mA")
         print(f"Average Resistance: {np.mean(resistance):.2f}Ω")
-   
-    def _update_calibration_display_R(self, channel):
-        """Update UI with calibration results"""
-        params = self.resistance_params.get(channel)
-        if not params:
-            return
-        
-        # Get current channel type from radio buttons
-        channel_type = self.channel_type_var.get()
-        
-        # Generate plot with channel context
-        fig = self._create_calibration_plot_R(params, channel_type, channel)  # Add missing args
-        self._display_plot_R(fig, channel)
-
 
     def _create_calibration_plot_R(self, params, channel_type, target_channel):
         """Generate styled resistance characterization plot"""
@@ -759,7 +722,7 @@ class Window1Content(ctk.CTkFrame):
         theta_ch, phi_ch = label_map.get(current['cross'], (None, None))
         
         # Create plot with dark theme
-        fig, ax = plt.subplots(figsize=(8, 5))
+        fig, ax = plt.subplots(figsize=(6, 4))
         fig.patch.set_facecolor('#2b2b2b')
         ax.set_facecolor('#363636')
         
@@ -770,9 +733,9 @@ class Window1Content(ctk.CTkFrame):
         y_fit = params['a']*x_fit**3 + params['c']*x_fit + params['d']
         ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=2.5, label='Cubic Fit')
 
-        # # Dynamic title based on selected channel type
-        # title_str = (f"Resistance Characterization: {current['cross']} "
-        #             f"Characterizing {channel_type.capitalize()} Channel: {target_channel}")
+        # Dynamic title based on selected channel type
+        title_str = (f"Resistance Characterization: {current['cross']} "
+                    f"Characterizing {channel_type.capitalize()} Channel: {target_channel}")
         title_str = (f"Resistance Characterization of {current['cross']}:{channel_symbol} at Channel {target_channel}")
 
         ax.set_title(title_str, color='white', fontsize=12, pad=20)
@@ -788,6 +751,8 @@ class Window1Content(ctk.CTkFrame):
         legend = ax.legend(frameon=True, facecolor='#2b2b2b', edgecolor='white')
         for text in legend.get_texts():
             text.set_color('white')
+        
+        fig.tight_layout()
 
         return fig
 
@@ -825,74 +790,57 @@ class Window1Content(ctk.CTkFrame):
         
     #     plt.close(fig)
 
+    def _update_calibration_display_R(self, channel):
+        """Update UI with calibration results"""
+        params = self.resistance_params.get(channel)
+        if not params:
+            return
+        
+        # Get current channel type from radio buttons
+        channel_type = self.channel_type_var.get()
+        
+        # Generate plot with channel context
+        fig = self._create_calibration_plot_R(params, channel_type, channel)  # Add missing args
+        self._display_plot_R(fig, channel)
+        self.display_plot_R = fig   # Avoid garbage collection
+
+    # def _display_plot_R(self, fig, channel):
+    #     """Display matplotlib plot in a popup window and graph tab"""
+   
+    #     # Convert plot to image with tight borders
+    #     buf = io.BytesIO()
+    #     fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+    #     buf.seek(0)
+    #     img = Image.open(buf)
+        
+    #     width = self.graph_frame.winfo_width()
+    #     height = self.graph_frame.winfo_height()
+        
+    #     ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(max(width, 300), max(height, 400)))
+        
+    #     self.graph_image_label.configure(image=ctk_image, text="")
+    #     self.graph_image_ref = ctk_image # avoid garbage collection 
+                
+    #     plt.close(fig)
 
     def _display_plot_R(self, fig, channel):
         """Display matplotlib plot in a popup window and graph tab"""
-        # Adjust figure layout to reduce whitespace and maximize content area
-        fig.tight_layout()
-        
         # Convert plot to image with tight borders
         buf = io.BytesIO()
         fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
         buf.seek(0)
         img = Image.open(buf)
-        
-        # Create CTk images - one for popup, one for graph tab
-        popup_image = ctk.CTkImage(
+        width = self.graph_frame.winfo_width()
+        # Use fixed size based on figure dimensions (600x400 pixels for 6x4 inches @ 100dpi)
+        ctk_image = ctk.CTkImage(
             light_image=img,
             dark_image=img,
-            size=(750, 550)
+            size=(max(width, 300), 400)  # Fixed size matching figure dimensions
         )
         
-        # Get the actual width of the graph frame
-        graph_frame_width = self.graph_frame.winfo_width()/2  # Reduce width for better aspect ratio
-        graph_frame_height = self.graph_frame.winfo_height()/2  # Subtract space for text label
-        # Remove graph for now
-        # graph_image = ctk.CTkImage(
-        #     light_image=img,
-        #     dark_image=img,
-        #     size=(graph_frame_width, graph_frame_height)
-        # )
-
-        # # Prevent size propagation before updating the image
-        # self.graph_frame.pack_propagate(False)
-
-        # # Create a wider image for the graph tab to better fill horizontal space
-        # graph_width = 100  # RIncreased width to better fill horizontal space
-        # graph_height = 80
-        # graph_image = ctk.CTkImage(
-        #     light_image=img,
-        #     dark_image=img,
-        #     size=(graph_width, graph_height)
-        # )
-        
-        # Create popup window (original functionality)
-        plot_window = ctk.CTkToplevel(self)
-        plot_window.title(f"Channel {channel} Calibration Results")  
-        plot_window.geometry("800x600")
-        
-        label = ctk.CTkLabel(plot_window, image=popup_image, text="")
-        label.pack(padx=10, pady=10)
-        
-        # Add close button
-        close_btn = ctk.CTkButton(
-            plot_window, 
-            text="Close", 
-            command=plot_window.destroy
-        )
-        close_btn.pack(pady=5)
-        
-        # Update the image in the graph tab
-        # self.graph_image_label.configure(image=graph_image, text="")
-        
-        # Update text label
-        # self.graph_text_label.configure(text=f"Channel {channel} Calibration Results")
-        
-        # Store references to prevent garbage collection
-        self.popup_image_ref = popup_image
-        # self.graph_image_ref = graph_image
-        
-        plt.close(fig)
+        self.graph_image_label.configure(image=ctk_image, text="")
+        self.graph_image_ref = ctk_image  # Avoid garbage collection
+        plt.close(fig)    
 
 
 ## Phase Calibration
@@ -1121,62 +1069,72 @@ class Window1Content(ctk.CTkFrame):
         self.popup_image_ref = popup_image
         print("displaying figure")
         plt.close(fig)
-
+        
+        
     def _record_power(self):
-        """
-        Loads simulated power data, saves it to a variable and .txt,
-        then pops up a figure with site1/site2/site3 vs time.
-        """
-
-        # Define save directory
-        save_dir = "measurements"
-        
-        # Ensure the folder exists
-        os.makedirs(save_dir, exist_ok=True)
-
+        """Record and display power measurements in the tab"""
         # Get user-specified duration 
-        record_time_str = self.measure_time_entry.get()
         try:
-            record_time = float(record_time_str)
+            record_time = float(self.measure_time_entry.get())
         except ValueError:
-            record_time = 5.0  # default if parsing fails
-
-        # Timestamp
-        now = datetime.now()
-        timestamp_str = now.strftime("%Y-%m-%d %H:%M:%S")
-        file_timestamp = now.strftime("%Y%m%d_%H%M%S")  # for filenames
+            record_time = 5.0
     
-        print(f"[INFO] Starting measurement at {timestamp_str} for {record_time} seconds...")
-        
-        # (temp) Load simulated data from power_data_cw.npy
-        data = np.load("power_data_cw.npy")  # shape expected: (#points, 3)
-        
-        # Store in a variable so we can reference it later if needed
+        # Load simulated data
+        data = np.load("power_data_cw.npy")
         self.measured_power_data = data
-
-        # Construct file paths
-        data_filename = os.path.join(save_dir, f"measurement_{file_timestamp}.txt")
-        plot_filename = os.path.join(save_dir, f"measurement_{file_timestamp}.png")
-
-        # Save to data .txt with timestamp in the header
+    
+        # Create time axis based on recording time
+        time_axis = np.linspace(0, record_time, data.shape[0])
+    
+        # Generate and display plot
+        fig = self._create_measurement_plot(time_axis, data)
+        self._update_measurement_display(fig)
+        
+        # Save data (optional)
+        save_dir = "measurements"
+        os.makedirs(save_dir, exist_ok=True)
         np.savetxt(
-            data_filename,
-            data, 
-            header=f"Timestamp: {timestamp_str}\nOutput1 Output2 Output3",
+            os.path.join(save_dir, f"measurement_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"),
+            data,
+            header=f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nOutput1 Output2 Output3",
             comments=''
         )
         
-        # Plot the three curves vs. time
-        time_axis = np.linspace(0, record_time, data.shape[0])
-        plt.figure()
-        plt.plot(time_axis, data[:, 0], label="Site 1")
-        plt.plot(time_axis, data[:, 1], label="Site 2")
-        plt.plot(time_axis, data[:, 2], label="Site 3")
-        plt.xlabel("Time (s)")
-        plt.ylabel("Power")
-        plt.legend()
-        plt.show()
-        
-        plt.savefig(plot_filename, dpi=150)
-        
-        print("[INFO] Measurement completed.")
+        plt.close(fig)
+            
+    def _create_measurement_plot(self, time_axis, data):
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.plot(time_axis, data[:, 0], label="Site 1")
+        ax.plot(time_axis, data[:, 1], label="Site 2")
+        ax.plot(time_axis, data[:, 2], label="Site 3")
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Power (mW)")
+        ax.legend()
+        fig.tight_layout()
+        return fig
+            
+    def _update_measurement_display(self, fig):
+        # Convert plot to CTKimage
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+        buf.seek(0)
+        img = Image.open(buf)
+            
+        # Get current frame dimensions
+        width = self.measure_plot_frame.winfo_width()
+        height = self.measure_plot_frame.winfo_height()
+            
+        ctk_image = ctk.CTkImage(
+            light_image=img,
+            dark_image=img,
+            size=(max(width, 300), max(height, 300))  # Minimum size
+        )
+            
+        # Update display
+        self.measure_image_label.configure(image=ctk_image, text="")
+        self.measure_status_label.configure(
+            text=f"Last measurement: {datetime.now().strftime('%H:%M:%S')}"
+        )
+            
+        # Keep reference to prevent garbage collection
+        self._current_measure_image = ctk_image
