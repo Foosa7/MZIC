@@ -800,16 +800,11 @@ class Window1Content(ctk.CTkFrame):
         ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(320, 320))
         
         self.graph_image_label1.configure(image=ctk_image, text="")
-        self.graph_image_label2.configure(image=ctk_image, text="")
-
         self._current_image_ref1 = ctk_image
-        self._current_image_ref2 = ctk_image
 
         plt.close(fig)
 
-
 ## Phase Calibration
-
     def _run_phase_calibration(self):
         """Run phase characterization on selected channel"""
         try:
@@ -848,7 +843,7 @@ class Window1Content(ctk.CTkFrame):
         for I in currents:
             self.qontrol.set_current(channel, float(I))
             time.sleep(delay)
-            optical_powers.append(self.thorlabs.read_power())
+            optical_powers.append(self.thorlabs[0].read_power()) # Read power from 1st Thorlabs device
         
         # Reset current to zero
         self.qontrol.set_current(channel, 0.0)
@@ -936,13 +931,13 @@ class Window1Content(ctk.CTkFrame):
         channel_symbol = "θ" if channel_type == "theta" else "φ"
         
         # Create plot with dark theme
-        fig, ax = plt.subplots(figsize=(8, 5))
+        fig, ax = plt.subplots(figsize=(4, 4))
         fig.patch.set_facecolor('#2b2b2b')
         ax.set_facecolor('#363636')
         
         # Plot data
         ax.plot(params['currents'], params['optical_powers'], 
-            'o', color='white', markersize=6, label='Measured Data')
+            'o', color='white', label='Measured Data')
         
         # Plot fit - recreate the cosine function based on io_config
         x_fit = np.linspace(min(params['currents']), max(params['currents']), 100)
@@ -953,13 +948,13 @@ class Window1Content(ctk.CTkFrame):
         else:  # bar
             y_fit = -params['amp'] * np.cos(params['omega']*x_fit + params['phase']) + params['offset']
             
-        ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=2.5, label='Cosine Fit')
+        ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=1, label='Cosine Fit')
 
         # Labels and titles
         title_str = f"Phase Characterization of {current['cross']}:{channel_symbol} at Channel {target_channel} ({io_config.capitalize()} Config)"
-        ax.set_title(title_str, color='white', fontsize=12, pad=20)
-        ax.set_xlabel("Current (mA)", color='white', fontsize=10)
-        ax.set_ylabel("Optical Power (mW)", color='white', fontsize=10)
+        ax.set_title(title_str, color='white')
+        ax.set_xlabel("Current (mA)", color='white')
+        ax.set_ylabel("Optical Power (mW)", color='white')
         
         # Configure ticks and borders
         ax.tick_params(colors='white', which='both')
@@ -971,7 +966,6 @@ class Window1Content(ctk.CTkFrame):
         for text in legend.get_texts():
             text.set_color('white')
 
-        print("returning figure")
         return fig
 
 
@@ -992,51 +986,22 @@ class Window1Content(ctk.CTkFrame):
         self._display_plot_P(fig, channel)
         print("Updated calibration display")
 
-
-
     def _display_plot_P(self, fig, channel):
         """Display matplotlib plot in a popup window"""
-        # Create popup window
-        fig.tight_layout()
-        # plot_window = ctk.CTkToplevel(self)
-        # plot_window.title(f"Channel {channel} Calibration Results")
-
-        # Convert plot to image with tight borders
+        
         buf = io.BytesIO()
         fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
         buf.seek(0)
         img = Image.open(buf)
+        fig.tight_layout()
         
-        # Create popup window (original functionality)
-        plot_window = ctk.CTkToplevel(self)
-        plot_window.title(f"Channel {channel} Calibration Results")  
-        plot_window.geometry("800x600")
+        ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(320, 320))
         
-
+        self.graph_image_label2.configure(image=ctk_image, text="")
+        self._current_image_ref2 = ctk_image
         
-        # Create CTk images - one for popup, one for graph tab
-        popup_image = ctk.CTkImage(
-            light_image=img,
-            dark_image=img,
-            size=(750, 550)
-        )
-        
-        label = ctk.CTkLabel(plot_window, image=popup_image, text="")
-        label.pack(padx=10, pady=10)
-
-        # Add close button
-        close_btn = ctk.CTkButton(
-            plot_window, 
-            text="Close", 
-            command=plot_window.destroy
-        )
-        close_btn.pack(pady=5)
-
-        self.popup_image_ref = popup_image
-        print("displaying figure")
         plt.close(fig)
-        
-        
+    
     def _record_power(self):
         """Record and display power measurements in the tab"""
         # Get user-specified duration 
