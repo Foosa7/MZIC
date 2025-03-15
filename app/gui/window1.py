@@ -127,26 +127,24 @@ class Window1Content(ctk.CTkFrame):
         # Graph tab
         graph_tab = notebook.add("Graph")
         self.graph_frame = ctk.CTkFrame(graph_tab)
-        self.graph_frame.pack(fill="both", expand=True, padx=0, pady=0)
-
+        self.graph_frame.grid(row=0, column=0, sticky="nsew")
+        
+        graph_tab.grid_rowconfigure(0, weight=1)
+        graph_tab.grid_columnconfigure(0, weight=1)
+        
+        self.graph_frame.grid_rowconfigure(0, weight=1) # Plot 1
+        self.graph_frame.grid_rowconfigure(1, weight=1) # Plot 2
         self.graph_frame.grid_columnconfigure(0, weight=1)
-        self.graph_frame.grid_rowconfigure(0, weight=1) 
 
-        self.graph_image_label = ctk.CTkLabel(
-            self.graph_frame, 
-            text="No plot to display", 
-            image=None,
-            corner_radius=0,
-            fg_color="transparent"
+        self.graph_image_label1 = ctk.CTkLabel(
+            self.graph_frame, text="No plot to display", anchor="center"
         )
-        self.graph_image_label.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        self.graph_image_label1.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
-        self.graph_text_label = ctk.CTkLabel(
-            self.graph_frame, 
-            text="",
-            anchor="center"
+        self.graph_image_label2 = ctk.CTkLabel(
+            self.graph_frame, text="No plot to display", anchor="center" 
         )
-        self.graph_text_label.grid(row=1, column=0, sticky="ew")
+        self.graph_image_label2.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
         # Mapping tab
         self.mapping_display = ctk.CTkTextbox(notebook.add("Mapping"))
@@ -160,29 +158,24 @@ class Window1Content(ctk.CTkFrame):
         # Measure tab
         measure_tab = notebook.add("Measure")
         measure_tab.grid_columnconfigure(0, weight=1)
-        measure_tab.grid_rowconfigure(1, weight=1)
+        measure_tab.grid_rowconfigure(0, weight=1)
         
         self.measure_plot_frame = ctk.CTkFrame(measure_tab)
-        self.measure_plot_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        self.measure_plot_frame.grid(row=0, column=0, sticky="nsew")
         
-        self.measure_plot_frame.grid_columnconfigure(0, weight=1)
         self.measure_plot_frame.grid_rowconfigure(0, weight=1)
-        
+        self.measure_plot_frame.grid_columnconfigure(0, weight=1)
+
         self.measure_image_label = ctk.CTkLabel(
             self.measure_plot_frame,
             text="No measurement data",
-            image=None,
-            corner_radius=0,
-            fg_color="transparent"
-        )
+            anchor="center"
+            )
+        
         self.measure_image_label.grid(row=0, column=0, sticky="nsew")
         
-        self.measure_status_label = ctk.CTkLabel(
-            measure_tab,
-            text="",
-            anchor="center"
-        )
-        self.measure_status_label.grid(row=1, column=0, sticky="ew")
+        self.measure_status_label = ctk.CTkLabel(measure_tab, text="")
+        self.measure_status_label.grid(row=1, column=0, sticky="ew", pady=5)
         
         controls_frame = ctk.CTkFrame(measure_tab)
         controls_frame.grid(row=2, column=0, sticky="ew", pady=5)
@@ -191,14 +184,10 @@ class Window1Content(ctk.CTkFrame):
         self.measure_time_label.pack(side="left", padx=5)
         
         self.measure_time_entry = ctk.CTkEntry(controls_frame, width=60)
-        self.measure_time_entry.insert(0, "5")
+        self.measure_time_entry.insert(0, "20")
         self.measure_time_entry.pack(side="left", padx=5)
         
-        self.record_power_button = ctk.CTkButton(
-            controls_frame,
-            text="Record power", 
-            command=self._record_power
-        )
+        self.record_power_button = ctk.CTkButton(controls_frame, text="Start measurement", command=self._record_power)
         self.record_power_button.pack(side="left", padx=5)
 
         # Compact error display
@@ -630,7 +619,8 @@ class Window1Content(ctk.CTkFrame):
         """Run resistance characterization on selected channel"""
         try:
             theta_ch, phi_ch = self._get_current_channels()
-            channel_type = self.channel_type_var.get()
+            #channel_type = self.channel_type_var.get()
+            channel_type = "theta"
             target_channel = theta_ch if channel_type == "theta" else phi_ch
             
             if target_channel is None:
@@ -706,7 +696,8 @@ class Window1Content(ctk.CTkFrame):
             return
         
         # Get current channel type from radio buttons
-        channel_type = self.channel_type_var.get()
+        #channel_type = self.channel_type_var.get()
+        channel_type = "theta"
         
         # Generate plot with channel context
         fig = self._create_calibration_plot_R(params, channel_type, channel)  # Add missing args
@@ -717,32 +708,34 @@ class Window1Content(ctk.CTkFrame):
         """Generate styled resistance characterization plot"""
         current = AppData.get_last_selection()
         label_map = create_label_mapping(8)
-        channel_type = self.channel_type_var.get()
+        #channel_type = self.channel_type_var.get()
+        channel_type = "theta"
         channel_symbol = "θ" if channel_type == "theta" else "φ"
 
         # Get both channels but only show selected one
         theta_ch, phi_ch = label_map.get(current['cross'], (None, None))
         
         # Create plot with dark theme
-        fig, ax = plt.subplots(figsize=(8, 5))
+        fig, ax = plt.subplots(figsize=(4, 4))
         fig.patch.set_facecolor('#2b2b2b')
         ax.set_facecolor('#363636')
         
         # Plot data points and fit curve
         ax.plot(params['currents'], params['voltages'], 
-            'o', color='white', markersize=6, label='Measured Data')
+            'o', color='white', label='Measured Data')
         x_fit = np.linspace(min(params['currents']), max(params['currents']), 100)
         y_fit = params['a']*x_fit**3 + params['c']*x_fit + params['d']
-        ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=2.5, label='Cubic Fit')
+        ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=1, label='Cubic Fit')
+        #ax.plot(x_fit, y_fit, label='Cubic Fit')
 
         # # Dynamic title based on selected channel type
         # title_str = (f"Resistance Characterization: {current['cross']} "
         #             f"Characterizing {channel_type.capitalize()} Channel: {target_channel}")
         title_str = (f"Resistance Characterization of {current['cross']}:{channel_symbol} at Channel {target_channel}")
 
-        ax.set_title(title_str, color='white', fontsize=12, pad=20)
-        ax.set_xlabel("Current (mA)", color='white', fontsize=10)
-        ax.set_ylabel("Voltage (V)", color='white', fontsize=10)
+        ax.set_title(title_str, color='white')
+        ax.set_xlabel("Current (mA)", color='white')
+        ax.set_ylabel("Voltage (V)", color='white')
         
         # Configure ticks and borders
         ax.tick_params(colors='white', which='both')
@@ -754,6 +747,9 @@ class Window1Content(ctk.CTkFrame):
         for text in legend.get_texts():
             text.set_color('white')
 
+        #ax.legend()
+
+        fig.tight_layout()        
         return fig
 
     # def _display_plot_R(self, fig, channel):
@@ -799,15 +795,16 @@ class Window1Content(ctk.CTkFrame):
         fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
         buf.seek(0)
         img = Image.open(buf)
+        fig.tight_layout()
+
+        ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(320, 320))
         
-        width = self.graph_frame.winfo_width()
-        height = self.graph_frame.winfo_height()
-        
-        ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(width, height))
-        
-        self.graph_image_label.configure(image=ctk_image, text="")
-        self.graph_image_ref = ctk_image # avoid garbage collection 
-                
+        self.graph_image_label1.configure(image=ctk_image, text="")
+        self.graph_image_label2.configure(image=ctk_image, text="")
+
+        self._current_image_ref1 = ctk_image
+        self._current_image_ref2 = ctk_image
+
         plt.close(fig)
 
 
@@ -817,7 +814,8 @@ class Window1Content(ctk.CTkFrame):
         """Run phase characterization on selected channel"""
         try:
             theta_ch, phi_ch = self._get_current_channels()
-            channel_type = self.channel_type_var.get()
+            #channel_type = self.channel_type_var.get()
+            channel_type = "theta"
             target_channel = theta_ch if channel_type == "theta" else phi_ch
             
             if target_channel is None:
@@ -987,8 +985,8 @@ class Window1Content(ctk.CTkFrame):
             return
             
         # Get current channel type
-        channel_type = self.channel_type_var.get()
-        
+        #channel_type = self.channel_type_var.get()
+        channel_type="theta"
         # Generate and display plot
         fig = self._create_calibration_plot_P(params, channel_type, channel, io_config)
         self._display_plot_P(fig, channel)
@@ -1071,13 +1069,26 @@ class Window1Content(ctk.CTkFrame):
         plt.close(fig)
             
     def _create_measurement_plot(self, time_axis, data):
-        fig, ax = plt.subplots(figsize=(6, 4))
-        ax.plot(time_axis, data[:, 0], label="Site 1")
-        ax.plot(time_axis, data[:, 1], label="Site 2")
-        ax.plot(time_axis, data[:, 2], label="Site 3")
-        ax.set_xlabel("Time (s)")
-        ax.set_ylabel("Power (mW)")
-        ax.legend()
+        fig, ax = plt.subplots(figsize=(4, 4))
+        
+        fig.patch.set_facecolor('#2b2b2b')
+        ax.set_facecolor('#363636')
+         
+        ax.plot(time_axis, data[:, 0], color='red', label="Site 1")
+        ax.plot(time_axis, data[:, 1], color='green', label="Site 2")
+        ax.plot(time_axis, data[:, 2], color='blue', label="Site 3")
+       
+        ax.set_xlabel("Time (s)", color='white')
+        ax.set_ylabel("Power (mW)", color='white')
+        
+        ax.tick_params(colors='white', which='both')
+        for spine in ax.spines.values():
+            spine.set_color('white')
+        
+        legend = ax.legend(frameon=True, facecolor='#2b2b2b', edgecolor='white')
+        for text in legend.get_texts():
+            text.set_color('white')
+        
         fig.tight_layout()
         return fig
             
@@ -1091,11 +1102,10 @@ class Window1Content(ctk.CTkFrame):
         # Get current frame dimensions
         width = self.measure_plot_frame.winfo_width()
         height = self.measure_plot_frame.winfo_height()
-            
         ctk_image = ctk.CTkImage(
             light_image=img,
             dark_image=img,
-            size=(max(width, 300), max(height, 300))  # Minimum size
+            size=(320, 320)
         )
             
         # Update display
