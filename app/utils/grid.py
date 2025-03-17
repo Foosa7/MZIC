@@ -239,7 +239,8 @@ class Example(Frame):
             
     def _draw_side_label(self, is_special, label, side, new_x, node_y):
         """Draw the numeric label for a side extension, used by add_side_extensions"""
-        text_offset = 25 if is_special else 20
+        #text_offset = 15 if is_special else 10
+        text_offset = 15
         text_x = new_x + (text_offset if side == "right" else -text_offset)
         self.canvas.create_text(
             text_x,
