@@ -185,7 +185,7 @@ class Example(Frame):
             node_col, direction = int(parts[1]), parts[3]
             
             # Special case: right side of last column (8x8 only)
-            if n == 8 and side == "right" and col == second_last_col + 1:
+            if n in [8, 12] and side == "right" and col == second_last_col + 1:
                 if node_col in [second_last_col, col] and direction in ["TR", "BR"]:
                     relevant_nodes.append(node)
             # Normal case
@@ -194,7 +194,7 @@ class Example(Frame):
                 relevant_nodes.append(node)
 
         # Custom sorting logic
-        if n == 8 and side == "right" and col == second_last_col + 1:
+        if n in [8, 12] and side == "right" and col == second_last_col + 1:
             # Special right-side handling
             second_last_nodes = [n for n in relevant_nodes if f"X_{second_last_col}" in n.name]
             last_col_nodes = sorted([n for n in relevant_nodes if f"X_{col}_" in n.name], 
@@ -226,24 +226,31 @@ class Example(Frame):
 
             # Add labels for 8x8 grid
             if n == 8:
-                # Calculate label based on side and position
                 label = 14 - i if side == "left" else 7 + i
-                text_offset = 25 if is_special else 20
-                text_x = new_x + (text_offset if side == "right" else -text_offset)
-                
-                self.canvas.create_text(
-                    text_x, node.y,
-                    text=str(label),
-                    anchor="w" if side == "right" else "e",
-                    fill="white",
-                    font=("Arial", 12 if is_special else 12, "bold"),
-                    tags="io_label"
-                )
+                self._draw_side_label(is_special, label, side, new_x, node.y)
+            elif n == 12:
+                label = 22 - i if side == "left" else 11 + i
+                self._draw_side_label(is_special, label, side, new_x, node.y)
 
-        # Connect special vertical extensions
         if side == "right" and col == second_last_col and n == 8:
-            self.connect_vertical_extensions(col, (n//2)-1, extension*3)
-
+            self.connect_vertical_extensions(col, (n // 2) - 1, extension * 3)
+        elif side == "right" and col == second_last_col and n == 12:
+            self.connect_vertical_extensions(col, (n // 2) - 1, extension * 3)
+            
+    def _draw_side_label(self, is_special, label, side, new_x, node_y):
+        """Draw the numeric label for a side extension, used by add_side_extensions"""
+        #text_offset = 15 if is_special else 10
+        text_offset = 15
+        text_x = new_x + (text_offset if side == "right" else -text_offset)
+        self.canvas.create_text(
+            text_x,
+            node_y,
+            text=str(label),
+            anchor="w" if side == "right" else "e",
+            fill="white",
+            font=("Arial", 12 if is_special else 12, "bold"),
+            tags="io_label"
+        )
 
     def connect_vertical_extensions(self, col, max_row, extension):
         """Connects special vertical extensions with proper spacing"""
