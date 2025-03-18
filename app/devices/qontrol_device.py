@@ -1,6 +1,8 @@
 # app/devices/qontrol_device.py
 
 from app.imports import *
+import platform  
+
 
 class QontrolDevice:
     def __init__(self, config=None):
@@ -42,13 +44,19 @@ class QontrolDevice:
         print("Available ports:", [port.device for port in available_ports])
 
         for port in available_ports:
-            # Only try FTDI devices (or those whose description contains "FT")
-            if ("FTDI" not in (port.manufacturer or "") and
-                "FT" not in (port.description or "")):
-                continue
+            # Linux-specific detection by VID/PID
+            if platform.system() == "Linux":
+                if not (port.vid == 0x0403 and port.pid == 0x6001):  # FTDI FT232
+                    continue
+                print(f"Trying {port.device} (FTDI detected by VID/PID 0403:6001)...")
+            else:
+                # Original detection for other OSes
+                if ("FTDI" not in (port.manufacturer or "") and \
+                   "FT" not in (port.description or "")):
+                    continue
+                print(f"Trying {port.device} (FTDI detected by description)...")
 
             try:
-                print("Trying to connect to {0} (FTDI detected)...".format(port.device))
                 # Instantiate a QXOutput from the core library.
                 q = qontrol.QXOutput(serial_port_name=port.device, response_timeout=0.5)
                 self.serial_port = port.device
@@ -65,12 +73,12 @@ class QontrolDevice:
                 return port.device
 
             except Exception as e:
-                print("Failed to connect on {0}: {1}".format(port.device, e))
+                print(f"Failed to connect on {port.device}: {str(e)}")
                 continue
 
         print("No Qontrol device found.")
         return None
-
+        
     def connect(self):
         """
         Automatically scan for and connect to the Qontrol device.

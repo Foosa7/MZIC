@@ -373,33 +373,86 @@ class Window1Content(ctk.CTkFrame):
         cover.destroy()
 
     def _clear_grid(self):
-        """Clear all selections and reset the grid"""
-        # try:
+        """Clear all selections and reset the grid, setting all values to zero"""
+        try:
             # Clear all selections
-        for path in self.custom_grid.paths:
-            if path.line_id in self.custom_grid.selected_paths:
-                self.custom_grid.canvas.itemconfig(path.line_id, fill="white")
-        self.custom_grid.selected_paths.clear()
-        
-        # Clear all input boxes
-        for cross_label in list(self.custom_grid.input_boxes.keys()):
-            self.custom_grid.delete_input_boxes(cross_label)
-        
-        # Reset last selection
-        self.custom_grid.last_selection = {"cross": None, "arm": None}
-        AppData.update_last_selection(None, None)
-        
-        # Update the selection display
-        self.custom_grid.update_selection()
-        
-        # Trigger the selection updated event
-        self.custom_grid.event_generate("<<SelectionUpdated>>")
-        
-        # print("Grid cleared successfully")
-        # except Exception as e:
-            # self._show_error(f"Failed to clear grid: {str(e)}")
-            # print                    
+            for path in self.custom_grid.paths:
+                if path.line_id in self.custom_grid.selected_paths:
+                    self.custom_grid.canvas.itemconfig(path.line_id, fill="white")
+            self.custom_grid.selected_paths.clear()
+            
+            # Clear all input boxes
+            for cross_label in list(self.custom_grid.input_boxes.keys()):
+                self.custom_grid.delete_input_boxes(cross_label)
+            
+            # Reset last selection
+            self.custom_grid.last_selection = {"cross": None, "arm": None}
+            AppData.update_last_selection(None, None)
+            
+            # Update the selection display
+            self.custom_grid.update_selection()
+            
+            # Trigger the selection updated event
+            self.custom_grid.event_generate("<<SelectionUpdated>>")
+            
+            # Create a zero-value configuration for all crosspoints
+            zero_config = self._create_zero_config()
+            
+            # Apply the zero configuration to the device
+            apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
+            
+            print("Grid cleared and all values set to zero")
+        except Exception as e:
+            self._show_error(f"Failed to clear grid: {str(e)}")
+            print(f"Error in clear grid: {e}")
 
+    def _create_zero_config(self):
+        """Create a configuration with all theta and phi values set to zero"""
+        n = int(self.grid_size.split('x')[0])
+        zero_config = {}
+        
+        # Generate all possible crosspoint labels (A1, A2, B1, etc.)
+        for row in range(n):
+            row_letter = chr(65 + row)  # A, B, C, etc.
+            for col in range(1, n+1):
+                cross_label = f"{row_letter}{col}"
+                zero_config[cross_label] = {
+                    "arms": ["TL", "TR", "BL", "BR"],  # Include all arms
+                    "theta": "0",
+                    "phi": "0"
+                }
+        
+        return json.dumps(zero_config)
+
+
+    # def _clear_grid(self):
+    #     """Clear all selections and reset the grid"""
+    #     # try:
+    #         # Clear all selections
+    #     for path in self.custom_grid.paths:
+    #         if path.line_id in self.custom_grid.selected_paths:
+    #             self.custom_grid.canvas.itemconfig(path.line_id, fill="white")
+    #     self.custom_grid.selected_paths.clear()
+        
+    #     # Clear all input boxes
+    #     for cross_label in list(self.custom_grid.input_boxes.keys()):
+    #         self.custom_grid.delete_input_boxes(cross_label)
+        
+    #     # Reset last selection
+    #     self.custom_grid.last_selection = {"cross": None, "arm": None}
+    #     AppData.update_last_selection(None, None)
+        
+    #     # Update the selection display
+    #     self.custom_grid.update_selection()
+        
+    #     # Trigger the selection updated event
+    #     self.custom_grid.event_generate("<<SelectionUpdated>>")
+        
+    #     # print("Grid cleared successfully")
+    #     # except Exception as e:
+    #         # self._show_error(f"Failed to clear grid: {str(e)}")
+    #         # print                    
+    
     def _apply_config(self):
         """Force apply current configuration"""
         self._update_device()
