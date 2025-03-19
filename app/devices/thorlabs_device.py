@@ -1,144 +1,86 @@
+import platform
 import pyvisa
-from ThorlabsPM100 import ThorlabsPM100
+from ThorlabsPM100 import ThorlabsPM100, USBTMC
 from unittest.mock import MagicMock
 from app.devices.mock_devices import MockThorlabsPM100
 
 class ThorlabsDevice:
-    # Class variable to track all connected devices
     _connected_devices = {}
     
     @classmethod
     def list_available_devices(cls):
         """List all available Thorlabs power meter devices"""
         devices = []
+        system = platform.system()
         try:
-            rm = pyvisa.ResourceManager()
-            resources = rm.list_resources()
+            if system == 'Windows':
+                rm = pyvisa.ResourceManager()
+                resources = rm.list_resources()
+                for res in resources:
+                    if "USB" in res and "0x1313" in res:
+                        try:
+                            with rm.open_resource(res) as inst:
+                                idn = inst.query("*IDN?").strip().split(',')
+                                if idn[0].strip().lower() == 'thorlabs':
+                                    devices.append({
+                                        "resource": res,
+                                        "manufacturer": idn[0],
+                                        "model": idn[1],
+                                        "serial": idn[2],
+                                        "firmware": idn[3]
+                                    })
+                        except Exception as e:
+                            print(f"Error inspecting {res}: {e}")
             
-            for res in resources:
-                if "USB" in res and "0x1313" in res:  # Thorlabs vendor ID
+            elif system == 'Linux':
+                import glob
+                usbtmc_devices = glob.glob('/dev/usbtmc*')
+                for dev_path in usbtmc_devices:
                     try:
-                        inst = rm.open_resource(res)
+                        inst = USBTMC(device=dev_path)
                         idn = inst.query("*IDN?").strip().split(',')
-                        devices.append({
-                            "resource": res,
-                            "manufacturer": idn[0],
-                            "model": idn[1],
-                            "serial": idn[2],
-                            "firmware": idn[3]
-                        })
+                        if idn[0].strip().lower() == 'thorlabs':
+                            devices.append({
+                                "resource": dev_path,
+                                "manufacturer": idn[0],
+                                "model": idn[1],
+                                "serial": idn[2],
+                                "firmware": idn[3]
+                            })
                         inst.close()
                     except Exception as e:
-                        print(f"Error inspecting {res}: {e}")
+                        print(f"Error inspecting {dev_path}: {e}")
             
             return devices
+        
         except Exception as e:
             print(f"Error listing devices: {e}")
             return []
     
     @classmethod
     def get_device(cls, serial=None, resource=None, config=None):
-        """Factory method to get a device by serial number or resource name"""
-        # If we already have this device connected, return the existing instance
         device_key = serial or resource
         if device_key in cls._connected_devices:
             return cls._connected_devices[device_key]
         
-        # Create a new device instance
         device = ThorlabsDevice(config=config)
-        
-        # Connect to the specific device
         if device.connect(serial=serial, resource=resource):
             cls._connected_devices[device_key] = device
             return device
         return None
-    
+
     def __init__(self, config=None):
-        self.rm = None
         self.inst = None
         self.device = None
         self.params = {}
-        self.config = config if config is not None else {}
-        self.wavelength = self.config.get("wavelength", 1550)  # Default 1550 nm
+        self.config = config or {}
+        self.wavelength = self.config.get("wavelength", 1550)
         self.resource = None
         self.serial = None
-    
-    def find_device(self, serial=None, resource=None):
-        """Find a specific device by serial number or resource name"""
-        try:
-            self.rm = pyvisa.ResourceManager()
-            resources = self.rm.list_resources()
-            
-            # If resource is specified, try to connect directly
-            if resource and resource in resources:
-                return self._try_connect(resource)
-            
-            # Otherwise, scan for devices
-            for res in resources:
-                if "USB" in res and "0x1313" in res:  # Thorlabs vendor ID
-                    # If we're looking for a specific serial number, check it
-                    if serial:
-                        try:
-                            inst = self.rm.open_resource(res)
-                            idn = inst.query("*IDN?").strip().split(',')
-                            device_serial = idn[2]
-                            inst.close()
-                            
-                            if device_serial == serial:
-                                return self._try_connect(res)
-                        except Exception:
-                            continue
-                    else:
-                        # No specific device requested, use the first one found
-                        return self._try_connect(res)
-            
-            print(f"No matching Thorlabs Power Meter found. {'Serial: ' + serial if serial else ''}")
-            return False
-        
-        except Exception as e:
-            print(f"VISA resource error: {e}")
-            return False
-    
-    def _try_connect(self, resource):
-        """Try to connect to a specific resource"""
-        try:
-            print(f"Trying to connect to {resource}...")
-            self.inst = self.rm.open_resource(resource)
-            self.device = ThorlabsPM100(self.inst)
-            
-            # Get identification using raw VISA command
-            idn = self.inst.query("*IDN?").strip().split(',')
-            self.params = {
-                "Manufacturer": idn[0],
-                "Model": idn[1],
-                "Serial": idn[2],
-                "Firmware": idn[3],
-                "Wavelength": f"{self.device.sense.correction.wavelength} nm",
-                "Power Range": f"{self.device.sense.power.dc.range.upper} W"
-            }
-            
-            # Store the serial and resource for future reference
-            self.serial = idn[2]
-            self.resource = resource
-            
-            # Configure measurement type to POWER
-            self.device.sense.function = 'POWER'
-            
-            # Apply wavelength config
-            self.device.sense.correction.wavelength = self.wavelength
-            
-            print(f"Connected to {self.params['Model']} at {resource}")
-            return True
-        
-        except Exception as e:
-            print(f"Failed to connect to {resource}: {e}")
-            return False
-    
+
     def connect(self, serial=None, resource=None):
-        """Connect to a device by serial number or resource name"""
-        if self.find_device(serial, resource):
+        if self._find_device(serial, resource):
             print(f"Connected to {self.params['Model']} (SN: {self.params['Serial']})")
-            print(f"Current wavelength: {self.params['Wavelength']}")
             return True
         else:
             print("Using mock device")
@@ -154,27 +96,123 @@ class ThorlabsDevice:
             self.serial = serial or "MOCK1234"
             self.resource = resource or "MOCK_RESOURCE"
             return True
-    
+
+    def _find_device(self, serial=None, resource=None):
+        system = platform.system()
+        try:
+            if system == 'Windows':
+                return self._windows_find_device(serial, resource)
+            elif system == 'Linux':
+                return self._linux_find_device(serial, resource)
+            else:
+                print(f"Unsupported OS: {system}")
+                return False
+        except Exception as e:
+            print(f"Error finding device: {e}")
+            return False
+
+    def _windows_find_device(self, serial, resource):
+        rm = pyvisa.ResourceManager()
+        if resource:
+            return self._try_connect_windows(resource, rm, serial)
+        
+        resources = rm.list_resources()
+        for res in resources:
+            if "USB" in res and "0x1313" in res:
+                try:
+                    with rm.open_resource(res) as inst:
+                        idn = inst.query("*IDN?").strip().split(',')
+                        if (not serial) or (idn[2] == serial):
+                            return self._try_connect_windows(res, rm, serial)
+                except Exception:
+                    continue
+        return False
+
+    def _linux_find_device(self, serial, resource):
+        import glob
+        if resource:
+            return self._try_connect_linux(resource, serial)
+        
+        for dev_path in glob.glob('/dev/usbtmc*'):
+            if self._try_connect_linux(dev_path, serial):
+                return True
+        return False
+
+    def _try_connect_windows(self, resource, rm, expected_serial):
+        try:
+            self.inst = rm.open_resource(resource)
+            idn = self.inst.query("*IDN?").strip().split(',')
+            if expected_serial and idn[2] != expected_serial:
+                self.inst.close()
+                return False
+            
+            self._initialize_device(resource, idn)
+            return True
+        except Exception as e:
+            print(f"Windows connection failed: {e}")
+            return False
+
+    def _try_connect_linux(self, resource, expected_serial):
+        try:
+            self.inst = USBTMC(device=resource)
+            idn = self.inst.query("*IDN?").strip().split(',')
+            if expected_serial and idn[2] != expected_serial:
+                self.inst.close()
+                return False
+            
+            self._initialize_device(resource, idn)
+            return True
+        except Exception as e:
+            print(f"Linux connection failed: {e}")
+            return False
+
+    def _initialize_device(self, resource, idn):
+        self.device = ThorlabsPM100(self.inst)
+        self.params = {
+            "Manufacturer": idn[0],
+            "Model": idn[1],
+            "Serial": idn[2],
+            "Firmware": idn[3],
+            "Wavelength": f"{self.device.sense.correction.wavelength} nm",
+            "Power Range": f"{self.device.sense.power.dc.range.upper} W"
+        }
+        self.resource = resource
+        self.serial = idn[2]
+        self.device.sense.function = 'POWER'
+        self.device.sense.correction.wavelength = self.wavelength
+        print(f"Connected to {self.params['Model']} at {resource}")
+
     def read_power(self):
-        """Get power reading in mW"""
         if self.device:
             try:
-                return self.device.read * 1000  # Convert W to mW
+                return self.device.read * 1000
             except AttributeError:
                 return self.device.power * 1000
         return 0.0
-    
+
     def set_wavelength(self, wavelength):
-        """Set measurement wavelength (300-1100nm or 800-1700nm depending on sensor)"""
         if self.device:
             try:
                 self.device.sense.correction.wavelength = wavelength
                 self.wavelength = wavelength
                 self.params["Wavelength"] = f"{wavelength} nm"
-                print(f"Wavelength updated to {wavelength} nm")
             except Exception as e:
                 print(f"Wavelength setting error: {e}")
-    
+
+    def disconnect(self):
+        if self.inst:
+            try:
+                self.inst.close()
+                print(f"Disconnected from {self.params['Serial']}")
+                ThorlabsDevice._connected_devices.pop(self.serial, None)
+                ThorlabsDevice._connected_devices.pop(self.resource, None)
+            except Exception as e:
+                print(f"Error closing connection: {e}")
+            finally:
+                self.inst = None
+                self.device = None
+
+    # Remaining methods (show_status, etc.) remain unchanged
     def show_status(self):
         """Display device status"""
         if self.device:
@@ -182,21 +220,21 @@ class ThorlabsDevice:
             print(f"Wavelength: {self.params['Wavelength']}")
             print(f"Current power: {self.read_power():.6f} mW")
     
-    def disconnect(self):
-        """Safely close connection to device"""
-        if self.inst:
-            try:
-                self.inst.close()
-                print(f"Disconnected from Thorlabs device {self.params['Serial']}")
-                # Remove from connected devices
-                if self.serial in self._connected_devices:
-                    del self._connected_devices[self.serial]
-                if self.resource in self._connected_devices:
-                    del self._connected_devices[self.resource]
-            except Exception as e:
-                print(f"Error closing connection: {e}")
-            finally:
-                self.inst = None
-                self.device = None
-        else:
-            print("No active connection to disconnect")
+    # def disconnect(self):
+    #     """Safely close connection to device"""
+    #     if self.inst:
+    #         try:
+    #             self.inst.close()
+    #             print(f"Disconnected from Thorlabs device {self.params['Serial']}")
+    #             # Remove from connected devices
+    #             if self.serial in self._connected_devices:
+    #                 del self._connected_devices[self.serial]
+    #             if self.resource in self._connected_devices:
+    #                 del self._connected_devices[self.resource]
+    #         except Exception as e:
+    #             print(f"Error closing connection: {e}")
+    #         finally:
+    #             self.inst = None
+    #             self.device = None
+    #     else:
+    #         print("No active connection to disconnect")
