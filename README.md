@@ -34,6 +34,7 @@ MZIC/
 │   ├── imports.py              # Common module imports.
 │   ├── __init__.py             # Initializes the app package.
 │   ├── devices/                # Modules for interfacing with hardware devices.
+│   │   ├── daq_device.py       # Interface for the DAQ device.
 │   │   ├── mock_devices.py     # Mock implementations for testing.
 │   │   ├── qontrol_device.py   # Interface for the Qontrol device.
 │   │   ├── thorlabs_device.py  # Interface for the Thorlabs device.

@@ -40,6 +40,10 @@ class DeviceControlWidget(ctk.CTkFrame):
         # self.thorlabs_wavelength_label = ctk.CTkLabel(self.info_frame, text="Wavelength: - nm", anchor="w")
         # self.thorlabs_power_label = ctk.CTkLabel(self.info_frame, text="Power Range: -", anchor="w")
 
+        # DAQ Device Parameters
+        self.daq_label = ctk.CTkLabel(self.info_frame, text="NI USB-6000: -", anchor="w")
+        #self.daq_channels_label = ctk.CTkLabel(self.info_frame, text="DAQ Channels: -", anchor="w")
+
         # Packing order
         self.device_label.pack(fill="x", padx=10, pady=(0, 2))
         self.firmware_label.pack(fill="x", padx=10, pady=(0, 2))
@@ -52,6 +56,9 @@ class DeviceControlWidget(ctk.CTkFrame):
         # self.thorlabs_wavelength_label.pack(fill="x", padx=10, pady=(0, 2))
         # self.thorlabs_power_label.pack(fill="x", padx=10, pady=(0, 2))
 
+        # DAQ labels
+        self.daq_label.pack(fill="x", padx=10, pady=(0, 2))
+        #self.daq_channels_label.pack(fill="x", padx=10, pady=(0, 10))
 
         self.device_label.pack(fill="x", padx=10, pady=(0, 2))
         self.firmware_label.pack(fill="x", padx=10, pady=(0, 2))
@@ -129,7 +136,22 @@ class DeviceControlWidget(ctk.CTkFrame):
                 attr_name = f"thorlabs_model_label{device_index}"
                 if hasattr(self, attr_name):
                     getattr(self, attr_name).configure(text=f"Thorlabs {device_index} Model: -")
-                
+
+        elif params and device_type == "daq":
+            # If DAQ is connected, show relevant info
+            # "DAQ Device" and "Channels" are keys we set in main_window's connect_devices() method
+            self.daq_label.configure(text=f"NI USB-6000: {params.get('DAQ Device','-')}")
+            #self.daq_channels_label.configure(text=f"DAQ Channels: {params.get('Channels','-')}")
+        
+        elif device_type == "daq":
+            # params is None => DAQ disconnected
+            self.daq_label.configure(text="NI USB-6000: -")
+            #self.daq_channels_label.configure(text="DAQ Channels: -")
+
+        else:
+            # We might do nothing or clear labels if unrecognized device_type
+            self._clear_all_labels()
+
     def _clear_all_labels(self):
         self.device_label.configure(text="Device: -")
         self.firmware_label.configure(text="Firmware: -")
@@ -141,6 +163,8 @@ class DeviceControlWidget(ctk.CTkFrame):
             if attr_name.startswith("thorlabs_model_label") and attr_name != "thorlabs_model_label":
                 get_attr(self, attr_name).configure(text=f"Thorlabs {attr_name[19:]} Model: -")
 
+        self.daq_label.configure(text="NI USB-6000: -")
+        #self.daq_channels_label.configure(text="DAQ Channels: -")
     
 class AppControlWidget(ctk.CTkFrame):
     def __init__(self, master, import_command=None, export_command=None, 

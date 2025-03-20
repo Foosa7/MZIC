@@ -1,6 +1,5 @@
-import nidaqmx
-import numpy as np
-from nidaqmx.system import System
+# app/devices/daq_device.py
+from app.imports import *
 
 class DAQ:
     """
@@ -172,4 +171,4 @@ class DAQ:
             self._is_connected = False
             self.device_name = None
         else:
-            print("No active DAQ device connection to disconnect.")
+            print("No DAQ device to disconnect.")

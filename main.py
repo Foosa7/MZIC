@@ -61,17 +61,29 @@ def main():
         thorlabs.connect()
         thorlabs_devices.append(thorlabs)
 
+    # Connect to DAQ device
+    daq_devices_info = DAQ.list_available_devices()
+    print(f"Found {len(daq_devices_info)} NI-DAQ device(s):")
+    for i, dev_info in enumerate(daq_devices_info):
+        print(f"{i+1}. {dev_info['product_type']} (Name: {dev_info['name']})")
+
+    daq = DAQ.get_device(config=config)
+
     # Connect to Qontrol device
     qontrol.connect()
 
     # Start the GUI application (you'll need to modify your MainWindow to handle multiple power meters)
-    app = MainWindow(qontrol, thorlabs_devices, config)
+    app = MainWindow(qontrol, thorlabs_devices, daq, config)
     app.mainloop()
 
     # Disconnect devices on exit
-    qontrol.disconnect()
     for device in thorlabs_devices:
         device.disconnect()
+
+    if daq is not None:
+        daq.disconnect()
+
+    qontrol.disconnect()
 
 if __name__ == "__main__":
     main()
