@@ -199,4 +199,4 @@ class ThorlabsDevice:
                 self.inst = None
                 self.device = None
         else:
-            print("No active connection to disconnect")
+            print("No Thorlabs device to disconnect")

@@ -15,6 +15,7 @@ import string
 import shutil
 import traceback
 import ast
+from datetime import datetime
 
 # Third-Party Libraries
 import serial
@@ -45,11 +46,13 @@ from tkinter import Tk, Label, filedialog, messagebox, ttk
 # Hardware Interfaces
 import qontrol
 from ThorlabsPM100 import ThorlabsPM100
+import nidaqmx
+from nidaqmx.system import System
 
 # Import Custom Modules
+from app.devices.daq_device import DAQ
 from app.devices.qontrol_device import QontrolDevice
 from app.devices.thorlabs_device import ThorlabsDevice
 from app.devices.mock_devices import MockQontrol, MockThorlabsPM100
 from app.gui.main_window import MainWindow  
 from app.utils.appdata import AppData
-

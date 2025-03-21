@@ -1,12 +1,15 @@
 # Third-party libraries required by the MZIC project
 pyserial
 pyvisa
-numpy
+numpy==1.26.4
 matplotlib
 Pillow
 sympy
+scipy
 customtkinter
-tkinter 
 qontrol
 ThorlabsPM100
 interferometer
+jsonschema
+nidaqmx
+

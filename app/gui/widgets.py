@@ -40,6 +40,10 @@ class DeviceControlWidget(ctk.CTkFrame):
         # self.thorlabs_wavelength_label = ctk.CTkLabel(self.info_frame, text="Wavelength: - nm", anchor="w")
         # self.thorlabs_power_label = ctk.CTkLabel(self.info_frame, text="Power Range: -", anchor="w")
 
+        # DAQ Device Parameters
+        self.daq_label = ctk.CTkLabel(self.info_frame, text="NI USB-6000: -", anchor="w")
+        #self.daq_channels_label = ctk.CTkLabel(self.info_frame, text="DAQ Channels: -", anchor="w")
+
         # Packing order
         self.device_label.pack(fill="x", padx=10, pady=(0, 2))
         self.firmware_label.pack(fill="x", padx=10, pady=(0, 2))
@@ -52,6 +56,9 @@ class DeviceControlWidget(ctk.CTkFrame):
         # self.thorlabs_wavelength_label.pack(fill="x", padx=10, pady=(0, 2))
         # self.thorlabs_power_label.pack(fill="x", padx=10, pady=(0, 2))
 
+        # DAQ labels
+        self.daq_label.pack(fill="x", padx=10, pady=(0, 2))
+        #self.daq_channels_label.pack(fill="x", padx=10, pady=(0, 10))
 
         self.device_label.pack(fill="x", padx=10, pady=(0, 2))
         self.firmware_label.pack(fill="x", padx=10, pady=(0, 2))
@@ -87,59 +94,77 @@ class DeviceControlWidget(ctk.CTkFrame):
     def update_device_info(self, params, device_type):
         """Handle Qontrol and multiple Thorlabs updates with type checking"""
         # Extract device index for thorlabs devices (thorlabs, thorlabs1, thorlabs2, etc.)
-        device_index = ""
-        if device_type.startswith("thorlabs") and len(device_type) > 8:
-            device_index = device_type[8:]  # Extract index number if present
         
+        if not device_type:
+            self._clear_all_labels()
+            return
+        
+        # If we're updating Qontrol device
         if params and device_type == "qontrol":
             # Update Qontrol parameters
             self.device_label.configure(text=f"Device: Qontroller '{params.get('Device id', '-')}'")
             self.firmware_label.configure(text=f"Firmware: {params.get('Firmware', '-')}")
             self.channels_label.configure(text=f"Channels: {params.get('Available channels', '-')}")
-            self.current_limit_label.configure(text=f"Current limit: {params.get('Global Current Limit', '-')} mA")
-
-        elif params and device_type.startswith("thorlabs"):
-            # Update Thorlabs parameters with device index if applicable
-            device_suffix = f" {device_index}" if device_index else ""
-            self.thorlabs_model_label.configure(
-                text=f"Thorlabs{device_suffix} Model: {params.get('Model', '-')} (SN: {params.get('Serial', '-')})"
-            )
-            
-            # Create or update additional labels for multiple devices if needed
-            if device_index and not hasattr(self, f"thorlabs_model_label{device_index}"):
-                # Create new label for additional device
-                setattr(self, f"thorlabs_model_label{device_index}", 
-                    ctk.CTkLabel(self.info_frame, text=f"Thorlabs{device_suffix} Model: -", anchor="w"))
-                getattr(self, f"thorlabs_model_label{device_index}").pack(fill="x", padx=10, pady=(0, 2))
-            
-            # Update the specific device label if it exists
-            if device_index and hasattr(self, f"thorlabs_model_label{device_index}"):
-                getattr(self, f"thorlabs_model_label{device_index}").configure(
-                    text=f"Thorlabs{device_suffix} Model: {params.get('Model', '-')} (SN: {params.get('Serial', '-')})"
-                )
-
-        elif device_type is None:
-            # Clear all parameters
-            self.device_label.configure(text="Device: -")
-            self.firmware_label.configure(text="Firmware: -")
-            self.channels_label.configure(text="Channels: -")
-            self.current_limit_label.configure(text="Current limit: -")
-            self.thorlabs_model_label.configure(text="Thorlabs Model: -")
-            
-            # Clear any additional thorlabs device labels
-            for attr_name in dir(self):
-                if attr_name.startswith("thorlabs_model_label") and attr_name != "thorlabs_model_label":
-                    getattr(self, attr_name).configure(text=f"Thorlabs {attr_name[19:]} Model: -")
+            self.current_limit_label.configure(text=f"Current limit: {params.get('Global Current Limit', '-')} mA")    
         
-        elif device_type.startswith("thorlabs"):
-            # Clear only the specific thorlabs device
-            if device_index and hasattr(self, f"thorlabs_model_label{device_index}"):
-                getattr(self, f"thorlabs_model_label{device_index}").configure(
-                    text=f"Thorlabs {device_index} Model: -"
+        # If we're updating (one or more) Thorlabs device(s)
+        elif params and device_type.startswith("thorlabs"):
+            
+            device_index = device_type[8:]  # Extract index number if present
+            
+            if device_index == "":
+                self.thorlabs_model_label.configure(
+                    text=f"Thorlabs 0 (SN: {params.get('Serial', '-')})"    
                 )
             else:
+                attr_name = f"thorlabs_model_label{device_index}"
+                if not hasattr(self, attr_name):
+                    label = ctk.CTkLabel(self.info_frame, anchor="w")
+                    setattr(self, attr_name, label)
+                    label.pack(fill="x", padx=10, pady=(0,2))
+                label = getattr(self, attr_name)
+                label.configure(
+                    text=f"Thorlabs {device_index} (SN: {params.get('Serial', '-')})"    
+                )
+                
+        elif device_type.startswith("thorlabs"):
+            device_index = device_type[8:]
+            
+            if device_index == "":
                 self.thorlabs_model_label.configure(text="Thorlabs Model: -")
+            else:
+                attr_name = f"thorlabs_model_label{device_index}"
+                if hasattr(self, attr_name):
+                    getattr(self, attr_name).configure(text=f"Thorlabs {device_index} Model: -")
 
+        elif params and device_type == "daq":
+            # If DAQ is connected, show relevant info
+            # "DAQ Device" and "Channels" are keys we set in main_window's connect_devices() method
+            self.daq_label.configure(text=f"NI USB-6000: {params.get('DAQ Device','-')}")
+            #self.daq_channels_label.configure(text=f"DAQ Channels: {params.get('Channels','-')}")
+        
+        elif device_type == "daq":
+            # params is None => DAQ disconnected
+            self.daq_label.configure(text="NI USB-6000: -")
+            #self.daq_channels_label.configure(text="DAQ Channels: -")
+
+        else:
+            # We might do nothing or clear labels if unrecognized device_type
+            self._clear_all_labels()
+
+    def _clear_all_labels(self):
+        self.device_label.configure(text="Device: -")
+        self.firmware_label.configure(text="Firmware: -")
+        self.channels_label.configure(text="Channels: -")
+        self.current_limit_label.configure(text="Current limit: -")
+        self.thorlabs_model_label.configure(text="Thorlabs Model: -")
+        
+        for attr_name in dir(self):
+            if attr_name.startswith("thorlabs_model_label") and attr_name != "thorlabs_model_label":
+                get_attr(self, attr_name).configure(text=f"Thorlabs {attr_name[19:]} Model: -")
+
+        self.daq_label.configure(text="NI USB-6000: -")
+        #self.daq_channels_label.configure(text="DAQ Channels: -")
     
 class AppControlWidget(ctk.CTkFrame):
     def __init__(self, master, import_command=None, export_command=None, 
@@ -265,14 +290,14 @@ class WindowSelectionWidget(ctk.CTkFrame):
         )
         self.radio3.pack(side="top", fill="x", padx=5, pady=5)
         
-        self.radio4 = ctk.CTkRadioButton(
-            self.radio_frame,
-            text="Window 4",
-            variable=self.radio_var,
-            value="Window 4",
-            command=self.on_radio_change
-        )
-        self.radio4.pack(side="top", fill="x", padx=5, pady=5)
+        # self.radio4 = ctk.CTkRadioButton(
+        #     self.radio_frame,
+        #     text="Window 4",
+        #     variable=self.radio_var,
+        #     value="Window 4",
+        #     command=self.on_radio_change
+        # )
+        # self.radio4.pack(side="top", fill="x", padx=5, pady=5)
         
         self.change_command = change_command
 
@@ -352,3 +377,41 @@ class PlotWidget(ctk.CTkFrame):
         self.ax.clear()
         self._configure_plot_style()
         self.canvas.draw()
+
+
+class CalibrationControlWidget(ctk.CTkFrame):
+    def __init__(self, master, **kwargs):
+        super().__init__(master, **kwargs)
+        self.create_calibration_controls()
+
+    def create_calibration_controls(self):
+        """Add calibration section with separate buttons"""
+        self.calibration_frame = ctk.CTkFrame(self)
+        self.calibration_frame.pack(pady=10, fill='x', expand=True)
+
+        # Channel selection display
+        self.current_channel_label = ctk.CTkLabel(self.calibration_frame, text="No channel selected")
+        self.current_channel_label.pack(pady=0)
+
+        # Create container frame for side-by-side layout
+        io_config_frame = ctk.CTkFrame(self.calibration_frame, fg_color="transparent")
+        io_config_frame.pack(pady=5, fill='x')
+
+        # Theta/Phi selector
+        self.channel_type_var = ctk.StringVar(value="theta")
+        type_frame = ctk.CTkFrame(io_config_frame, fg_color="transparent")
+        type_frame.pack(side='left', padx=(10,0), expand=True)
+        ctk.CTkRadioButton(type_frame, text="θ", variable=self.channel_type_var, value="theta").pack(side='left')
+        ctk.CTkRadioButton(type_frame, text="φ", variable=self.channel_type_var, value="phi").pack(side='left', padx=5)
+
+        # Configure grid columns for equal spacing
+        io_config_frame.grid_columnconfigure(0, weight=1)
+        io_config_frame.grid_columnconfigure(1, weight=1)
+
+        # Calibration buttons
+        btn_frame = ctk.CTkFrame(self.calibration_frame, fg_color="transparent")
+        btn_frame.pack(pady=10, fill='x')
+
+        # Configure grid columns
+        btn_frame.grid_columnconfigure(0, weight=1)
+        btn_frame.grid_columnconfigure(1, weight=1)

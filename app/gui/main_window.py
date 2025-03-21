@@ -4,6 +4,8 @@ import customtkinter as ctk
 import tkinter.messagebox as messagebox
 import app.gui.widgets as widgets
 import app.gui.window1 as window1
+from app.gui.widgets import CalibrationControlWidget
+
 from app.gui.window1 import Window1Content  # Import the Window1Content widget
 from app.gui.window2 import Window2Content  # Import the Window2Content widget
 from app.gui.window3 import Window3Content  # Import the Window3Content widget
@@ -14,10 +16,11 @@ from app.utils.appdata import AppData   # Import the AppData class
 # from app.utils import utils            # This module contains apply_phase
 
 class MainWindow(ctk.CTk):
-    def __init__(self, qontrol, thorlabs, config):
+    def __init__(self, qontrol, thorlabs, daq, config):
         super().__init__()
         self.qontrol = qontrol
         self.thorlabs = thorlabs
+        self.daq = daq
         self.config = config
 
         self.current_content = None  # Important: so we can check it safely switch tabs
@@ -67,6 +70,17 @@ class MainWindow(ctk.CTk):
         )
         self.windowSelection.pack(anchor="nw", padx=10, pady=(5, 10), fill="x")
  
+        # Add calibration controls
+        self.calibration_control = CalibrationControlWidget(self.left_panel)
+        self.calibration_control.pack(anchor="nw", padx=10, pady=(5, 10), fill="x")
+
+        # # Add other widgets...
+        # self.windowSelection.pack(anchor="nw", padx=10, pady=(5, 10), fill="x")
+
+        # # Add calibration control widget
+        # self.calibration_control = CalibrationControlWidget(self.left_panel)
+        # self.calibration_control.pack(anchor="nw", padx=10, pady=(5, 10), fill="x")        
+
         # Initially, load the content for Window 1.
         self.load_window_content("Window 1")
         
@@ -98,6 +112,7 @@ class MainWindow(ctk.CTk):
                 app=self.appdata,
                 qontrol=self.qontrol,
                 thorlabs = self.thorlabs,
+                daq = self.daq,
                 grid_size=mesh_size
             )
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
@@ -168,6 +183,28 @@ class MainWindow(ctk.CTk):
                     params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
                     self.device_control.update_device_info(params, "qontrol")
 
+        # Handle DAQ connection
+        if self.daq:
+            if self.daq._is_connected:
+                print("DAQ is already connected.")
+                # Build a small status dict
+                status_dict = {
+                    "DAQ Device": self.daq.device_name,
+                    "Channels": ", ".join(self.daq.list_ai_channels() or [])
+                }
+                self.device_control.update_device_info(status_dict, "daq")
+            else:
+                if self.daq.connect():
+                    print("Connected to DAQ device.")
+                    status_dict = {
+                        "DAQ Device": self.daq.device_name,
+                        "Channels": ", ".join(self.daq.list_ai_channels() or [])
+                    }
+                    self.device_control.update_device_info(status_dict, "daq")
+                else:
+                    print("DAQ connection failed.")
+                    self.device_control.update_device_info(None, "daq")
+
         # Handle Thorlabs connection(s)
         if isinstance(self.thorlabs, list):
             # Multiple Thorlabs devices
@@ -194,10 +231,16 @@ class MainWindow(ctk.CTk):
                     self.device_control.update_device_info(params, "thorlabs")
 
     def disconnect_devices(self):
+        # Qontrol
         if self.qontrol:
             self.qontrol.disconnect()
         
-        # Handle disconnecting Thorlabs device(s)
+        # DAQ
+        if self.daq:
+            self.daq.disconnect()
+            self.device_control.update_device_info(None, "daq")
+
+        # Thorlabs
         if isinstance(self.thorlabs, list):
             # Multiple Thorlabs devices
             for i, thorlabs_device in enumerate(self.thorlabs):
@@ -218,7 +261,7 @@ class MainWindow(ctk.CTk):
         # Call the import function to update the appdata.
         importfunc(self.appdata)
         # For demonstration, print one of the imported matrices.
-        print("Updated with Pickle file:", self.appdata.phiphase2list)
+        print("Updated with Pickle file:", self.appdata.caliparamlist_lincub_cross[1])
         messagebox.showinfo("Import", "Data imported successfully!")
 
     def export_data(self):
@@ -237,5 +280,5 @@ class MainWindow(ctk.CTk):
 
 if __name__ == "__main__":
     qontrol_device = QontrolDevice(config={"globalcurrrentlimit"})
-    app = MainWindow(qontrol=qontrol_device, thorlabs=None, config={})
+    app = MainWindow(qontrol=qontrol_device, thorlabs=None, daq=None, config={})
     app.mainloop()
