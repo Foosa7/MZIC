@@ -1,6 +1,7 @@
 # main.py
 from app.imports import *
 import ctypes
+from nidaqmx.errors import DaqNotFoundError 
 
 SETTINGS_PATH = os.path.join(os.path.dirname(__file__), "config", "settings.json")
 
@@ -61,17 +62,38 @@ def main():
         thorlabs.connect()
         thorlabs_devices.append(thorlabs)
 
+    # Attempt to use a DAQ device or mock if unavailable
+    try:
+        daq_devices_info = DAQ.list_available_devices()
+        print(f"Found {len(daq_devices_info)} NI-DAQ device(s):")
+        for i, dev_info in enumerate(daq_devices_info):
+            print(f"{i+1}. {dev_info['product_type']} (Name: {dev_info['name']})")
+    
+        if len(daq_devices_info) == 0:
+            print("No DAQ devices found, using mock NI-DAQ device.")
+            daq = MockNIDAQ()
+        else:
+            daq = DAQ.get_device(config=config)
+    except DaqNotFoundError:
+        print("NI-DAQmx not found, using mock NI-DAQ device.")
+        daq = MockNIDAQ()
+
+
     # Connect to Qontrol device
     qontrol.connect()
 
     # Start the GUI application (you'll need to modify your MainWindow to handle multiple power meters)
-    app = MainWindow(qontrol, thorlabs_devices, config)
+    app = MainWindow(qontrol, thorlabs_devices, daq, config)
     app.mainloop()
 
     # Disconnect devices on exit
-    qontrol.disconnect()
     for device in thorlabs_devices:
         device.disconnect()
+
+    if daq is not None:
+        daq.disconnect()
+
+    qontrol.disconnect()
 
 if __name__ == "__main__":
     main()

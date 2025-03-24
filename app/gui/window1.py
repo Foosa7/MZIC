@@ -15,10 +15,11 @@ from typing import Dict, Any
 from scipy import optimize
 
 class Window1Content(ctk.CTkFrame):
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, grid_size="8x8", **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, grid_size="8x8", **kwargs):
         super().__init__(master, **kwargs)
         self.qontrol = qontrol
         self.thorlabs = thorlabs
+        self.daq = daq        
         self.grid_size = grid_size
         self.after_id = None
         self.control_panel = None  

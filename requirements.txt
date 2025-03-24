@@ -6,9 +6,9 @@ matplotlib
 Pillow
 sympy
 customtkinter
-# tkinter 
 qontrol
 ThorlabsPM100
 interferometer
 jsonschema
 scipy
+nidaqmx

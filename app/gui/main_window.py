@@ -16,11 +16,12 @@ from app.utils.appdata import AppData   # Import the AppData class
 # from app.utils import utils            # This module contains apply_phase
 
 class MainWindow(ctk.CTk):
-    def __init__(self, qontrol, thorlabs, config):
+    def __init__(self, qontrol, daq, thorlabs, config):
         super().__init__()
         self.qontrol = qontrol
         self.thorlabs = thorlabs
         self.config = config
+        self.daq = daq
 
         self.current_content = None  # Important: so we can check it safely switch tabs
         screen_width = self.winfo_screenwidth()
@@ -107,6 +108,7 @@ class MainWindow(ctk.CTk):
                 app=self.appdata,
                 qontrol=self.qontrol,
                 thorlabs = self.thorlabs,
+                daq = self.daq,
                 grid_size=mesh_size
             )
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
@@ -177,6 +179,29 @@ class MainWindow(ctk.CTk):
                     params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
                     self.device_control.update_device_info(params, "qontrol")
 
+        # Handle DAQ connection
+        if self.daq:
+            if self.daq._is_connected:
+                print("DAQ is already connected.")
+                # Build a small status dict
+                status_dict = {
+                    "DAQ Device": self.daq.device_name,
+                    "Channels": ", ".join(self.daq.list_ai_channels() or [])
+                }
+                self.device_control.update_device_info(status_dict, "daq")
+            else:
+                if self.daq.connect():
+                    print("Connected to DAQ device.")
+                    status_dict = {
+                        "DAQ Device": self.daq.device_name,
+                        "Channels": ", ".join(self.daq.list_ai_channels() or [])
+                    }
+                    self.device_control.update_device_info(status_dict, "daq")
+                else:
+                    print("DAQ connection failed.")
+                    self.device_control.update_device_info(None, "daq")
+
+
         # Handle Thorlabs connection(s)
         if isinstance(self.thorlabs, list):
             # Multiple Thorlabs devices
@@ -205,7 +230,12 @@ class MainWindow(ctk.CTk):
     def disconnect_devices(self):
         if self.qontrol:
             self.qontrol.disconnect()
-        
+
+        # DAQ
+        if self.daq:
+            self.daq.disconnect()
+            self.device_control.update_device_info(None, "daq")        
+
         # Handle disconnecting Thorlabs device(s)
         if isinstance(self.thorlabs, list):
             # Multiple Thorlabs devices
@@ -246,5 +276,5 @@ class MainWindow(ctk.CTk):
 
 if __name__ == "__main__":
     qontrol_device = QontrolDevice(config={"globalcurrrentlimit"})
-    app = MainWindow(qontrol=qontrol_device, thorlabs=None, config={})
+    app = MainWindow(qontrol=qontrol_device, thorlabs=None, daq=None, config={})
     app.mainloop()

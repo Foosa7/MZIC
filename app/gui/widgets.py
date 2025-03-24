@@ -40,6 +40,11 @@ class DeviceControlWidget(ctk.CTkFrame):
         # self.thorlabs_wavelength_label = ctk.CTkLabel(self.info_frame, text="Wavelength: - nm", anchor="w")
         # self.thorlabs_power_label = ctk.CTkLabel(self.info_frame, text="Power Range: -", anchor="w")
 
+        # DAQ Device Parameters
+        self.daq_label = ctk.CTkLabel(self.info_frame, text="NI USB-6000: -", anchor="w")
+        #self.daq_channels_label = ctk.CTkLabel(self.info_frame, text="DAQ Channels: -", anchor="w")
+
+
         # Packing order
         self.device_label.pack(fill="x", padx=10, pady=(0, 2))
         self.firmware_label.pack(fill="x", padx=10, pady=(0, 2))
@@ -52,6 +57,9 @@ class DeviceControlWidget(ctk.CTkFrame):
         # self.thorlabs_wavelength_label.pack(fill="x", padx=10, pady=(0, 2))
         # self.thorlabs_power_label.pack(fill="x", padx=10, pady=(0, 2))
 
+        # DAQ labels
+        self.daq_label.pack(fill="x", padx=10, pady=(0, 2))
+        #self.daq_channels_label.pack(fill="x", padx=10, pady=(0, 10))
 
         self.device_label.pack(fill="x", padx=10, pady=(0, 2))
         self.firmware_label.pack(fill="x", padx=10, pady=(0, 2))
@@ -129,7 +137,22 @@ class DeviceControlWidget(ctk.CTkFrame):
                 attr_name = f"thorlabs_model_label{device_index}"
                 if hasattr(self, attr_name):
                     getattr(self, attr_name).configure(text=f"Thorlabs {device_index} Model: -")
-                
+
+        elif params and device_type == "daq":
+            # If DAQ is connected, show relevant info
+            # "DAQ Device" and "Channels" are keys we set in main_window's connect_devices() method
+            self.daq_label.configure(text=f"NI USB-6000: {params.get('DAQ Device','-')}")
+            #self.daq_channels_label.configure(text=f"DAQ Channels: {params.get('Channels','-')}")
+        
+        elif device_type == "daq":
+            # params is None => DAQ disconnected
+            self.daq_label.configure(text="NI USB-6000: -")
+            #self.daq_channels_label.configure(text="DAQ Channels: -")
+
+        else:
+            # We might do nothing or clear labels if unrecognized device_type
+            self._clear_all_labels()
+
     def _clear_all_labels(self):
         self.device_label.configure(text="Device: -")
         self.firmware_label.configure(text="Firmware: -")
@@ -144,7 +167,7 @@ class DeviceControlWidget(ctk.CTkFrame):
     
 class AppControlWidget(ctk.CTkFrame):
     def __init__(self, master, import_command=None, export_command=None, 
-                mesh_change_command=None, config=None, *args, **kwargs):
+                mesh_change_command=None, submesh_change_command=None, config=None, *args, **kwargs):
         super().__init__(master, *args, **kwargs)
         self.config = config or {}  # Store the config
         
@@ -164,18 +187,22 @@ class AppControlWidget(ctk.CTkFrame):
         )
         self.header_label.pack(padx=5, pady=5)
         
-        # --- Mesh Size Selection ---
-        self.mesh_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.mesh_frame.pack(fill="x", padx=10, pady=5)
+        # --- Mesh & Sub-mesh Selection ---
+        mesh_submesh_frame = ctk.CTkFrame(self, fg_color="transparent")
+        mesh_submesh_frame.pack(fill="x", padx=10, pady=5)
+
+        mesh_submesh_frame.grid_columnconfigure(0, weight=0)
+        mesh_submesh_frame.grid_columnconfigure(1, weight=1)
+
+        # Row 0: Mesh label & option menu
+        self.mesh_label = ctk.CTkLabel(mesh_submesh_frame, text="Mesh:")
+        self.mesh_label.grid(row=0, column=0, padx=(0,5), pady=2, sticky="e")
 
         # Get options from config with fallback
         mesh_options = self.config.get("options", ["6x6", "8x8", "12x12"])
-        
-        self.mesh_label = ctk.CTkLabel(self.mesh_frame, text="Mesh Size:")
-        self.mesh_label.pack(side="left", padx=(0, 5))
-        
+
         self.mesh_optionmenu = ctk.CTkOptionMenu(
-            self.mesh_frame,
+            mesh_submesh_frame,
             values=mesh_options,
             command=mesh_change_command
         )
@@ -183,8 +210,21 @@ class AppControlWidget(ctk.CTkFrame):
         if mesh_options:
             default_mesh = self.config.get("default_mesh", mesh_options[1])
             self.mesh_optionmenu.set(default_mesh)
-        self.mesh_optionmenu.pack(side="left")
         
+        # Replace pack with grid for consistent geometry management
+        self.mesh_optionmenu.grid(row=0, column=1, padx=(0,5), pady=2, sticky="w")
+
+        # Row 1: Sub-mesh label & option menu
+        self.submesh_label = ctk.CTkLabel(mesh_submesh_frame, text="Sub-mesh:")
+        self.submesh_label.grid(row=1, column=0, padx=(0,5), pady=2, sticky="e")
+
+        self.submesh_optionmenu = ctk.CTkOptionMenu(
+            mesh_submesh_frame,
+            values=["0x0","1x1","2x2","3x3", "4x4", "5x5", "6x6", "7x7"],
+            command=submesh_change_command
+        )
+        self.submesh_optionmenu.grid(row=1, column=1, padx=(0,5), pady=2, sticky="w")
+
         # --- Import/Export Buttons ---
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.button_frame.pack(fill="x", padx=10, pady=(5, 10))
