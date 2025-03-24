@@ -5,6 +5,7 @@ class AppData:
     default_json_grid = {}
     _last_selection_lock = Lock()
     last_selected = {"cross": "", "arm": ""}  # Set default starting value
+    io_config = {} 
 
     saved_unitary_U1 = None     
     saved_unitary_U2 = None     

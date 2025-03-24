@@ -34,7 +34,8 @@ class Example(Frame):
         self.initUI()
         self.input_boxes = {}  # Tracks input boxes by cross label.
         self.cross_selected_count = defaultdict(int)  # Tracks selected path counts per cross.
-        self.last_selection = {"cross": None, "arm": None}  # Add this line
+        self.last_selection = {"cross": None, "arm": None}  
+        self.io_config = "None"  # Default I/O configuration
 
     def initUI(self):
         self.pack(fill=BOTH, expand=1)
@@ -391,6 +392,8 @@ class Example(Frame):
             if center and arm:
                 self.last_selection = {"cross": center, "arm": arm}
                 AppData.update_last_selection(center, arm)  # Keep synced with AppData
+                modes = self.get_cross_modes()
+                AppData.io_config = modes
                 self.event_generate("<<SelectionUpdated>>")  # Trigger update event
                 self.update_selection()
 

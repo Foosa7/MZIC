@@ -448,8 +448,11 @@ class PhaseShifterSelectionWidget(ctk.CTkFrame):
         self.radio_phi.pack(side="top", fill="x", padx=5, pady=5)
         
         self.change_command = change_command
+        # Trigger initial update to ensure the change_command is called with default value
+        self.on_radio_change()  # Add this line
     
     def on_radio_change(self):
         """Handles radio button selection change."""
         if self.change_command:
             self.change_command(self.radio_var.get())
+            
