@@ -220,7 +220,7 @@ class AppControlWidget(ctk.CTkFrame):
 
         self.submesh_optionmenu = ctk.CTkOptionMenu(
             mesh_submesh_frame,
-            values=["0x0","1x1","2x2","3x3", "4x4", "5x5", "6x6", "7x7"],
+            values=["No","1x1","2x2","3x3", "4x4", "5x5", "6x6", "7x7"],
             command=submesh_change_command
         )
         self.submesh_optionmenu.grid(row=1, column=1, padx=(0,5), pady=2, sticky="w")
