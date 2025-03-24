@@ -241,7 +241,7 @@ class WindowSelectionWidget(ctk.CTkFrame):
         # Create radio buttons labeled as windows.
         self.radio1 = ctk.CTkRadioButton(
             self.radio_frame,
-            text="Diagram",
+            text="Mesh",
             variable=self.radio_var,
             value="Window 1",
             command=self.on_radio_change
@@ -354,40 +354,62 @@ class PlotWidget(ctk.CTkFrame):
         self._configure_plot_style()
         self.canvas.draw()
 
-
-class CalibrationControlWidget(ctk.CTkFrame):
-    def __init__(self, master, **kwargs):
-        super().__init__(master, **kwargs)
-        self.create_calibration_controls()
-
-    def create_calibration_controls(self):
-        """Add calibration section with separate buttons"""
-        self.calibration_frame = ctk.CTkFrame(self)
-        self.calibration_frame.pack(pady=10, fill='x', expand=True)
-
-        # Channel selection display
-        self.current_channel_label = ctk.CTkLabel(self.calibration_frame, text="No channel selected")
-        self.current_channel_label.pack(pady=0)
-
-        # Create container frame for side-by-side layout
-        io_config_frame = ctk.CTkFrame(self.calibration_frame, fg_color="transparent")
-        io_config_frame.pack(pady=5, fill='x')
-
-        # Theta/Phi selector
-        self.channel_type_var = ctk.StringVar(value="theta")
-        type_frame = ctk.CTkFrame(io_config_frame, fg_color="transparent")
-        type_frame.pack(side='left', padx=(10,0), expand=True)
-        ctk.CTkRadioButton(type_frame, text="θ", variable=self.channel_type_var, value="theta").pack(side='left')
-        ctk.CTkRadioButton(type_frame, text="φ", variable=self.channel_type_var, value="phi").pack(side='left', padx=5)
-
-        # Configure grid columns for equal spacing
-        io_config_frame.grid_columnconfigure(0, weight=1)
-        io_config_frame.grid_columnconfigure(1, weight=1)
-
-        # Calibration buttons
-        btn_frame = ctk.CTkFrame(self.calibration_frame, fg_color="transparent")
-        btn_frame.pack(pady=10, fill='x')
-
-        # Configure grid columns
-        btn_frame.grid_columnconfigure(0, weight=1)
-        btn_frame.grid_columnconfigure(1, weight=1)
+class PhaseShifterSelectionWidget(ctk.CTkFrame):
+    def __init__(self, master, change_command=None, *args, **kwargs):
+        """
+        A widget to select the phase shifter mode.
+        
+        Parameters:
+            master: Parent widget.
+            change_command (callable): Callback called with the new selection when the radio changes.
+        """
+        super().__init__(master, *args, **kwargs)
+        
+        # --- Header Section ---
+        self.header_frame = ctk.CTkFrame(
+            self,
+            fg_color="#4c4c4c",  # Darker grey for the header
+            border_width=0,
+            corner_radius=4
+        )
+        self.header_frame.pack(fill="x", padx=10, pady=(10, 5))
+        
+        self.header_label = ctk.CTkLabel(
+            self.header_frame,
+            text="Phase Shifter Selection",
+            anchor="center",
+            font=("TkDefaultFont", 13, "bold"),
+            justify="center"
+        )
+        self.header_label.pack(fill="x", padx=5, pady=5)
+        
+        # --- Radio Button Section ---
+        self.radio_var = ctk.StringVar(value="theta")
+        self.radio_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.radio_frame.pack(fill="x", padx=10, pady=(5, 10))
+        
+        # Create radio buttons for phase shifter selection
+        self.radio_theta = ctk.CTkRadioButton(
+            self.radio_frame,
+            text="θ: Internal",
+            variable=self.radio_var,
+            value="theta",
+            command=self.on_radio_change
+        )
+        self.radio_theta.pack(side="top", fill="x", padx=5, pady=5)
+        
+        self.radio_phi = ctk.CTkRadioButton(
+            self.radio_frame,
+            text="φ: External",
+            variable=self.radio_var,
+            value="phi",
+            command=self.on_radio_change
+        )
+        self.radio_phi.pack(side="top", fill="x", padx=5, pady=5)
+        
+        self.change_command = change_command
+    
+    def on_radio_change(self):
+        """Handles radio button selection change."""
+        if self.change_command:
+            self.change_command(self.radio_var.get())

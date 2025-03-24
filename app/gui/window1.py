@@ -25,7 +25,8 @@ class Window1Content(ctk.CTkFrame):
         self.resistance_params: Dict[int, Dict[str, Any]] = {}
         self.calibration_params = {'cross': {}, 'bar': {}}
         self.phase_params = {}
-        self.io_config_var = ctk.StringVar(value="cross")
+        self.io_config_var = ctk.StringVar()
+        self.channel_type_var = ctk.StringVar()  # Store globally
         self.app = app  # Store the AppData instance
 
         # Configure main layout
@@ -137,14 +138,14 @@ class Window1Content(ctk.CTkFrame):
         self.graph_frame.grid_columnconfigure(0, weight=1)
 
         self.graph_image_label1 = ctk.CTkLabel(
-            self.graph_frame, text="No plot to display", anchor="center"
+            self.graph_frame, text="No plot to display", anchor="n"
         )
-        self.graph_image_label1.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.graph_image_label1.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
 
         self.graph_image_label2 = ctk.CTkLabel(
-            self.graph_frame, text="No plot to display", anchor="center" 
+            self.graph_frame, text="No plot to display", anchor="n" 
         )
-        self.graph_image_label2.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+        self.graph_image_label2.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
 
         # Mapping tab
         self.mapping_display = ctk.CTkTextbox(notebook.add("Mapping"))
@@ -666,8 +667,8 @@ class Window1Content(ctk.CTkFrame):
         """Run resistance characterization on selected channel"""
         try:
             theta_ch, phi_ch = self._get_current_channels()
-            #channel_type = self.channel_type_var.get()
-            channel_type = "theta"
+            channel_type = self.channel_type_var.get()
+            # channel_type = "theta"
             target_channel = theta_ch if channel_type == "theta" else phi_ch
             
             if target_channel is None:
@@ -743,8 +744,8 @@ class Window1Content(ctk.CTkFrame):
             return
         
         # Get current channel type from radio buttons
-        #channel_type = self.channel_type_var.get()
-        channel_type = "theta"
+        channel_type = self.channel_type_var.get()
+        # channel_type = "theta"
         
         # Generate plot with channel context
         fig = self._create_calibration_plot_R(params, channel_type, channel)  # Add missing args
@@ -755,15 +756,16 @@ class Window1Content(ctk.CTkFrame):
         """Generate styled resistance characterization plot"""
         current = AppData.get_last_selection()
         label_map = create_label_mapping(8)
-        #channel_type = self.channel_type_var.get()
-        channel_type = "theta"
+        channel_type = self.channel_type_var.get()
+        print(f"Channel type: {channel_type}")
+        # channel_type = "theta"
         channel_symbol = "θ" if channel_type == "theta" else "φ"
 
         # Get both channels but only show selected one
         theta_ch, phi_ch = label_map.get(current['cross'], (None, None))
         
         # Create plot with dark theme
-        fig, ax = plt.subplots(figsize=(4, 4))
+        fig, ax = plt.subplots(figsize=(6, 4))
         fig.patch.set_facecolor('#2b2b2b')
         ax.set_facecolor('#363636')
         
@@ -780,9 +782,9 @@ class Window1Content(ctk.CTkFrame):
         #             f"Characterizing {channel_type.capitalize()} Channel: {target_channel}")
         title_str = (f"Resistance Characterization of {current['cross']}:{channel_symbol} at Channel {target_channel}")
 
-        ax.set_title(title_str, color='white')
-        ax.set_xlabel("Current (mA)", color='white')
-        ax.set_ylabel("Voltage (V)", color='white')
+        ax.set_title(title_str, color='white', fontsize=12)
+        ax.set_xlabel("Current (mA)", color='white', fontsize=10)
+        ax.set_ylabel("Voltage (V)", color='white', fontsize=10)
         
         # Configure ticks and borders
         ax.tick_params(colors='white', which='both')
@@ -799,41 +801,6 @@ class Window1Content(ctk.CTkFrame):
         fig.tight_layout()        
         return fig
 
-    # def _display_plot_R(self, fig, channel):
-    #     """Display matplotlib plot in a popup window"""
-    #     # Create popup window
-    #     plot_window = ctk.CTkToplevel(self)
-    #     # plot_window.title(f"Channel {channel} Calibration Results")
-    #     plot_window.title(f"Channel {channel} Calibration Results")  
-    #     plot_window.geometry("800x600")
-        
-    #     # Convert plot to image
-    #     buf = io.BytesIO()
-    #     fig.savefig(buf, format='png', dpi=100)
-    #     buf.seek(0)
-    #     img = Image.open(buf)
-        
-    #     # Create CTk image and label
-    #     ctk_image = ctk.CTkImage(
-    #         light_image=img,
-    #         dark_image=img,
-    #         size=(750, 550)
-    #     )
-        
-    #     label = ctk.CTkLabel(plot_window, image=ctk_image, text="")
-    #     label.pack(padx=10, pady=10)
-        
-    #     # Add close button
-    #     close_btn = ctk.CTkButton(
-    #         plot_window, 
-    #         text="Close", 
-    #         command=plot_window.destroy
-    #     )
-    #     close_btn.pack(pady=5)
-        
-    #     plt.close(fig)
-
-
     def _display_plot_R(self, fig, channel):
         """Display matplotlib plot in a popup window and graph tab"""
    
@@ -844,7 +811,9 @@ class Window1Content(ctk.CTkFrame):
         img = Image.open(buf)
         fig.tight_layout()
 
-        ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(320, 320))
+        # ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(320, 320))
+        ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(480, 320))
+
         
         self.graph_image_label1.configure(image=ctk_image, text="")
         self._current_image_ref1 = ctk_image
@@ -856,8 +825,8 @@ class Window1Content(ctk.CTkFrame):
         """Run phase characterization on selected channel"""
         try:
             theta_ch, phi_ch = self._get_current_channels()
-            #channel_type = self.channel_type_var.get()
-            channel_type = "theta"
+            channel_type = self.channel_type_var.get()
+            # channel_type = "theta"
             target_channel = theta_ch if channel_type == "theta" else phi_ch
             
             if target_channel is None:
@@ -1026,8 +995,8 @@ class Window1Content(ctk.CTkFrame):
             return
             
         # Get current channel type
-        #channel_type = self.channel_type_var.get()
-        channel_type="theta"
+        channel_type = self.channel_type_var.get()
+        # channel_type="theta"
         # Generate and display plot
         fig = self._create_calibration_plot_P(params, channel_type, channel, io_config)
         self._display_plot_P(fig, channel)

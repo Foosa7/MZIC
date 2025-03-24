@@ -319,13 +319,13 @@ class Example(Frame):
         modes = {}
         for cross, arms in cross_arms.items():
             arm_set = set(arms)
-            if len(arm_set) != 2:
-                continue  # Only consider pairs.
+            if len(arm_set) != 2 and len(arm_set) != 3:
+                continue  # Only consider pairs or triplets.
             if arm_set in [{'BR', 'BL'}, {'TR', 'TL'}]:
                 modes[cross] = 'bar_state'
             elif arm_set in [{'TL', 'BR'}, {'TR', 'BL'}]:
                 modes[cross] = 'cross_state'
-            elif arm_set == {'TR', 'BR'}:
+            elif arm_set in [{'TR', 'BR', 'TL'}, {'TR', 'BR', 'BL'}]:  
                 modes[cross] = 'split_state'
         
         print("Computed cross modes:", modes)
@@ -414,6 +414,9 @@ class Example(Frame):
         elif mode == 'cross_state':
             theta_entry.insert(0, "2")
             print(f"{visible_label}: Cross mode detected. Inserting 2.")
+        elif mode == 'split_state':
+            theta_entry.insert(0, "1.5")
+            print(f"{visible_label}: Split mode detected. Inserting 1.5.")            
         else:
             print(f"{visible_label}: No matching mode. Mode value: {mode}")
 
@@ -595,85 +598,6 @@ class Example(Frame):
         if not text_id:
             return None
         return self.canvas.itemcget(text_id, 'text')
-
-    # def create_input_boxes(self, cross_label):
-    #     """Creates theta and phi input boxes next to the cross label, pre-populated with default data."""
-    #     cross_center_name = None
-    #     for center, text_id in self.cross_labels.items():
-    #         if self.canvas.itemcget(text_id, 'text') == cross_label:
-    #             cross_center_name = center
-    #             break
-    #     if not cross_center_name:
-    #         return
-    #     text_id = self.cross_labels[cross_center_name]
-    #     x, y = self.canvas.coords(text_id)
-    #     input_x = x + 30  # Adjust as needed.
-    #     # Theta input.
-    #     theta_label_id = self.canvas.create_text(input_x, y - 20, text="θ:", anchor='w', font=("Arial", 14), fill="white")
-    #     theta_entry = Entry(self.canvas, width=6)
-    #     theta_entry_id = self.canvas.create_window(input_x + 20, y - 20, window=theta_entry, anchor='w')
-    #     # Phi input.
-    #     phi_label_id = self.canvas.create_text(input_x, y + 20, text="φ:", anchor='w', font=("Arial", 14), fill="white")
-    #     phi_entry = Entry(self.canvas, width=6)
-    #     phi_entry_id = self.canvas.create_window(input_x + 20, y + 20, window=phi_entry, anchor='w')
-        
-    #     # Bind key-release events so that when the user types, update_selection() is called.
-    #     theta_entry.bind("<KeyRelease>", lambda event: self.update_selection())
-    #     phi_entry.bind("<KeyRelease>", lambda event: self.update_selection())
-        
-    #     self.input_boxes[cross_label] = {
-    #         'theta_entry': theta_entry,
-    #         'phi_entry': phi_entry,
-    #         'theta_label_id': theta_label_id,
-    #         'phi_label_id': phi_label_id,
-    #         'theta_entry_id': theta_entry_id,
-    #         'phi_entry_id': phi_entry_id
-    #     }
-
-    # def create_input_boxes(self, cross_label):
-    #     """Creates theta and phi input boxes next to the cross label, pre-populated with default data."""
-    #     cross_center_name = None
-    #     for center, text_id in self.cross_labels.items():
-    #         if self.canvas.itemcget(text_id, 'text') == cross_label:
-    #             cross_center_name = center
-    #             break
-    #     if not cross_center_name:
-    #         return
-    #     text_id = self.cross_labels[cross_center_name]
-    #     x, y = self.canvas.coords(text_id)
-    #     input_x = x + 30  # Adjust as needed.
-    #     # Theta input.
-    #     theta_label_id = self.canvas.create_text(input_x, y - 20, text="θ:", anchor='w', font=("Arial", 14), fill="white")
-    #     theta_entry = Entry(self.canvas, width=6)
-    #     theta_entry_id = self.canvas.create_window(input_x + 20, y - 20, window=theta_entry, anchor='w')
-        
-    #     # Check the cross mode to determine the default theta value.
-    #     modes = self.get_cross_modes()  # modes keyed by cross center names.
-    #     mode = modes.get(cross_center_name)
-    #     if mode == 'bar_state':
-    #         theta_entry.insert(0, "1")
-    #         print("Bar")
-    #     elif mode == 'cross_state':
-    #         theta_entry.insert(0, "2")
-    #         print("Cross")
-            
-    #     # Phi input.
-    #     phi_label_id = self.canvas.create_text(input_x, y + 20, text="φ:", anchor='w', font=("Arial", 14), fill="white")
-    #     phi_entry = Entry(self.canvas, width=6)
-    #     phi_entry_id = self.canvas.create_window(input_x + 20, y + 20, window=phi_entry, anchor='w')
-        
-    #     # Bind key-release events so that when the user types, update_selection() is called.
-    #     theta_entry.bind("<KeyRelease>", lambda event: self.update_selection())
-    #     phi_entry.bind("<KeyRelease>", lambda event: self.update_selection())
-        
-    #     self.input_boxes[cross_label] = {
-    #         'theta_entry': theta_entry,
-    #         'phi_entry': phi_entry,
-    #         'theta_label_id': theta_label_id,
-    #         'phi_label_id': phi_label_id,
-    #         'theta_entry_id': theta_entry_id,
-    #         'phi_entry_id': phi_entry_id
-    #     }
 
     def create_input_boxes(self, cross_label):
         """Creates theta and phi input boxes next to the cross label, pre-populated with default data."""
