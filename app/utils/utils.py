@@ -75,8 +75,8 @@ def importfunc(obj):
                                 matrix.extend([None] * (i + 1 - len(matrix)))
                             matrix[i] = buf
 
-    messagebox.showinfo("Import Complete",
-                        f"{import_file}")
+    # messagebox.showinfo("Import Complete",
+    #                     f"{import_file}")
 
 
 # def apply_phase(custom_grid, qontrol, app):

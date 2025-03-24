@@ -92,17 +92,17 @@ class Window1Content(ctk.CTkFrame):
 
         # Add to your controls list in _create_compact_control_panel method:
         controls = [
-            # ("Import", self._import_config),
-            # ("Export", self._export_config),
+            ("Import", self._import_config),
+            ("Export", self._export_config),
             ("Apply", self._apply_config),
             ("Clear", self._clear_grid),
-            ("Status", self._show_full_status),
+            # ("Status", self._show_full_status),
             ("R", self._run_resistance_calibration),
             ("P", self._run_phase_calibration),
             ("Phase", self.apply_phase_new)  # Add this new button
         ]
 
-        for col in range(5):
+        for col in range(7):
             btn_frame.grid_columnconfigure(col, weight=1)
 
         # Create buttons with adjusted styling
@@ -338,23 +338,39 @@ class Window1Content(ctk.CTkFrame):
 
 
     def _export_config(self):
-        """Export current configuration"""
+        """Export current configuration to a JSON file."""
         try:
-            return self.custom_grid.export_paths_json()
+            config_str = self.custom_grid.export_paths_json()
+            # Ask the user for a file location to save the JSON configuration.
+            file_path = filedialog.asksaveasfilename(
+                title="Export Config",
+                defaultextension=".json",
+                filetypes=(("JSON files", "*.json"), ("All files", "*.*"))
+            )
+            if file_path:
+                with open(file_path, "w") as f:
+                    f.write(config_str)
+                print(f"Configuration exported to {file_path}")
         except Exception as e:
             self._show_error(f"Export failed: {str(e)}")
 
     def _import_config(self):
-        """Import configuration from JSON"""
-        dialog = ctk.CTkInputDialog(text="Paste JSON configuration:", title="Import Config")
-        json_str = dialog.get_input()
-        
-        if json_str:
+        """Import configuration from a JSON file."""
+        # Open a file dialog to select a JSON file.
+        file_path = filedialog.askopenfilename(
+            title="Import Config",
+            filetypes=(("JSON files", "*.json"), ("All files", "*.*"))
+        )
+        if file_path:
             try:
+                with open(file_path, "r") as f:
+                    json_str = f.read()
                 self.custom_grid.import_paths_json(json_str)
                 self._update_device()
+                print(f"Configuration imported from {file_path}")
             except Exception as e:
                 self._show_error(f"Invalid config: {str(e)}")
+
 
     def _handle_selection_update(self, event):
         """Event-driven update handler"""
@@ -375,33 +391,37 @@ class Window1Content(ctk.CTkFrame):
     def _clear_grid(self):
         """Clear all selections and reset the grid, setting all values to zero"""
         try:
-            # Clear all selections
+            # Clear all selections.
             for path in self.custom_grid.paths:
                 if path.line_id in self.custom_grid.selected_paths:
                     self.custom_grid.canvas.itemconfig(path.line_id, fill="white")
             self.custom_grid.selected_paths.clear()
             
-            # Clear all input boxes
+            # Clear all input boxes.
             for cross_label in list(self.custom_grid.input_boxes.keys()):
                 self.custom_grid.delete_input_boxes(cross_label)
             
-            # Reset last selection
+            # Reset cross_selected_count.
+            self.custom_grid.cross_selected_count.clear()
+
+            # Reset last selection.
             self.custom_grid.last_selection = {"cross": None, "arm": None}
             AppData.update_last_selection(None, None)
             
-            # Update the selection display
+            # Update the selection display.
             self.custom_grid.update_selection()
             
-            # Trigger the selection updated event
+            # Trigger the selection updated event.
             self.custom_grid.event_generate("<<SelectionUpdated>>")
             
-            # Create a zero-value configuration for all crosspoints
+            # Create a zero-value configuration for all crosspoints.
             zero_config = self._create_zero_config()
             
-            # Apply the zero configuration to the device
+            # Apply the zero configuration to the device.
             apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
-            
             print("Grid cleared and all values set to zero")
+            self._capture_output(self.qontrol.show_status, self.status_display)
+
         except Exception as e:
             self._show_error(f"Failed to clear grid: {str(e)}")
             print(f"Error in clear grid: {e}")
@@ -424,38 +444,10 @@ class Window1Content(ctk.CTkFrame):
         
         return json.dumps(zero_config)
 
-
-    # def _clear_grid(self):
-    #     """Clear all selections and reset the grid"""
-    #     # try:
-    #         # Clear all selections
-    #     for path in self.custom_grid.paths:
-    #         if path.line_id in self.custom_grid.selected_paths:
-    #             self.custom_grid.canvas.itemconfig(path.line_id, fill="white")
-    #     self.custom_grid.selected_paths.clear()
-        
-    #     # Clear all input boxes
-    #     for cross_label in list(self.custom_grid.input_boxes.keys()):
-    #         self.custom_grid.delete_input_boxes(cross_label)
-        
-    #     # Reset last selection
-    #     self.custom_grid.last_selection = {"cross": None, "arm": None}
-    #     AppData.update_last_selection(None, None)
-        
-    #     # Update the selection display
-    #     self.custom_grid.update_selection()
-        
-    #     # Trigger the selection updated event
-    #     self.custom_grid.event_generate("<<SelectionUpdated>>")
-        
-    #     # print("Grid cleared successfully")
-    #     # except Exception as e:
-    #         # self._show_error(f"Failed to clear grid: {str(e)}")
-    #         # print                    
-    
     def _apply_config(self):
         """Force apply current configuration"""
         self._update_device()
+        self._capture_output(self.qontrol.show_status, self.status_display)
 
     def apply_phase_new(self):
         """
@@ -527,7 +519,8 @@ class Window1Content(ctk.CTkFrame):
             # Only show error message if there are failures
             if failed_channels:
                 result_message = f"Failed to apply to {len(failed_channels)} channels"
-                messagebox.showinfo("Phase Application", result_message)
+                # messagebox.showinfo("Phase Application", result_message)
+                print(result_message)
                 
             # Update the mapping display with detailed results
             self.mapping_display.configure(state="normal")
@@ -543,6 +536,7 @@ class Window1Content(ctk.CTkFrame):
             self.mapping_display.configure(state="disabled")
             
             print(phase_grid_config)
+            self._capture_output(self.qontrol.show_status, self.status_display)
 
             try:
                 # config = self.custom_grid.export_paths_json()

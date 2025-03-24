@@ -232,10 +232,10 @@ class MainWindow(ctk.CTk):
         importfunc(self.appdata)
         # For demonstration, print one of the imported matrices.
         print("Updated with Pickle file:", self.appdata.caliparamlist_lincub_cross[1])
-        messagebox.showinfo("Import", "Data imported successfully!")
+        # messagebox.showinfo("Import", "Data imported successfully!")
 
     def export_data(self):
-        messagebox.showinfo("Export", "Export function triggered.")
+        print("Export function triggered.")
 
     def mesh_changed(self, new_mesh_size):
         print("Mesh size changed to:", new_mesh_size)
