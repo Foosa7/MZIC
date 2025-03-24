@@ -65,6 +65,20 @@ def main():
     # Attempt to use a DAQ device or mock if unavailable
     try:
         daq_devices_info = DAQ.list_available_devices()
+        if len(daq_devices_info) == 0:
+            print("No DAQ devices found, using mock NI-DAQ device.")
+            daq = MockNIDAQ()
+        else:
+            daq = DAQ.get_device(config=config)
+            if daq:
+                daq.connect()
+            else:
+                print("DAQ.get_device() returned None; using mock DAQ.")
+                daq = MockNIDAQ()
+    except DaqNotFoundError:
+        print("NI-DAQmx package not found or not installed. Using mock DAQ.")
+        daq = MockNIDAQ()
+
         print(f"Found {len(daq_devices_info)} NI-DAQ device(s):")
         for i, dev_info in enumerate(daq_devices_info):
             print(f"{i+1}. {dev_info['product_type']} (Name: {dev_info['name']})")

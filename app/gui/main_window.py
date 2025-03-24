@@ -16,7 +16,7 @@ from app.utils.appdata import AppData   # Import the AppData class
 # from app.utils import utils            # This module contains apply_phase
 
 class MainWindow(ctk.CTk):
-    def __init__(self, qontrol, daq, thorlabs, config):
+    def __init__(self, qontrol, thorlabs, daq, config):
         super().__init__()
         self.qontrol = qontrol
         self.thorlabs = thorlabs
@@ -181,25 +181,16 @@ class MainWindow(ctk.CTk):
 
         # Handle DAQ connection
         if self.daq:
-            if self.daq._is_connected:
-                print("DAQ is already connected.")
-                # Build a small status dict
+            if self.daq.connect():
+                print("Connected to DAQ device.")
                 status_dict = {
                     "DAQ Device": self.daq.device_name,
                     "Channels": ", ".join(self.daq.list_ai_channels() or [])
                 }
                 self.device_control.update_device_info(status_dict, "daq")
             else:
-                if self.daq.connect():
-                    print("Connected to DAQ device.")
-                    status_dict = {
-                        "DAQ Device": self.daq.device_name,
-                        "Channels": ", ".join(self.daq.list_ai_channels() or [])
-                    }
-                    self.device_control.update_device_info(status_dict, "daq")
-                else:
-                    print("DAQ connection failed.")
-                    self.device_control.update_device_info(None, "daq")
+                print("DAQ connection failed.")
+                self.device_control.update_device_info(None, "daq")
 
 
         # Handle Thorlabs connection(s)
