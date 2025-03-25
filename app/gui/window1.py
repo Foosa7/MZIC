@@ -157,7 +157,6 @@ class Window1Content(ctk.CTkFrame):
         self.status_display = ctk.CTkTextbox(notebook.add("Status"), state="disabled")
         self.status_display.pack(fill="both", expand=True)
         
-        
         # Measure tab
         measure_tab = notebook.add("Measure")
         measure_tab.grid_columnconfigure(0, weight=1)
@@ -255,34 +254,31 @@ class Window1Content(ctk.CTkFrame):
     def _read_all_daq_channels(self):
         """
         Lists all available AI channels on the DAQ device,
-        reads one voltage sample per channel, and displays them in the text box.
+        reads averaged voltage for each channel, and displays them in the text box.
         """
         if not self.daq:
             self._update_measurement_text("No DAQ object found.")
             return
-    
+
         channels = self.daq.list_ai_channels()
         if not channels:
             self._update_measurement_text("No DAQ channels found or DAQ not connected.")
             return
-    
-        # Read exactly 1 sample from each channel
-        data = self.daq.read_voltage(channels=channels, samples_per_channel=1000)
-        if data is None:
+
+        readings = self.daq.read_voltage(channels=channels, samples_per_channel=10)
+        if readings is None:
             self._update_measurement_text("Failed to read from DAQ or DAQ not connected.")
             return
-    
-        # # If only 1 channel, data might be a simple list (e.g. [1.23]) rather than [[1.23]]
-        # if len(channels) == 1 and isinstance(data, list) and (not isinstance(data[0], list)):
-        #     data = [data]  # Wrap single list in another list
-    
-        # Build a text output string
+
+        # Normalize to list for consistent processing
+        if isinstance(readings, float):
+            readings = [readings]  # wrap float in list if only one channel
+
+        # Build text output
         lines = []
-        for ch_name, readings in zip(channels, data):
-            # 'readings' is a one-element list since samples_per_channel=1
-            voltage = readings[0]
-            lines.append(f"{ch_name} -> {voltage:.2f} V")
-    
+        for ch_name, voltage in zip(channels, readings):
+            lines.append(f"{ch_name} -> {voltage:.3f} V")
+
         self._update_measurement_text("\n".join(lines))
     
     def _update_measurement_text(self, text):

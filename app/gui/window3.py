@@ -10,14 +10,16 @@ from app.utils.appdata import AppData
 
 class Window3Content(ctk.CTkFrame):
     
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, grid_size, **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, daq, grid_size, **kwargs):
         super().__init__(master, **kwargs)
         self.channel = channel
         self.fit = fit
         self.IOconfig = IOconfig
         self.app = app
         self.qontrol = qontrol
+        self.daq = daq
 
+        print(self.daq)
         # NxN dimension
         self.n = int(grid_size.split('x')[0])
 
