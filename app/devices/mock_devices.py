@@ -58,10 +58,7 @@ class MockDAQ:
 
     def list_ai_channels(self):
         if not self._is_connected:
-            print("[MockDAQ] Device not connected.")
-            return []
-        # Return some pretend channels
-        return [f"{self.device_name}/ai{i}" for i in range(7)]
+            return [f"{self.device_name}/ai{i}" for i in range(8)]
 
     def read_voltage(self, channels=None, samples_per_channel=10,
                      min_val=-10.0, max_val=10.0):
