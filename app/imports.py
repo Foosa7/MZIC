@@ -54,7 +54,7 @@ from nidaqmx.system import System
 from app.devices.daq_device import DAQ
 from app.devices.qontrol_device import QontrolDevice
 from app.devices.thorlabs_device import ThorlabsDevice
-from app.devices.mock_devices import MockQontrol, MockThorlabsPM100, MockNIDAQ
+from app.devices.mock_devices import MockQontrol, MockThorlabsPM100, MockDAQ
 from app.gui.main_window import MainWindow  
 from app.utils.appdata import AppData
 

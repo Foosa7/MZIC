@@ -74,12 +74,12 @@ def main():
     
         if len(daq_devices_info) == 0:
             print("No DAQ devices found, using mock NI-DAQ device.")
-            daq = MockNIDAQ()
+            daq = MockDAQ()
         else:
             daq = DAQ.get_device(config=config)
     except DaqNotFoundError:
         print("NI-DAQmx not found, using mock NI-DAQ device.")
-        daq = MockNIDAQ()
+        daq = MockDAQ()
 
     # Start the GUI application (you'll need to modify your MainWindow to handle multiple power meters)
     app = MainWindow(qontrol, thorlabs_devices, daq, config)
