@@ -57,7 +57,6 @@ class Window1Content(ctk.CTkFrame):
         # self._update_selection_display()
         self._setup_event_bindings()
 
-
     def _create_grid_container(self):
         """Create expanded grid display area"""
         self.grid_container = ctk.CTkFrame(self.main_frame)
@@ -158,40 +157,27 @@ class Window1Content(ctk.CTkFrame):
         self.status_display = ctk.CTkTextbox(notebook.add("Status"), state="disabled")
         self.status_display.pack(fill="both", expand=True)
         
+        
         # Measure tab
         measure_tab = notebook.add("Measure")
         measure_tab.grid_columnconfigure(0, weight=1)
         measure_tab.grid_rowconfigure(0, weight=1)
         
-        self.measure_plot_frame = ctk.CTkFrame(measure_tab)
-        self.measure_plot_frame.grid(row=0, column=0, sticky="nsew")
+        # A read-only CTkTextbox to display DAQ values (like your status tab)
+        self.daq_text_box = ctk.CTkTextbox(measure_tab, state="disabled")
+        self.daq_text_box.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         
-        self.measure_plot_frame.grid_rowconfigure(0, weight=1)
-        self.measure_plot_frame.grid_columnconfigure(0, weight=1)
-
-        self.measure_image_label = ctk.CTkLabel(
-            self.measure_plot_frame,
-            text="No measurement data",
-            anchor="center"
-            )
+        # A frame to hold the "Read DAQ" button
+        measure_button_frame = ctk.CTkFrame(measure_tab)
+        measure_button_frame.grid(row=1, column=0, sticky="ew")
         
-        self.measure_image_label.grid(row=0, column=0, sticky="nsew")
-        
-        self.measure_status_label = ctk.CTkLabel(measure_tab, text="")
-        self.measure_status_label.grid(row=1, column=0, sticky="ew", pady=5)
-        
-        controls_frame = ctk.CTkFrame(measure_tab)
-        controls_frame.grid(row=2, column=0, sticky="ew", pady=5)
-        
-        self.measure_time_label = ctk.CTkLabel(controls_frame, text="Recording time (s):")
-        self.measure_time_label.pack(side="left", padx=5)
-        
-        self.measure_time_entry = ctk.CTkEntry(controls_frame, width=60)
-        self.measure_time_entry.insert(0, "20")
-        self.measure_time_entry.pack(side="left", padx=5)
-        
-        self.record_power_button = ctk.CTkButton(controls_frame, text="Start measurement", command=self._record_power)
-        self.record_power_button.pack(side="left", padx=5)
+        # Button that triggers reading from the DAQ
+        self.read_daq_button = ctk.CTkButton(
+            measure_button_frame,
+            text="Read DAQ",
+            command=self._read_all_daq_channels
+        )
+        self.read_daq_button.pack(side="left", padx=5, pady=5)
 
         # Compact error display
         self.error_display = ctk.CTkTextbox(
@@ -266,6 +252,45 @@ class Window1Content(ctk.CTkFrame):
     #     self.custom_grid.pack(fill="both", expand=True)
     #     self._attach_grid_listeners()
 
+    def _read_all_daq_channels(self):
+        """
+        Lists all available AI channels on the DAQ device,
+        reads one voltage sample per channel, and displays them in the text box.
+        """
+        if not self.daq:
+            self._update_measurement_text("No DAQ object found.")
+            return
+    
+        channels = self.daq.list_ai_channels()
+        if not channels:
+            self._update_measurement_text("No DAQ channels found or DAQ not connected.")
+            return
+    
+        # Read exactly 1 sample from each channel
+        data = self.daq.read_voltage(channels=channels, samples_per_channel=1000)
+        if data is None:
+            self._update_measurement_text("Failed to read from DAQ or DAQ not connected.")
+            return
+    
+        # # If only 1 channel, data might be a simple list (e.g. [1.23]) rather than [[1.23]]
+        # if len(channels) == 1 and isinstance(data, list) and (not isinstance(data[0], list)):
+        #     data = [data]  # Wrap single list in another list
+    
+        # Build a text output string
+        lines = []
+        for ch_name, readings in zip(channels, data):
+            # 'readings' is a one-element list since samples_per_channel=1
+            voltage = readings[0]
+            lines.append(f"{ch_name} -> {voltage:.2f} V")
+    
+        self._update_measurement_text("\n".join(lines))
+    
+    def _update_measurement_text(self, text):
+        """Helper to safely update the CTkTextbox in read-only style."""
+        self.daq_text_box.configure(state="normal")
+        self.daq_text_box.delete("1.0", "end")
+        self.daq_text_box.insert("1.0", text)
+        self.daq_text_box.configure(state="disabled")
 
     def build_grid(self, grid_size):
         """Initialize the grid display with default JSON"""
