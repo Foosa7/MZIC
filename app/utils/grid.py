@@ -238,20 +238,42 @@ class Example(Frame):
         elif side == "right" and col == second_last_col and n == 12:
             self.connect_vertical_extensions(col, (n // 2) - 1, extension * 3)
             
+    # def _draw_side_label(self, is_special, label, side, new_x, node_y):
+    #     """Draw the numeric label for a side extension, used by add_side_extensions"""
+    #     #text_offset = 15 if is_special else 10
+    #     text_offset = 15
+    #     text_x = new_x + (text_offset if side == "right" else -text_offset)
+    #     self.canvas.create_text(
+    #         text_x,
+    #         node_y,
+    #         text=str(label),
+    #         anchor="w" if side == "right" else "e",
+    #         fill="white",
+    #         font=("Arial", 12 if is_special else 12, "bold"),
+    #         tags="io_label"
+    #     )
+
     def _draw_side_label(self, is_special, label, side, new_x, node_y):
-        """Draw the numeric label for a side extension, used by add_side_extensions"""
-        #text_offset = 15 if is_special else 10
+        """Draws and binds a clickable numeric label for a side extension."""
         text_offset = 15
         text_x = new_x + (text_offset if side == "right" else -text_offset)
-        self.canvas.create_text(
+        # Create a unique tag for each label based on side and label number.
+        label_tag = f"input_label_{label}" if side == "left" else f"output_label_{label}"
+        
+        # Create the text on the canvas with both a common tag and a unique tag.
+        text_item = self.canvas.create_text(
             text_x,
             node_y,
             text=str(label),
             anchor="w" if side == "right" else "e",
             fill="white",
             font=("Arial", 12 if is_special else 12, "bold"),
-            tags="io_label"
+            tags=("io_label", label_tag)
         )
+        
+        # Bind a click event to the label text so it becomes selectable.
+        self.canvas.tag_bind(label_tag, "<Button-1>", lambda event, tag=label_tag: self.on_side_label_click(event, tag))
+
 
     def connect_vertical_extensions(self, col, max_row, extension):
         """Connects special vertical extensions with proper spacing"""
@@ -354,6 +376,35 @@ class Example(Frame):
             coords = self.canvas.coords(path.line_id)
             if len(coords) >= 4 and self.is_point_near_line(event.x, event.y, *coords[:4], 15):  # 15 pixels tolerance
                 self.toggle_path_selection(path)
+
+    def on_side_label_click(self, event, label_tag):
+        """Handles click on a side label by turning it red and calling the appropriate handler."""
+        # Change the label color to red.
+        self.canvas.itemconfig(label_tag, fill="red")
+        
+        # Determine if it's an input or output label and extract the label number.
+        if label_tag.startswith("input_label_"):
+            label_number = label_tag.split("input_label_")[-1]
+            # Call your function that handles left-side input labels.
+            self.handle_input_label_selection(label_number)
+        elif label_tag.startswith("output_label_"):
+            label_number = label_tag.split("output_label_")[-1]
+            # Call your function that handles right-side output labels.
+            self.handle_output_label_selection(label_number)
+
+    def handle_input_label_selection(self, label_number):
+        """Handles logic when an input label is selected."""
+        print(f"Input label {label_number} selected.")
+        # Update the power meter or any other UI element accordingly.
+        # For example:
+        # self.update_power_meter("input", label_number)
+
+    def handle_output_label_selection(self, label_number):
+        """Handles logic when an output label is selected."""
+        print(f"Output label {label_number} selected.")
+        # Update the power meter or any other UI element accordingly.
+        # For example:
+        # self.update_power_meter("output", label_number)
 
 
     def toggle_path_selection(self, path):

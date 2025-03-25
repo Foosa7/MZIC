@@ -96,7 +96,7 @@ class Window1Content(ctk.CTkFrame):
         controls = [
             ("Import", self._import_config),
             ("Export", self._export_config),
-            ("Apply", self._apply_config),
+            ("Current", self._apply_config),
             ("Clear", self._clear_grid),
             # ("Status", self._show_full_status),
             ("R", self._run_resistance_calibration),
@@ -223,6 +223,7 @@ class Window1Content(ctk.CTkFrame):
     def _event_update_handler(self, event=None):
         """Handle event-driven updates"""
         current = AppData.get_last_selection()
+        print(f"Current selection: {current['cross']}-{current['arm']}")
         # print(self.custom_grid.export_paths_json())
         # print(f"Live selection: {current['cross']}-{current['arm']}")
         # modes = self.get_cross_modes()  # self refers to Example instance
@@ -684,7 +685,8 @@ class Window1Content(ctk.CTkFrame):
         
         label_map = create_label_mapping(8)
         theta_ch, phi_ch = label_map.get(current['cross'], (None, None))
-        print(f"θ{theta_ch}, φ{phi_ch}")
+        # print(f"θ{theta_ch}, φ{phi_ch}")
+        print(f"Current selection: {current['cross']}-{current['arm']}")
 
         return theta_ch, phi_ch
 
