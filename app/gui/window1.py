@@ -7,6 +7,7 @@ import sympy as sp
 from app.utils.appdata import AppData
 import io
 from contextlib import redirect_stdout
+from app.gui.widgets import PhaseShifterSelectionWidget
 import customtkinter as ctk
 from app.utils import grid
 from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
@@ -15,7 +16,7 @@ from typing import Dict, Any
 from scipy import optimize
 
 class Window1Content(ctk.CTkFrame):
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, grid_size="8x8", **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, phase_selector=None, grid_size="8x8", **kwargs):
         super().__init__(master, **kwargs)
         self.qontrol = qontrol
         self.thorlabs = thorlabs
@@ -26,9 +27,9 @@ class Window1Content(ctk.CTkFrame):
         self.resistance_params: Dict[int, Dict[str, Any]] = {}
         self.calibration_params = {'cross': {}, 'bar': {}}
         self.phase_params = {}
-        self.io_config_var = ctk.StringVar()
-        self.channel_type_var = ctk.StringVar()  # Store globally
+        self.phase_selector = phase_selector
         self.app = app  # Store the AppData instance
+
 
         # Configure main layout
         self.grid_rowconfigure(0, weight=1)
@@ -42,7 +43,7 @@ class Window1Content(ctk.CTkFrame):
         self.main_frame.grid_columnconfigure(0, weight=4)  # 80% for grid
         self.main_frame.grid_columnconfigure(1, weight=1)  # 20% for controls
         self.main_frame.grid_rowconfigure(0, weight=1)
-        
+
         # Build UI components
         self._create_grid_container()
         self._create_compact_control_panel()  # Changed to compact version
@@ -241,8 +242,6 @@ class Window1Content(ctk.CTkFrame):
         # modes = self.get_cross_modes()  # self refers to Example instance
         # for cross_label, mode in modes.items():
         #     print(f"{cross_label}: {mode}")
-
-
 
 
     def _create_status_displays(self):
@@ -668,7 +667,7 @@ class Window1Content(ctk.CTkFrame):
         """Run resistance characterization on selected channel"""
         try:
             theta_ch, phi_ch = self._get_current_channels()
-            channel_type = self.channel_type_var.get()
+            channel_type = self.phase_selector.radio_var.get()
             # channel_type = "theta"
             target_channel = theta_ch if channel_type == "theta" else phi_ch
             
@@ -745,7 +744,7 @@ class Window1Content(ctk.CTkFrame):
             return
         
         # Get current channel type from radio buttons
-        channel_type = self.channel_type_var.get()
+        channel_type = self.phase_selector.radio_var.get()
         # channel_type = "theta"
         
         # Generate plot with channel context
@@ -757,8 +756,7 @@ class Window1Content(ctk.CTkFrame):
         """Generate styled resistance characterization plot"""
         current = AppData.get_last_selection()
         label_map = create_label_mapping(8)
-        channel_type = self.channel_type_var.get()
-        print(f"Channel type: {channel_type}")
+        channel_type = self.phase_selector.radio_var.get()
         # channel_type = "theta"
         channel_symbol = "θ" if channel_type == "theta" else "φ"
 
@@ -812,7 +810,6 @@ class Window1Content(ctk.CTkFrame):
         img = Image.open(buf)
         fig.tight_layout()
 
-        # ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(320, 320))
         ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(480, 320))
 
         
@@ -821,26 +818,46 @@ class Window1Content(ctk.CTkFrame):
 
         plt.close(fig)
 
-## Phase Calibration
+                ## Phase Calibration
     def _run_phase_calibration(self):
-        """Run phase characterization on selected channel"""
+        """Run phase characterization on the selected channel."""
         try:
-            theta_ch, phi_ch = self._get_current_channels()
-            channel_type = self.channel_type_var.get()
-            # channel_type = "theta"
+            # Retrieve the current selection from AppData
+            current = AppData.get_last_selection()
+            if not current or 'cross' not in current:
+                raise ValueError("No valid cross selection found.")
+            
+            cross_label = current['cross']
+            
+            # Create a label mapping (assuming an 8x8 grid)
+            label_map = create_label_mapping(8)
+            theta_ch, phi_ch = label_map.get(cross_label, (None, None))
+            print(f"θ{theta_ch}, φ{phi_ch}")
+            
+            if theta_ch is None or phi_ch is None:
+                raise ValueError(f"No valid channels found for cross label: {cross_label}")
+            
+            # Get the phase shifter selection from the widget ("theta" or "phi")
+            channel_type = self.phase_selector.radio_var.get()
             target_channel = theta_ch if channel_type == "theta" else phi_ch
             
             if target_channel is None:
-                raise ValueError("No valid channel selected")
-                
-            # Get current I/O configuration
-            io_config = self.io_config_var.get()  # Add this variable to your UI
+                raise ValueError("No valid channel selected.")
             
-            # Run characterization
-            self._characterize_phase(target_channel, io_config)
+            # Instead of using target_channel to fetch the mode,
+            # use cross_label (since AppData.io_config is keyed by cross label, e.g. "A1")
+            if cross_label not in AppData.io_config:
+                available_keys = list(AppData.io_config.keys())
+                raise ValueError(f"Cross label {cross_label} is not in io_config! Available keys: {available_keys}")
             
-            # Update UI
-            self._update_calibration_display_P(target_channel, io_config)
+            mode = AppData.io_config[cross_label]
+            print(f"Running phase calibration for channel {target_channel} (mode: {mode})")
+            
+            # Run the calibration logic using the numeric target channel and the mode
+            self._characterize_phase(target_channel, mode)
+            
+            # Update the UI with calibration results
+            self._update_calibration_display_P(target_channel, mode)
             
         except Exception as e:
             self._show_error(f"Calibration failed: {str(e)}")
@@ -948,7 +965,7 @@ class Window1Content(ctk.CTkFrame):
         channel_symbol = "θ" if channel_type == "theta" else "φ"
         
         # Create plot with dark theme
-        fig, ax = plt.subplots(figsize=(4, 4))
+        fig, ax = plt.subplots(figsize=(6, 4))
         fig.patch.set_facecolor('#2b2b2b')
         ax.set_facecolor('#363636')
         
@@ -968,10 +985,10 @@ class Window1Content(ctk.CTkFrame):
         ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=1, label='Cosine Fit')
 
         # Labels and titles
-        title_str = f"Phase Characterization of {current['cross']}:{channel_symbol} at Channel {target_channel} ({io_config.capitalize()} Config)"
-        ax.set_title(title_str, color='white')
-        ax.set_xlabel("Current (mA)", color='white')
-        ax.set_ylabel("Optical Power (mW)", color='white')
+        title_str = f"Phase Characterization of {current['cross']}:{channel_symbol} at Channel {target_channel} ({io_config.capitalize()})"
+        ax.set_title(title_str, color='white', fontsize=12)
+        ax.set_xlabel("Current (mA)", color='white', fontsize=10)
+        ax.set_ylabel("Optical Power (mW)", color='white', fontsize=10)
         
         # Configure ticks and borders
         ax.tick_params(colors='white', which='both')
@@ -996,7 +1013,7 @@ class Window1Content(ctk.CTkFrame):
             return
             
         # Get current channel type
-        channel_type = self.channel_type_var.get()
+        channel_type = self.phase_selector.radio_var.get()
         # channel_type="theta"
         # Generate and display plot
         fig = self._create_calibration_plot_P(params, channel_type, channel, io_config)
@@ -1011,8 +1028,8 @@ class Window1Content(ctk.CTkFrame):
         buf.seek(0)
         img = Image.open(buf)
         fig.tight_layout()
-        
-        ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(320, 320))
+    
+        ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(480, 320))
         
         self.graph_image_label2.configure(image=ctk_image, text="")
         self._current_image_ref2 = ctk_image
