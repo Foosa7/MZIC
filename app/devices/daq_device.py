@@ -142,8 +142,18 @@ class DAQ:
                     min_val=min_val,
                     max_val=max_val
                 )
-            # Perform the read
+            # Gather raw data
             data = task.read(number_of_samples_per_channel=samples_per_channel)
+
+        # Average raw data
+        if isinstance(data, list):
+            arr = np.array(data)
+            if arr.ndim == 2:
+                # Multiple channels
+                return arr.mean(axis=1).tolist()
+            elif arr.ndim == 1:
+                # Single channel
+                return float(arr.mean())
         
         return data
 
