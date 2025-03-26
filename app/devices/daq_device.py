@@ -91,10 +91,10 @@ class DAQ:
         """
         if self.find_device(device_name=device_name):
             self._is_connected = True
-            print(f"Connected to DAQ device: {self.device_name}")
+            print(f"[DAQ] Connected to DAQ device: {self.device_name}")
             return True
         else:
-            print("Failed to connect to a DAQ device.")
+            print("[DAQ] Failed to connect to a DAQ device.")
             return False
 
     def list_ai_channels(self):
@@ -102,7 +102,7 @@ class DAQ:
         List analog input channels for the connected device.
         """
         if not self._is_connected:
-            print("Device not connected.")
+            print("[DAQ] Device not connected.")
             return []
         
         for dev in self.system.devices:
@@ -122,7 +122,7 @@ class DAQ:
         :return: A list of lists if multiple channels, or just a list if one channel.
         """
         if not self._is_connected:
-            print("Device not connected.")
+            print("[DAQ] Device not connected.")
             return None
         
         # If no channels specified, read from all
@@ -130,7 +130,7 @@ class DAQ:
             channels = self.list_ai_channels()
         
         if not channels:
-            print("No channels to read from.")
+            print("[DAQ] No channels to read from.")
             return None
 
         data = None
@@ -198,12 +198,12 @@ class DAQ:
         Print basic status information about the connected device.
         """
         if not self._is_connected:
-            print("No DAQ device is connected.")
+            print("[DAQ] No DAQ device is connected.")
             return
         
-        print(f"DAQ Device Name: {self.device_name}")
+        print(f"[DAQ] Device Name: {self.device_name}")
         channels = self.list_ai_channels()
-        print(f"AI Channels: {channels}")
+        print(f"[DAQ] AI Channels: {channels}")
 
     def disconnect(self):
         """
@@ -212,9 +212,9 @@ class DAQ:
          but here we reset our connected state.)
         """
         if self._is_connected:
-            print(f"Disconnecting DAQ device: {self.device_name}")
+            print(f"[DAQ] Disconnecting DAQ device: {self.device_name}")
             # Mark not connected
             self._is_connected = False
             self.device_name = None
         else:
-            print("No DAQ device to disconnect.")
+            print("[DAQ] No DAQ device to disconnect.")

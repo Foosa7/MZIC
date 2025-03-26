@@ -30,7 +30,7 @@ class ThorlabsDevice:
                                         "firmware": idn[3]
                                     })
                         except Exception as e:
-                            print(f"Error inspecting {res}: {e}")
+                            print(f"[Thorlabs] Error inspecting {res}: {e}")
             
             elif system == 'Linux':
                 import glob
@@ -49,12 +49,12 @@ class ThorlabsDevice:
                             })
                         inst.close()
                     except Exception as e:
-                        print(f"Error inspecting {dev_path}: {e}")
+                        print(f"[Thorlabs] Error inspecting {dev_path}: {e}")
             
             return devices
         
         except Exception as e:
-            print(f"Error listing devices: {e}")
+            print(f"[Thorlabs] Error listing devices: {e}")
             return []
     
     @classmethod
@@ -80,7 +80,7 @@ class ThorlabsDevice:
 
     def connect(self, serial=None, resource=None):
         if self._find_device(serial, resource):
-            print(f"Connected to {self.params['Model']} (SN: {self.params['Serial']})")
+            print(f"[Thorlabs] Connected to {self.params['Model']} (SN: {self.params['Serial']})")
             return True
         else:
             print("Using mock device")
@@ -105,10 +105,10 @@ class ThorlabsDevice:
             elif system == 'Linux':
                 return self._linux_find_device(serial, resource)
             else:
-                print(f"Unsupported OS: {system}")
+                print(f"[Thorlabs] Unsupported OS: {system}")
                 return False
         except Exception as e:
-            print(f"Error finding device: {e}")
+            print(f"[Thorlabs] Error finding device: {e}")
             return False
 
     def _windows_find_device(self, serial, resource):
@@ -149,7 +149,7 @@ class ThorlabsDevice:
             self._initialize_device(resource, idn)
             return True
         except Exception as e:
-            print(f"Windows connection failed: {e}")
+            print(f"[Thorlabs] Windows connection failed: {e}")
             return False
 
     def _try_connect_linux(self, resource, expected_serial):
@@ -163,7 +163,7 @@ class ThorlabsDevice:
             self._initialize_device(resource, idn)
             return True
         except Exception as e:
-            print(f"Linux connection failed: {e}")
+            print(f"[Thorlabs] Linux connection failed: {e}")
             return False
 
     def _initialize_device(self, resource, idn):
@@ -180,7 +180,7 @@ class ThorlabsDevice:
         self.serial = idn[2]
         self.device.sense.function = 'POWER'
         self.device.sense.correction.wavelength = self.wavelength
-        print(f"Connected to {self.params['Model']} at {resource}")
+        print(f"[Thorlabs] Connected to {self.params['Model']} at {resource}")
 
     def read_power(self):
         if self.device:
@@ -197,17 +197,17 @@ class ThorlabsDevice:
                 self.wavelength = wavelength
                 self.params["Wavelength"] = f"{wavelength} nm"
             except Exception as e:
-                print(f"Wavelength setting error: {e}")
+                print(f"[Thorlabs] Wavelength setting error: {e}")
 
     def disconnect(self):
         if self.inst:
             try:
                 self.inst.close()
-                print(f"Disconnected from {self.params['Serial']}")
+                print(f"[Thorlabs] Disconnected from {self.params['Serial']}")
                 ThorlabsDevice._connected_devices.pop(self.serial, None)
                 ThorlabsDevice._connected_devices.pop(self.resource, None)
             except Exception as e:
-                print(f"Error closing connection: {e}")
+                print(f"[Thorlabs] Error closing connection: {e}")
             finally:
                 self.inst = None
                 self.device = None
@@ -216,9 +216,9 @@ class ThorlabsDevice:
     def show_status(self):
         """Display device status"""
         if self.device:
-            print(f"Device: {self.params['Model']} (SN: {self.params['Serial']})")
-            print(f"Wavelength: {self.params['Wavelength']}")
-            print(f"Current power: {self.read_power():.6f} mW")
+            print(f"[Thorlabs] Device: {self.params['Model']} (SN: {self.params['Serial']})")
+            print(f"[Thorlabs] Wavelength: {self.params['Wavelength']}")
+            print(f"[Thorlabs] Current power: {self.read_power():.6f} mW")
     
     # def disconnect(self):
     #     """Safely close connection to device"""
