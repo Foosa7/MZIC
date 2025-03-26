@@ -19,7 +19,6 @@ class Window3Content(ctk.CTkFrame):
         self.qontrol = qontrol
         self.daq = daq
 
-        print(self.daq)
         # NxN dimension
         self.n = int(grid_size.split('x')[0])
 
@@ -84,6 +83,228 @@ class Window3Content(ctk.CTkFrame):
 
         # Load any saved unitary from AppData for each tab
         self.handle_all_tabs()
+
+        ### Artificial Magnetic Field Controls ###
+        self.amf_frame = ctk.CTkFrame(self.content_frame)
+        self.amf_frame.grid(row=0, column=1, sticky='nsew', padx=20, pady=10)  # Place to the right side
+
+        self.amf_label = ctk.CTkLabel(self.amf_frame, text="Artificial Magnetic Field") # Title
+        self.amf_label.pack(pady=(0,10))
+
+        # c (hopping amplitude)
+        self.c_label = ctk.CTkLabel(self.amf_frame, text="Hopping (c):")
+        self.c_label.pack()
+        self.c_entry = ctk.CTkEntry(self.amf_frame, width=100)
+        self.c_entry.insert(0, "1.0")  # default
+        self.c_entry.pack(pady=(0,10))
+
+        # T (Period)
+        self.T_label = ctk.CTkLabel(self.amf_frame, text="Period (T):")
+        self.T_label.pack()
+        self.T_entry = ctk.CTkEntry(self.amf_frame, width=100)
+        self.T_entry.insert(0, "3.1415")  # default ~ pi/c
+        self.T_entry.pack(pady=(0,10))
+
+        # N (Time steps)
+        self.N_label = ctk.CTkLabel(self.amf_frame, text="Time Steps (N):")
+        self.N_label.pack()
+        self.N_entry = ctk.CTkEntry(self.amf_frame, width=100)
+        self.N_entry.insert(0, "5")  # default
+        self.N_entry.pack(pady=(0,10))
+
+        # Direction (CW or CCW)
+        self.direction_var = ctk.StringVar(value="CW")
+        self.cw_radio = ctk.CTkRadioButton(self.amf_frame, text="CW", variable=self.direction_var, value="CW")
+        self.ccw_radio = ctk.CTkRadioButton(self.amf_frame, text="CCW", variable=self.direction_var, value="CCW")
+        self.cw_radio.pack(pady=(0,5))
+        self.ccw_radio.pack(pady=(0,10))
+
+        # Dwell time between steps
+        self.dwell_label = ctk.CTkLabel(self.amf_frame, text="Dwell Time (s):")
+        self.dwell_label.pack()
+        self.dwell_entry = ctk.CTkEntry(self.amf_frame, width=100)
+        self.dwell_entry.insert(0, "1e-3")  # default 
+        self.dwell_entry.pack(pady=(0,10))
+
+        # Button to start the “experiment”
+        self.run_button = ctk.CTkButton(
+            self.amf_frame, text="Run AMF Experiment",
+            command=self.run_amf_experiment
+        )
+        self.run_button.pack(pady=(10,0))
+
+    def run_amf_experiment(self):
+        """
+        1) Reads user parameters c, T, N, direction, dwell time.
+        2) For each time step, constructs a unitary, decomposes, applies phases, measures output power.
+        3) Exports the results (time step vs. measured power on all outputs) to CSV.
+        """
+        try:
+            c_val = float(self.c_entry.get())
+            T_val = float(self.T_entry.get())
+            N_val = int(self.N_entry.get())
+            dwell = float(self.dwell_entry.get())
+            direction = self.direction_var.get()  
+
+        except ValueError as e:
+            print(f"Error reading AMF inputs: {e}")
+            return
+        
+        # Hamiltonians, 3x3
+        H1 = np.array([[0,c_val,0], [c_val, 0, 0], [0, 0, 1]])
+        H2 = np.array([[1, 0 ,0], [0,0,c_val], [0, c_val, 0]])
+        H3 = np.array([[0,0,c_val], [0, 1, 0], [c_val, 0, 0]])
+
+        # Initial conditions
+        a = np.zeros(3)
+        a[0] = 1
+        a = a/np.linalg.norm(a)
+
+        # Build a time array
+        T_list = np.linspace(0, T_val, N_val)
+
+        # Prepare to store data: e.g., a list of [t_step, power_ch0, power_ch1, ...]
+        results = []
+        channels = self.daq.list_ai_channels() or []  # make sure it's always a list
+
+        for step_idx in range(N_val):
+            current_time = T_list[step_idx]
+
+            # Build the time-evolving unitary for this step
+            U_step = self._build_unitary_at_timestep(
+                step_idx=step_idx,
+                current_time=current_time,
+                H1=H1, H2=H2, H3=H3,   
+                T_val=T_val,
+                N_val=N_val,
+                direction=direction
+            )
+
+            #Decompose the unitary:
+            try:
+                # Perform decomposition
+                I = itf.square_decomposition(U_step)
+                bs_list = I.BS_list
+                mzi_convention.clements_to_chip(bs_list)
+        
+                # Store the decomposition result in AppData
+                setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
+        
+            except Exception as e:
+                print('Error in decomposition:', e)
+
+            #Apply the phase:
+
+
+            # Settle time for the system to reach steady state
+            time.sleep(dwell)
+
+            # Measure the output power with DAQ
+            if channels:
+                measured_values = self.daq.read_voltage(channels=channels, samples_per_channel=5)
+            else:
+                measured_values = []
+
+            if isinstance(measured_values, float):
+                measured_values = [measured_values]
+
+            results.append([step_idx + 1] + measured_values)
+
+            # Export the results to CSV
+        self._export_results_to_csv(results, channels)
+        print("AMF experiment complete!")
+
+    def _build_unitary_at_timestep(self, step_idx, current_time, H1, H2, H3, T_val, N_val, direction):
+        """
+        Builds the time-evolving unitary at 'current_time' in [0..T_val], 
+        using H1, H2, H3. Splits the total evolution into 3 segments: 
+        H1->H2->H3 for CW or reversed for CCW.
+        Then 3×3 is placed in top-left of NxN identity matrix.
+        """
+
+        segment_length = T_val / 3.0
+        steps_per_segment = N_val // 3  # assume multiple of 3 for simplicity
+
+        # Decide which segment we're in
+        if step_idx < steps_per_segment:
+            # first segment => partial evolution with H1 or H3
+            fraction = current_time / segment_length
+            if direction == "CW":
+                U_3x3 = expm(-1j * fraction * segment_length * H1)
+            else:  # CCW
+                U_3x3 = expm(-1j * fraction * segment_length * H3)
+
+        elif step_idx < 2 * steps_per_segment:
+            # second segment
+            fraction = (current_time - segment_length) / segment_length
+            if direction == "CW":
+                U_part = expm(-1j * fraction * segment_length * H2)
+                U_full1 = expm(-1j * segment_length * H1)
+                U_3x3 = U_part @ U_full1
+            else:  # CCW
+                U_part = expm(-1j * fraction * segment_length * H2)
+                U_full1 = expm(-1j * segment_length * H3)
+                U_3x3 = U_part @ U_full1
+
+        else:
+            # third segment
+            fraction = (current_time - 2 * segment_length) / segment_length
+            if direction == "CW":
+                U_part3 = expm(-1j * fraction * segment_length * H3)
+                U_full2 = expm(-1j * segment_length * H2) @ expm(-1j * segment_length * H1)
+                U_3x3 = U_part3 @ U_full2
+            else:  # CCW
+                U_part3 = expm(-1j * fraction * segment_length * H1)
+                U_full2 = expm(-1j * segment_length * H2) @ expm(-1j * segment_length * H3)
+                U_3x3 = U_part3 @ U_full2
+
+        # Pad 3×3 into top-left of NxN
+        U_full = np.eye(self.n, dtype=complex)
+        U_full[:3, :3] = U_3x3
+        return U_full
+
+    def _apply_phase_config(self, config_json):
+        """
+        
+        """
+
+    def _export_results_to_csv(self, results, channels):
+        """Simple CSV exporter for time-step data."""
+        if not results:
+            print("No results to save.")
+            return
+
+        # Let user pick the export location
+        path = filedialog.asksaveasfilename(
+            title='Save AMF Results',
+            defaultextension='.csv',
+            filetypes=[('CSV files', '*.csv')]
+        )
+        if not path:
+            return
+
+        # Build header row: e.g. step, then channel names
+        headers = ["time_step"] + channels
+
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                # Write header
+                f.write(",".join(headers) + "\n")
+                # Write rows
+                for row in results:
+                    # row = [step, v_ch0, v_ch1, ...]
+                    line_str = ",".join(str(x) for x in row)
+                    f.write(line_str + "\n")
+
+            print(f"Results saved to {path}")
+        except Exception as e:
+            print(f"Failed to save results: {e}")
+
+
+
+
+
+
 
     def get_unitary_mapping(self):
         '''Returns a dictionary mapping tab names to their corresponding entry grids and AppData variables.'''
