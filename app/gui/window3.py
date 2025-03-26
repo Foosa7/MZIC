@@ -4,16 +4,14 @@ from app.imports import *
 import tkinter.filedialog as filedialog
 import math
 import copy
+from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
 from app.utils.unitary import mzi_lut
 from app.utils.unitary import mzi_convention
 from app.utils.appdata import AppData
-# from app.gui.window1 import apply_phase_new
-from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
-
 
 class Window3Content(ctk.CTkFrame):
     
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, daq, grid_size, **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, daq, grid_size = "8x8", **kwargs):
         super().__init__(master, **kwargs)
         self.channel = channel
         self.fit = fit
@@ -24,6 +22,7 @@ class Window3Content(ctk.CTkFrame):
 
         # NxN dimension
         self.n = int(grid_size.split('x')[0])
+        self.grid_size = grid_size 
 
         # Main layout
         self.content_frame = ctk.CTkFrame(self, fg_color='transparent')
@@ -205,14 +204,14 @@ class Window3Content(ctk.CTkFrame):
                 print('Error in decomposition:', e)
 
             #Apply the phase:
-            self._apply_phase_config(AppData.default_json_grid)
-            
+            self.apply_phase_new()
+
             # Settle time for the system to reach steady state
             time.sleep(dwell)
 
             # Measure the output power with DAQ
             if channels:
-                measured_values = self.daq.read_voltage(channels=channels, samples_per_channel=5)
+                measured_values = self.daq.read_power_in_mW(channels=channels, samples_per_channel=5)
             else:
                 measured_values = []
 
@@ -222,8 +221,14 @@ class Window3Content(ctk.CTkFrame):
             results.append([step_idx + 1] + measured_values)
 
             # Export the results to CSV
+        zero_config = self._create_zero_config()
+        apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
+
         self._export_results_to_csv(results, channels)
         print("AMF experiment complete!")
+        # Create a zero-value configuration for all crosspoints.
+
+
 
     def _build_unitary_at_timestep(self, current_time, H1, H2, H3, T_period, direction):
         """
@@ -270,13 +275,23 @@ class Window3Content(ctk.CTkFrame):
         U_full[:3, :3] = U
         return U_full
 
-    def _apply_phase_config(self, config_json):
-        """Applies the phase configuration from 'config_json' to the Qontrol device."""
-        try:
-            apply_grid_mapping(self.qontrol, json.dumps(config_json), f"{self.n}x{self.n}")
-        except Exception as e:
-            print(f"Failed to apply phase config from window3: {e}")
-
+    def _create_zero_config(self):
+        """Create a configuration with all theta and phi values set to zero"""
+        n = int(self.grid_size.split('x')[0])
+        zero_config = {}
+        
+        # Generate all possible crosspoint labels (A1, A2, B1, etc.)
+        for row in range(n):
+            row_letter = chr(65 + row)  # A, B, C, etc.
+            for col in range(1, n+1):
+                cross_label = f"{row_letter}{col}"
+                zero_config[cross_label] = {
+                    "arms": ["TL", "TR", "BL", "BR"],  # Include all arms
+                    "theta": "0",
+                    "phi": "0"
+                }
+        
+        return json.dumps(zero_config)
 
     def apply_phase_new(self):
         """
@@ -285,10 +300,10 @@ class Window3Content(ctk.CTkFrame):
         """
         try:
             # Get current grid configuration
-            # grid_config = json.loads(self.custom_grid.export_paths_json())
             grid_config = AppData.default_json_grid
+            print(grid_config)
             if not grid_config:
-                self._show_error("No grid configuration found")
+                print("No grid configuration found")
                 return
                 
             # Create label mapping for channel assignments
@@ -349,39 +364,96 @@ class Window3Content(ctk.CTkFrame):
             # Only show error message if there are failures
             if failed_channels:
                 result_message = f"Failed to apply to {len(failed_channels)} channels"
-                # messagebox.showinfo("Phase Application", result_message)
                 print(result_message)
                 
-            # Update the mapping display with detailed results
-            self.mapping_display.configure(state="normal")
-            self.mapping_display.delete("1.0", "end")
-            self.mapping_display.insert("1.0", "Phase Application Results:\n\n")
-            self.mapping_display.insert("end", "Successfully applied:\n")
-            for channel in applied_channels:
-                self.mapping_display.insert("end", f"• {channel}\n")
-            if failed_channels:
-                self.mapping_display.insert("end", "\nFailed to apply:\n")
-                for channel in failed_channels:
-                    self.mapping_display.insert("end", f"• {channel}\n")
-            self.mapping_display.configure(state="disabled")
+            # Debugging: Print the grid size
+            print(f"Grid size: {self.grid_size}")
             
-            print(phase_grid_config)
-            self._capture_output(self.qontrol.show_status, self.status_display)
-
             try:
-                # config = self.custom_grid.export_paths_json()
                 config_json = json.dumps(phase_grid_config)
                 apply_grid_mapping(self.qontrol, config_json, self.grid_size)
             except Exception as e:
-                self._show_error(f"Device update failed: {str(e)}")        
+                print(f"Device update failed: {str(e)}")        
 
             return phase_grid_config
             
         except Exception as e:
-            self._show_error(f"Failed to apply phases: {str(e)}")
+            print(f"Failed to apply phases: {str(e)}")
             import traceback
             traceback.print_exc()
             return None
+                
+    def _calculate_current_for_phase(self, channel, phase_value, *io_configs):
+        """
+        Calculate current for a given phase value, trying multiple IO configurations.
+        Returns current in mA or None if calculation fails.
+        """
+        # Try each IO configuration in order until one works
+        for io_config in io_configs:
+            # Check for cross calibration data
+            if io_config == "cross" and channel < len(self.app.caliparamlist_lincub_cross) and self.app.caliparamlist_lincub_cross[channel] != "Null":
+                params = self.app.caliparamlist_lincub_cross[channel]
+                return self._calculate_current_from_params(channel, phase_value, params)
+                
+            # Check for bar calibration data
+            elif io_config == "bar" and channel < len(self.app.caliparamlist_lincub_bar) and self.app.caliparamlist_lincub_bar[channel] != "Null":
+                params = self.app.caliparamlist_lincub_bar[channel]
+                return self._calculate_current_from_params(channel, phase_value, params)
+        
+        return None
+
+    def _calculate_current_from_params(self, channel, phase_value, params):
+        """Calculate current from phase parameters"""
+        # Extract calibration parameters
+        A = params['amp']
+        b = params['omega']
+        c = params['phase']
+        d = params['offset']
+        
+        # Check if phase is within valid range
+        if phase_value < c/np.pi:
+            print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi:.2f}π for channel {channel}")
+            # Multiply phase_value by 2 and continue with calculation
+            phase_value = phase_value + 2
+            print(f"Using adjusted phase value: {phase_value}π")
+
+        # Calculate heating power for this phase shift
+        P = abs((phase_value*np.pi - c) / b)
+        
+        # Get resistance parameters
+        if channel < len(self.app.resistance_parameter_list):
+            r_params = self.app.resistance_parameter_list[channel]
+            
+            # Use cubic+linear model if available
+            if len(r_params) >= 2:
+                # Define symbols for solving equation
+                I = sp.symbols('I')
+                P_watts = P/1000  # Convert to watts
+                R0 = r_params[1]  # Linear resistance term (c)
+                alpha = r_params[0]/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
+                
+                # Define equation: P/R0 = I^2 + alpha*I^4
+                eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
+                
+                # Solve the equation
+                solutions = sp.solve(eq, I)
+                
+                # Filter and choose the real, positive solution
+                positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+                if positive_solutions:
+                    return float(1000 * positive_solutions[0])  # Convert to mA 
+                else:
+                    # Fallback to linear model
+                    R0 = r_params[1]
+                    return float(round(1000 * np.sqrt(P/(R0*1000)), 2))
+            else:
+                # Use linear model
+                R = self.app.linear_resistance_list[channel] if channel < len(self.app.linear_resistance_list) else 50.0
+                return float(round(1000 * np.sqrt(P/(R*1000)), 2))
+        else:
+            # No resistance parameters, use default
+            return float(round(1000 * np.sqrt(P/(50.0*1000)), 2))
+
 
 
     def _export_results_to_csv(self, results, channels):

@@ -265,7 +265,7 @@ class Window1Content(ctk.CTkFrame):
             self._update_measurement_text("No DAQ channels found or DAQ not connected.")
             return
 
-        readings = self.daq.read_voltage(channels=channels, samples_per_channel=10)
+        readings = self.daq.read_power_in_mW(channels=channels, samples_per_channel=10)
         if readings is None:
             self._update_measurement_text("Failed to read from DAQ or DAQ not connected.")
             return
@@ -277,7 +277,7 @@ class Window1Content(ctk.CTkFrame):
         # Build text output
         lines = []
         for ch_name, voltage in zip(channels, readings):
-            lines.append(f"{ch_name} -> {voltage:.3f} V")
+            lines.append(f"{ch_name} -> {voltage:.3f} mW")
 
         self._update_measurement_text("\n".join(lines))
     
@@ -478,7 +478,9 @@ class Window1Content(ctk.CTkFrame):
         """
         try:
             # Get current grid configuration
-            grid_config = json.loads(self.custom_grid.export_paths_json())
+            print(AppData.default_json_grid)
+            # grid_config = json.loads(self.custom_grid.export_paths_json())
+            grid_config = AppData.default_json_grid
             if not grid_config:
                 self._show_error("No grid configuration found")
                 return
