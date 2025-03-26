@@ -167,7 +167,7 @@ class Window3Content(ctk.CTkFrame):
 
         # Initial conditions
         a = np.zeros(3)
-        a[0] = 1
+        a[0] = 1 # first input
         a = a/np.linalg.norm(a)
 
         # Build a time array
@@ -185,7 +185,6 @@ class Window3Content(ctk.CTkFrame):
                 current_time=current_time,
                 H1=H1, H2=H2, H3=H3, 
                 T_period=T_period,  
-                T_total=T_total,
                 direction=direction
             )
 
@@ -203,8 +202,8 @@ class Window3Content(ctk.CTkFrame):
                 print('Error in decomposition:', e)
 
             #Apply the phase:
-
-
+            self._apply_phase_config(AppData.default_json_grid)
+            
             # Settle time for the system to reach steady state
             time.sleep(dwell)
 
@@ -223,7 +222,7 @@ class Window3Content(ctk.CTkFrame):
         self._export_results_to_csv(results, channels)
         print("AMF experiment complete!")
 
-    def _build_unitary_at_timestep(self, current_time, H1, H2, H3, T_period, T_total, direction):
+    def _build_unitary_at_timestep(self, current_time, H1, H2, H3, T_period, direction):
         """
         Builds the time-evolving unitary at 'current_time' in [0..T_val], 
         using H1, H2, H3. Splits the total evolution into 3 segments: 
@@ -269,10 +268,11 @@ class Window3Content(ctk.CTkFrame):
         return U_full
 
     def _apply_phase_config(self, config_json):
-        """
-
-        #do not apply phi to UE3 for the right chip.
-        """
+        """Applies the phase configuration from 'config_json' to the Qontrol device."""
+        try:
+            apply_grid_mapping(self.qontrol, json.dumps(config_json), f"{self.n}x{self.n}")
+        except Exception as e:
+            print(f"Failed to apply phase config from window3: {e}")
 
     def _export_results_to_csv(self, results, channels):
         """Simple CSV exporter for time-step data."""
