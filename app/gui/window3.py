@@ -98,12 +98,19 @@ class Window3Content(ctk.CTkFrame):
         self.c_entry.insert(0, "1.0")  # default
         self.c_entry.pack(pady=(0,10))
 
-        # T (Period)
-        self.T_label = ctk.CTkLabel(self.amf_frame, text="Period (T):")
-        self.T_label.pack()
-        self.T_entry = ctk.CTkEntry(self.amf_frame, width=100)
-        self.T_entry.insert(0, "3.1415")  # default ~ pi/c
-        self.T_entry.pack(pady=(0,10))
+        # Rabi cycles
+        self.rabi_label = ctk.CTkLabel(self.amf_frame, text="Rabi Half-Cycles:")
+        self.rabi_label.pack()
+        self.rabi_entry = ctk.CTkEntry(self.amf_frame, width=100)
+        self.rabi_entry.insert(0, "1")  # default
+        self.rabi_entry.pack(pady=(0,10))
+
+        # Total time entry (only used in "total" mode)
+        self.time_label = ctk.CTkLabel(self.amf_frame, text="Total Time (s):")
+        self.time_label.pack()
+        self.time_entry = ctk.CTkEntry(self.amf_frame, width=100)
+        self.time_entry.insert(0, "1.0")
+        self.time_entry.pack(pady=(0, 10))
 
         # N (Time steps)
         self.N_label = ctk.CTkLabel(self.amf_frame, text="Time Steps (N):")
@@ -141,15 +148,18 @@ class Window3Content(ctk.CTkFrame):
         """
         try:
             c_val = float(self.c_entry.get())
-            T_val = float(self.T_entry.get())
             N_val = int(self.N_entry.get())
             dwell = float(self.dwell_entry.get())
             direction = self.direction_var.get()  
 
+            rabi_cycles = float(self.rabi_entry.get())
+            T_period = rabi_cycles * (math.pi / (2 * c_val))
+            T_total = float(self.time_entry.get())  
+
         except ValueError as e:
             print(f"Error reading AMF inputs: {e}")
             return
-        
+
         # Hamiltonians, 3x3
         H1 = np.array([[0,c_val,0], [c_val, 0, 0], [0, 0, 1]])
         H2 = np.array([[1, 0 ,0], [0,0,c_val], [0, c_val, 0]])
@@ -161,7 +171,7 @@ class Window3Content(ctk.CTkFrame):
         a = a/np.linalg.norm(a)
 
         # Build a time array
-        T_list = np.linspace(0, T_val, N_val)
+        T_list = np.linspace(0, T_total, N_val)
 
         # Prepare to store data: e.g., a list of [t_step, power_ch0, power_ch1, ...]
         results = []
@@ -172,11 +182,10 @@ class Window3Content(ctk.CTkFrame):
 
             # Build the time-evolving unitary for this step
             U_step = self._build_unitary_at_timestep(
-                step_idx=step_idx,
                 current_time=current_time,
-                H1=H1, H2=H2, H3=H3,   
-                T_val=T_val,
-                N_val=N_val,
+                H1=H1, H2=H2, H3=H3, 
+                T_period=T_period,  
+                T_total=T_total,
                 direction=direction
             )
 
@@ -214,7 +223,7 @@ class Window3Content(ctk.CTkFrame):
         self._export_results_to_csv(results, channels)
         print("AMF experiment complete!")
 
-    def _build_unitary_at_timestep(self, step_idx, current_time, H1, H2, H3, T_val, N_val, direction):
+    def _build_unitary_at_timestep(self, current_time, H1, H2, H3, T_period, T_total, direction):
         """
         Builds the time-evolving unitary at 'current_time' in [0..T_val], 
         using H1, H2, H3. Splits the total evolution into 3 segments: 
@@ -222,50 +231,47 @@ class Window3Content(ctk.CTkFrame):
         Then 3×3 is placed in top-left of NxN identity matrix.
         """
 
-        segment_length = T_val / 3.0
-        steps_per_segment = N_val // 3  # assume multiple of 3 for simplicity
+        def mod_with_quotient(x, mod):
+            quotient = int(x // mod)
+            remainder = x % mod
+            return quotient, remainder
 
-        # Decide which segment we're in
-        if step_idx < steps_per_segment:
-            # first segment => partial evolution with H1 or H3
-            fraction = current_time / segment_length
-            if direction == "CW":
-                U_3x3 = expm(-1j * fraction * segment_length * H1)
-            else:  # CCW
-                U_3x3 = expm(-1j * fraction * segment_length * H3)
+        q, r = mod_with_quotient(current_time, T_period)
+        T_seg = T_period /3
+        
+        # Segment order
+        if direction == "CW":
+            H_seq = [H1, H2, H3]
+        else:  # CCW
+            H_seq = [H3, H2, H1]
 
-        elif step_idx < 2 * steps_per_segment:
-            # second segment
-            fraction = (current_time - segment_length) / segment_length
-            if direction == "CW":
-                U_part = expm(-1j * fraction * segment_length * H2)
-                U_full1 = expm(-1j * segment_length * H1)
-                U_3x3 = U_part @ U_full1
-            else:  # CCW
-                U_part = expm(-1j * fraction * segment_length * H2)
-                U_full1 = expm(-1j * segment_length * H3)
-                U_3x3 = U_part @ U_full1
+        # Build full-cycle unitary
+        U_cycle = expm(-1j * T_seg * H_seq[2]) @ expm(-1j * T_seg * H_seq[1]) @ expm(-1j * T_seg * H_seq[0])
 
-        else:
-            # third segment
-            fraction = (current_time - 2 * segment_length) / segment_length
-            if direction == "CW":
-                U_part3 = expm(-1j * fraction * segment_length * H3)
-                U_full2 = expm(-1j * segment_length * H2) @ expm(-1j * segment_length * H1)
-                U_3x3 = U_part3 @ U_full2
-            else:  # CCW
-                U_part3 = expm(-1j * fraction * segment_length * H1)
-                U_full2 = expm(-1j * segment_length * H2) @ expm(-1j * segment_length * H3)
-                U_3x3 = U_part3 @ U_full2
+        # Compute full cycle evolution [U_cycle]^q
+        U = np.linalg.matrix_power(U_cycle, q)
 
-        # Pad 3×3 into top-left of NxN
+        # Apply the remainder (partial segment)
+        if r > 0:
+            rem_U = np.eye(3, dtype=complex)
+            for i in range(3):
+                if r >= T_seg:
+                    rem_U = expm(-1j * T_seg * H_seq[i]) @ rem_U
+                    r -= T_seg
+                elif r > 0:
+                    rem_U = expm(-1j * r * H_seq[i]) @ rem_U
+                    break
+            U = rem_U @ U
+
+        # Pad to NxN
         U_full = np.eye(self.n, dtype=complex)
-        U_full[:3, :3] = U_3x3
+        U_full[:3, :3] = U
         return U_full
 
     def _apply_phase_config(self, config_json):
         """
-        
+
+        #do not apply phi to UE3 for the right chip.
         """
 
     def _export_results_to_csv(self, results, channels):
