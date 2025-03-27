@@ -126,7 +126,7 @@ class Window1Content(ctk.CTkFrame):
         notebook.grid(row=1, column=0, sticky="nsew", pady=(2, 0))
         inner_frame.grid_columnconfigure(0, weight=1)
 
-        # Graph tab
+        ### Graph tab ###
         graph_tab = notebook.add("Graph")
         self.graph_frame = ctk.CTkFrame(graph_tab)
         self.graph_frame.grid(row=0, column=0, sticky="nsew")
@@ -148,42 +148,41 @@ class Window1Content(ctk.CTkFrame):
         )
         self.graph_image_label2.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
 
-        # Mapping tab
+        ### Mapping tab ###
         self.mapping_display = ctk.CTkTextbox(notebook.add("Mapping"))
         self.mapping_display.pack(fill="both", expand=True)
         
 
-        # Status tab
+        ### Status tab ###
         self.status_display = ctk.CTkTextbox(notebook.add("Status"), state="disabled")
         self.status_display.pack(fill="both", expand=True)
         
-        # Measure tab
+        ### Measure tab ###
         measure_tab = notebook.add("Measure")
         measure_tab.grid_columnconfigure(0, weight=1)
         measure_tab.grid_rowconfigure(0, weight=1)
-        
-        # A read-only CTkTextbox to display DAQ values (like your status tab)
-        self.daq_text_box = ctk.CTkTextbox(measure_tab, state="disabled")
-        self.daq_text_box.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        
-        # A frame to hold the "Read DAQ" button
+        measure_tab.grid_rowconfigure(1, weight=0)
+
+        # Shared Textbox for both DAQ + Thorlabs readings
+        self.measurement_text_box = ctk.CTkTextbox(measure_tab, state="disabled")
+        self.measurement_text_box.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+
+        # Button + Sample Entry Frame
         measure_button_frame = ctk.CTkFrame(measure_tab)
         measure_button_frame.grid(row=1, column=0, sticky="ew")
-        
-        # Button that triggers reading from the DAQ
+
         self.read_daq_button = ctk.CTkButton(
             measure_button_frame,
-            text="Read DAQ",
-            command=self._read_all_daq_channels
+            text="Read Devices",
+            command=self._read_all_measurements
         )
         self.read_daq_button.pack(side="left", padx=5, pady=5)
 
-        # Entry to input number of samples for DAQ reading
         self.samples_entry = ctk.CTkEntry(
-        measure_button_frame,
-        width=65,
-        placeholder_text="Samples"
-        )   
+            measure_button_frame,
+            width=65,
+            placeholder_text="Samples"
+        )
         self.samples_entry.pack(side="left", padx=5, pady=5)
 
         # Compact error display
@@ -299,14 +298,47 @@ class Window1Content(ctk.CTkFrame):
         for ch_name, voltage in zip(channels, readings):
             lines.append(f"{ch_name} -> {voltage:.3f} mW")
 
-        self._update_measurement_text("\n".join(lines))
-    
+        # Save this part to combine with Thorlabs 
+        self._daq_last_result = "\n".join(lines)    
+
+    def _read_thorlabs_powers(self):
+        """Read optical power from connected Thorlabs device(s)"""
+        if not self.thorlabs:
+            self._thorlabs_last_result = "No Thorlabs device found."
+            return
+
+        readings = []
+        devices = self.thorlabs if isinstance(self.thorlabs, list) else [self.thorlabs]
+
+        for i, device in enumerate(devices):
+            try:
+                power = device.read_power()
+                readings.append(f"Thorlabs {i} -> {power:.3f} mW")
+            except Exception as e:
+                readings.append(f"Thorlabs {i}: Error - {e}")
+
+        self._thorlabs_last_result = "\n".join(readings)
+
     def _update_measurement_text(self, text):
-        """Helper to safely update the CTkTextbox in read-only style."""
-        self.daq_text_box.configure(state="normal")
-        self.daq_text_box.delete("1.0", "end")
-        self.daq_text_box.insert("1.0", text)
-        self.daq_text_box.configure(state="disabled")
+        """Update the measurement text box with the provided text."""
+        self.measurement_text_box.configure(state="normal")  # Enable editing
+        self.measurement_text_box.delete("1.0", "end")  # Clear existing text
+        self.measurement_text_box.insert("1.0", text)  # Insert new text
+        self.measurement_text_box.configure(state="disabled")  # Disable editing
+
+    def _read_all_measurements(self):
+        """
+        Unified method that reads DAQ first, then Thorlabs,
+        and combines both results into the shared textbox.
+        """
+        self._daq_last_result = ""
+        self._thorlabs_last_result = ""
+
+        self._read_all_daq_channels()
+        self._read_thorlabs_powers()
+
+        combined = "DAQ Readings:\n" + self._daq_last_result + "\n\nThorlabs Readings:\n" + self._thorlabs_last_result
+        self._update_measurement_text(combined)
 
     def build_grid(self, grid_size):
         """Initialize the grid display with default JSON"""
