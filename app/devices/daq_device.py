@@ -166,22 +166,23 @@ class DAQ:
                 return float(arr.mean())
 
         return data
-    
-    def read_power_in_mW(self, channels=None, samples_per_channel=10, min_val=-10.0, max_val=10.0, load_resistor=50, responsivity=1.07):
+            
+    def read_power(self, channels=None, samples_per_channel=10, min_val=-10.0, max_val=10.0, load_resistor=50, responsivity=1.07, unit="uW"):
         """
-        Read voltage from specified channels and convert to power in mW.
+        Read voltage from specified channels and convert to power in the specified unit.
 
         Conversion:
-            P_in (mW) = (1000 * V_out) / (load_resistor * responsivity)
+            P_in (W) = V_out / (load_resistor * responsivity)
 
         :param channels: A list of channel names, e.g. ['Dev1/ai0', 'Dev1/ai2'].
-                        If None, read from all available AI channels on the device.
+                         If None, read from all available AI channels on the device.
         :param samples_per_channel: Number of samples to read for each channel.
         :param min_val: Minimum expected voltage.
         :param max_val: Maximum expected voltage.
         :param load_resistor: The terminating resistor value in ohms (default 50 Ω).
         :param responsivity: Photodiode responsivity in A/W (default 1.07 A/W for 1550 nm).
-        :return: A list of power values in mW.
+        :param unit: The desired unit for power measurement. Options are "mW", "uW", or "W".
+        :return: A list of power values in the specified unit.
         """
         voltages = self.read_voltage(
             channels=channels,
@@ -193,15 +194,18 @@ class DAQ:
         if voltages is None:
             return None
         
-        # Convert the measured voltage to power in mW.
-        # The photodiode generates a photocurrent I = P_in * responsivity.
-        # That current flowing through the load resistor gives V_out = I * load_resistor.
-        # Rearranging gives:
-        #     P_in = V_out / (load_resistor * responsivity)
-        # Multiply by 1000 to convert watts to mW.
-        return [1000.0 * v / (load_resistor * responsivity) for v in voltages]
-        
-        
+        # Convert the measured voltage to power in watts.
+        power_in_watts = [v / (load_resistor * responsivity) for v in voltages]
+
+        # Convert to the desired unit
+        if unit == "mW":
+            return [p * 1000.0 for p in power_in_watts]  # Convert to milliwatts
+        elif unit == "uW":
+            return [p * 1e6 for p in power_in_watts]  # Convert to microwatts
+        elif unit == "W":
+            return power_in_watts  # Keep in watts
+        else:
+            raise ValueError(f"Unsupported unit: {unit}. Use 'mW', 'uW', or 'W'.")
 
     def show_status(self):
         """
