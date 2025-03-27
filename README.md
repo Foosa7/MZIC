@@ -41,6 +41,7 @@ MZIC/
 │   │   ├── daq_device.py           # Interface for the DAQ device.
 │   │   ├── mock_devices.py         # Mock implementations for testing.
 │   │   ├── qontrol_device.py       # Interface for the Qontrol device.
+│   │   ├── switch_device.py        # Interface for the optical switch device.
 │   │   └── thorlabs_device.py      # Interface for the Thorlabs device.
 │   ├── gui/                        # Graphical User Interface (GUI) components.
 │   │   ├── __init__.py             # Initializes the gui subpackage.
