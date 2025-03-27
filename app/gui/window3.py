@@ -3,23 +3,26 @@
 from app.imports import *
 import tkinter.filedialog as filedialog
 import math
-
+import copy
+from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
 from app.utils.unitary import mzi_lut
 from app.utils.unitary import mzi_convention
 from app.utils.appdata import AppData
 
 class Window3Content(ctk.CTkFrame):
     
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, grid_size, **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, daq, grid_size = "8x8", **kwargs):
         super().__init__(master, **kwargs)
         self.channel = channel
         self.fit = fit
         self.IOconfig = IOconfig
         self.app = app
         self.qontrol = qontrol
+        self.daq = daq
 
         # NxN dimension
         self.n = int(grid_size.split('x')[0])
+        self.grid_size = grid_size 
 
         # Main layout
         self.content_frame = ctk.CTkFrame(self, fg_color='transparent')
@@ -82,6 +85,414 @@ class Window3Content(ctk.CTkFrame):
 
         # Load any saved unitary from AppData for each tab
         self.handle_all_tabs()
+
+        ### Artificial Magnetic Field Controls ###
+        self.amf_frame = ctk.CTkFrame(self.content_frame)
+        self.amf_frame.grid(row=0, column=1, sticky='nsew', padx=20, pady=10)  # Place to the right side
+
+        self.amf_label = ctk.CTkLabel(self.amf_frame, text="Artificial Magnetic Field") # Title
+        self.amf_label.pack(pady=(0,10))
+
+        # c (hopping amplitude)
+        self.c_label = ctk.CTkLabel(self.amf_frame, text="Hopping (c):")
+        self.c_label.pack()
+        self.c_entry = ctk.CTkEntry(self.amf_frame, width=100)
+        self.c_entry.insert(0, "1.0")  # default
+        self.c_entry.pack(pady=(0,10))
+
+        # Rabi cycles
+        self.rabi_label = ctk.CTkLabel(self.amf_frame, text="Rabi Half-Cycles:")
+        self.rabi_label.pack()
+        self.rabi_entry = ctk.CTkEntry(self.amf_frame, width=100)
+        self.rabi_entry.insert(0, "1")  # default
+        self.rabi_entry.pack(pady=(0,10))
+
+        # Total time entry (only used in "total" mode)
+        self.time_label = ctk.CTkLabel(self.amf_frame, text="Total Time (s):")
+        self.time_label.pack()
+        self.time_entry = ctk.CTkEntry(self.amf_frame, width=100)
+        self.time_entry.insert(0, "1.0")
+        self.time_entry.pack(pady=(0, 10))
+
+        # N (Time steps)
+        self.N_label = ctk.CTkLabel(self.amf_frame, text="Time Steps (N):")
+        self.N_label.pack()
+        self.N_entry = ctk.CTkEntry(self.amf_frame, width=100)
+        self.N_entry.insert(0, "5")  # default
+        self.N_entry.pack(pady=(0,10))
+
+        # Direction (CW or CCW)
+        self.direction_var = ctk.StringVar(value="CW")
+        self.cw_radio = ctk.CTkRadioButton(self.amf_frame, text="CW", variable=self.direction_var, value="CW")
+        self.ccw_radio = ctk.CTkRadioButton(self.amf_frame, text="CCW", variable=self.direction_var, value="CCW")
+        self.cw_radio.pack(pady=(0,5))
+        self.ccw_radio.pack(pady=(0,10))
+
+        # Dwell time between steps
+        self.dwell_label = ctk.CTkLabel(self.amf_frame, text="Dwell Time (s):")
+        self.dwell_label.pack()
+        self.dwell_entry = ctk.CTkEntry(self.amf_frame, width=100)
+        self.dwell_entry.insert(0, "1e-3")  # default 
+        self.dwell_entry.pack(pady=(0,10))
+
+        # Button to start the “experiment”
+        self.run_button = ctk.CTkButton(
+            self.amf_frame, text="Run AMF Experiment",
+            command=self.run_amf_experiment
+        )
+        self.run_button.pack(pady=(10,0))
+
+    def run_amf_experiment(self):
+        """
+        1) Reads user parameters c, T, N, direction, dwell time.
+        2) For each time step, constructs a unitary, decomposes, applies phases, measures output power.
+        3) Exports the results (time step vs. measured power on all outputs) to CSV.
+        """
+        try:
+            c_val = float(self.c_entry.get())
+            N_val = int(self.N_entry.get())
+            dwell = float(self.dwell_entry.get())
+            direction = self.direction_var.get()  
+
+            rabi_cycles = float(self.rabi_entry.get())
+            T_period = rabi_cycles * (math.pi / (2 * c_val))
+            T_total = float(self.time_entry.get())  
+
+        except ValueError as e:
+            print(f"Error reading AMF inputs: {e}")
+            return
+
+        # Hamiltonians, 3x3
+        H1 = np.array([[0,c_val,0], [c_val, 0, 0], [0, 0, 1]])
+        H2 = np.array([[1, 0 ,0], [0,0,c_val], [0, c_val, 0]])
+        H3 = np.array([[0,0,c_val], [0, 1, 0], [c_val, 0, 0]])
+
+        # Initial conditions
+        a = np.zeros(3)
+        a[0] = 1 # first input
+        a = a/np.linalg.norm(a)
+
+        # Build a time array
+        T_list = np.linspace(0, T_total, N_val)
+
+        # Prepare to store data: e.g., a list of [t_step, power_ch0, power_ch1, ...]
+        results = []
+        channels = self.daq.list_ai_channels() or []  # make sure it's always a list
+
+        for step_idx in range(N_val):
+            current_time = T_list[step_idx]
+
+            # Build the time-evolving unitary for this step
+            U_step = self._build_unitary_at_timestep(
+                current_time=current_time,
+                H1=H1, H2=H2, H3=H3, 
+                T_period=T_period,  
+                direction=direction
+            )
+
+            #Decompose the unitary:
+            try:
+                # Perform decomposition
+                I = itf.square_decomposition(U_step)
+                bs_list = I.BS_list
+                mzi_convention.clements_to_chip(bs_list)
+        
+                # Store the decomposition result in AppData
+                setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
+        
+            except Exception as e:
+                print('Error in decomposition:', e)
+
+            #Apply the phase:
+            self.apply_phase_new()
+
+            # Settle time for the system to reach steady state
+            time.sleep(dwell)
+
+            # Measure the output power with DAQ
+            if channels:
+                measured_values = self.daq.read_power_in_mW(channels=channels, samples_per_channel=5)
+            else:
+                measured_values = []
+
+            if isinstance(measured_values, float):
+                measured_values = [measured_values]
+
+            results.append([step_idx + 1] + measured_values)
+
+            # Export the results to CSV
+        zero_config = self._create_zero_config()
+        apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
+
+        self._export_results_to_csv(results, channels)
+        print("AMF experiment complete!")
+        # Create a zero-value configuration for all crosspoints.
+
+
+
+    def _build_unitary_at_timestep(self, current_time, H1, H2, H3, T_period, direction):
+        """
+        Builds the time-evolving unitary at 'current_time' in [0..T_val], 
+        using H1, H2, H3. Splits the total evolution into 3 segments: 
+        H1->H2->H3 for CW or reversed for CCW.
+        Then 3×3 is placed in top-left of NxN identity matrix.
+        """
+
+        def mod_with_quotient(x, mod):
+            quotient = int(x // mod)
+            remainder = x % mod
+            return quotient, remainder
+
+        q, r = mod_with_quotient(current_time, T_period)
+        T_seg = T_period /3
+        
+        # Segment order
+        if direction == "CW":
+            H_seq = [H1, H2, H3]
+        else:  # CCW
+            H_seq = [H3, H2, H1]
+
+        # Build full-cycle unitary
+        U_cycle = expm(-1j * T_seg * H_seq[2]) @ expm(-1j * T_seg * H_seq[1]) @ expm(-1j * T_seg * H_seq[0])
+
+        # Compute full cycle evolution [U_cycle]^q
+        U = np.linalg.matrix_power(U_cycle, q)
+
+        # Apply the remainder (partial segment)
+        if r > 0:
+            rem_U = np.eye(3, dtype=complex)
+            for i in range(3):
+                if r >= T_seg:
+                    rem_U = expm(-1j * T_seg * H_seq[i]) @ rem_U
+                    r -= T_seg
+                elif r > 0:
+                    rem_U = expm(-1j * r * H_seq[i]) @ rem_U
+                    break
+            U = rem_U @ U
+
+        # Pad to NxN
+        U_full = np.eye(self.n, dtype=complex)
+        U_full[:3, :3] = U
+        return U_full
+
+    def _create_zero_config(self):
+        """Create a configuration with all theta and phi values set to zero"""
+        n = int(self.grid_size.split('x')[0])
+        zero_config = {}
+        
+        # Generate all possible crosspoint labels (A1, A2, B1, etc.)
+        for row in range(n):
+            row_letter = chr(65 + row)  # A, B, C, etc.
+            for col in range(1, n+1):
+                cross_label = f"{row_letter}{col}"
+                zero_config[cross_label] = {
+                    "arms": ["TL", "TR", "BL", "BR"],  # Include all arms
+                    "theta": "0",
+                    "phi": "0"
+                }
+        
+        return json.dumps(zero_config)
+
+    def apply_phase_new(self):
+        """
+        Apply phase settings to the entire grid based on phase calibration data.
+        Processes all theta and phi values in the current grid configuration.
+        """
+        try:
+            # Get current grid configuration
+            grid_config = AppData.default_json_grid
+            print(grid_config)
+            if not grid_config:
+                print("No grid configuration found")
+                return
+                
+            # Create label mapping for channel assignments
+            label_map = create_label_mapping(8)  # Assuming 8x8 grid
+            
+            # Create a new configuration with current values
+            phase_grid_config = copy.deepcopy(grid_config)
+            
+            # Track successful and failed applications
+            applied_channels = []
+            failed_channels = []
+            
+            # Process each cross in the grid
+            for cross_label, data in grid_config.items():
+                # Skip if this cross isn't in our mapping
+                if cross_label not in label_map:
+                    continue
+                    
+                theta_ch, phi_ch = label_map[cross_label]
+                theta_val = data.get("theta", "0")
+                phi_val = data.get("phi", "0")
+
+                # Process theta channel
+                if theta_ch is not None and theta_val:
+                    try:
+                        theta_float = float(theta_val)
+                        current_theta = self._calculate_current_for_phase(theta_ch, theta_float, "cross", "bar")
+                        if current_theta is not None:
+                            # Quantize to 5 decimal places
+                            current_theta = round(current_theta, 5)
+                            # Update the phase_grid_config with current value
+                            phase_grid_config[cross_label]["theta"] = str(current_theta)  # Store in A
+                            applied_channels.append(f"{cross_label}:θ = {current_theta:.5f} mA")
+                        else:
+                            failed_channels.append(f"{cross_label}:θ (no calibration)")
+                    except Exception as e:
+                        failed_channels.append(f"{cross_label}:θ ({str(e)})")
+
+                # Process phi channel
+                if phi_ch is not None and phi_val:
+                    try:
+                        phi_float = float(phi_val)
+                        current_phi = self._calculate_current_for_phase(phi_ch, phi_float, "cross", "bar")
+                        if current_phi is not None:
+                            # Quantize to 5 decimal places
+                            current_phi = round(current_phi, 5)
+                            # Update the phase_grid_config with current value
+                            phase_grid_config[cross_label]["phi"] = str(current_phi)  # Store in A
+                            applied_channels.append(f"{cross_label}:φ = {current_phi:.5f} mA")
+                        else:
+                            failed_channels.append(f"{cross_label}:φ (no calibration)")
+                    except Exception as e:
+                        failed_channels.append(f"{cross_label}:φ ({str(e)})")
+            
+            # Store the phase grid config for later use
+            self.phase_grid_config = phase_grid_config
+            
+            # Only show error message if there are failures
+            if failed_channels:
+                result_message = f"Failed to apply to {len(failed_channels)} channels"
+                print(result_message)
+                
+            # Debugging: Print the grid size
+            print(f"Grid size: {self.grid_size}")
+            
+            try:
+                config_json = json.dumps(phase_grid_config)
+                apply_grid_mapping(self.qontrol, config_json, self.grid_size)
+            except Exception as e:
+                print(f"Device update failed: {str(e)}")        
+
+            return phase_grid_config
+            
+        except Exception as e:
+            print(f"Failed to apply phases: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
+                
+    def _calculate_current_for_phase(self, channel, phase_value, *io_configs):
+        """
+        Calculate current for a given phase value, trying multiple IO configurations.
+        Returns current in mA or None if calculation fails.
+        """
+        # Try each IO configuration in order until one works
+        for io_config in io_configs:
+            # Check for cross calibration data
+            if io_config == "cross" and channel < len(self.app.caliparamlist_lincub_cross) and self.app.caliparamlist_lincub_cross[channel] != "Null":
+                params = self.app.caliparamlist_lincub_cross[channel]
+                return self._calculate_current_from_params(channel, phase_value, params)
+                
+            # Check for bar calibration data
+            elif io_config == "bar" and channel < len(self.app.caliparamlist_lincub_bar) and self.app.caliparamlist_lincub_bar[channel] != "Null":
+                params = self.app.caliparamlist_lincub_bar[channel]
+                return self._calculate_current_from_params(channel, phase_value, params)
+        
+        return None
+
+    def _calculate_current_from_params(self, channel, phase_value, params):
+        """Calculate current from phase parameters"""
+        # Extract calibration parameters
+        A = params['amp']
+        b = params['omega']
+        c = params['phase']
+        d = params['offset']
+        
+        # Check if phase is within valid range
+        if phase_value < c/np.pi:
+            print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi:.2f}π for channel {channel}")
+            # Multiply phase_value by 2 and continue with calculation
+            phase_value = phase_value + 2
+            print(f"Using adjusted phase value: {phase_value}π")
+
+        # Calculate heating power for this phase shift
+        P = abs((phase_value*np.pi - c) / b)
+        
+        # Get resistance parameters
+        if channel < len(self.app.resistance_parameter_list):
+            r_params = self.app.resistance_parameter_list[channel]
+            
+            # Use cubic+linear model if available
+            if len(r_params) >= 2:
+                # Define symbols for solving equation
+                I = sp.symbols('I')
+                P_watts = P/1000  # Convert to watts
+                R0 = r_params[1]  # Linear resistance term (c)
+                alpha = r_params[0]/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
+                
+                # Define equation: P/R0 = I^2 + alpha*I^4
+                eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
+                
+                # Solve the equation
+                solutions = sp.solve(eq, I)
+                
+                # Filter and choose the real, positive solution
+                positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+                if positive_solutions:
+                    return float(1000 * positive_solutions[0])  # Convert to mA 
+                else:
+                    # Fallback to linear model
+                    R0 = r_params[1]
+                    return float(round(1000 * np.sqrt(P/(R0*1000)), 2))
+            else:
+                # Use linear model
+                R = self.app.linear_resistance_list[channel] if channel < len(self.app.linear_resistance_list) else 50.0
+                return float(round(1000 * np.sqrt(P/(R*1000)), 2))
+        else:
+            # No resistance parameters, use default
+            return float(round(1000 * np.sqrt(P/(50.0*1000)), 2))
+
+
+
+    def _export_results_to_csv(self, results, channels):
+        """Simple CSV exporter for time-step data."""
+        if not results:
+            print("No results to save.")
+            return
+
+        # Let user pick the export location
+        path = filedialog.asksaveasfilename(
+            title='Save AMF Results',
+            defaultextension='.csv',
+            filetypes=[('CSV files', '*.csv')]
+        )
+        if not path:
+            return
+
+        # Build header row: e.g. step, then channel names
+        headers = ["time_step"] + channels
+
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                # Write header
+                f.write(",".join(headers) + "\n")
+                # Write rows
+                for row in results:
+                    # row = [step, v_ch0, v_ch1, ...]
+                    line_str = ",".join(str(x) for x in row)
+                    f.write(line_str + "\n")
+
+            print(f"Results saved to {path}")
+        except Exception as e:
+            print(f"Failed to save results: {e}")
+
+
+
+
+
+
 
     def get_unitary_mapping(self):
         '''Returns a dictionary mapping tab names to their corresponding entry grids and AppData variables.'''

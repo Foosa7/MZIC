@@ -81,6 +81,31 @@ class MockDAQ:
         readings = [0.0 for _ in range(samples_per_channel)]
         return readings
 
+
+
+    def read_power_in_mW(self, channels=None, samples_per_channel=10,
+                     min_val=-10.0, max_val=10.0):
+        """
+        Returns a fixed set of voltage samples for a single mock channel.
+        """
+        if not self._is_connected:
+            print("[MockDAQ] Device not connected.")
+            return None
+
+        # Default to our single channel if none specified
+        if channels is None:
+            channels = self.list_ai_channels()
+
+        if not channels:
+            print("[MockDAQ] No channels to read from.")
+            return None
+
+        # Return a fixed value for each sample, e.g., 0.0 volts
+        readings = [0.0 for _ in range(samples_per_channel)]
+        return readings
+
+    
+
     def show_status(self):
         if not self._is_connected:
             print("[MockDAQ] No DAQ device is connected.")

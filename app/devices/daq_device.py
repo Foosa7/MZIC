@@ -91,10 +91,10 @@ class DAQ:
         """
         if self.find_device(device_name=device_name):
             self._is_connected = True
-            print(f"Connected to DAQ device: {self.device_name}")
+            print(f"[DAQ] Connected to DAQ device: {self.device_name}")
             return True
         else:
-            print("Failed to connect to a DAQ device.")
+            print("[DAQ] Failed to connect to a DAQ device.")
             return False
 
     def list_ai_channels(self):
@@ -102,7 +102,7 @@ class DAQ:
         List analog input channels for the connected device.
         """
         if not self._is_connected:
-            print("Device not connected.")
+            print("[DAQ] Device not connected.")
             return []
         
         for dev in self.system.devices:
@@ -122,7 +122,7 @@ class DAQ:
         :return: A list of lists if multiple channels, or just a list if one channel.
         """
         if not self._is_connected:
-            print("Device not connected.")
+            print("[DAQ] Device not connected.")
             return None
         
         # If no channels specified, read from all
@@ -130,7 +130,7 @@ class DAQ:
             channels = self.list_ai_channels()
         
         if not channels:
-            print("No channels to read from.")
+            print("[DAQ] No channels to read from.")
             return None
 
         data = None
@@ -155,19 +155,65 @@ class DAQ:
                 # Single channel
                 return float(arr.mean())
         
+        # Average raw data
+        if isinstance(data, list):
+            arr = np.array(data)
+            if arr.ndim == 2:
+                # Multiple channels
+                return arr.mean(axis=1).tolist()
+            elif arr.ndim == 1:
+                # Single channel
+                return float(arr.mean())
+
         return data
+    
+    def read_power_in_mW(self, channels=None, samples_per_channel=10, min_val=-10.0, max_val=10.0, load_resistor=50, responsivity=1.07):
+        """
+        Read voltage from specified channels and convert to power in mW.
+
+        Conversion:
+            P_in (mW) = (1000 * V_out) / (load_resistor * responsivity)
+
+        :param channels: A list of channel names, e.g. ['Dev1/ai0', 'Dev1/ai2'].
+                        If None, read from all available AI channels on the device.
+        :param samples_per_channel: Number of samples to read for each channel.
+        :param min_val: Minimum expected voltage.
+        :param max_val: Maximum expected voltage.
+        :param load_resistor: The terminating resistor value in ohms (default 50 Ω).
+        :param responsivity: Photodiode responsivity in A/W (default 1.07 A/W for 1550 nm).
+        :return: A list of power values in mW.
+        """
+        voltages = self.read_voltage(
+            channels=channels,
+            samples_per_channel=samples_per_channel,
+            min_val=min_val,
+            max_val=max_val
+        )
+        
+        if voltages is None:
+            return None
+        
+        # Convert the measured voltage to power in mW.
+        # The photodiode generates a photocurrent I = P_in * responsivity.
+        # That current flowing through the load resistor gives V_out = I * load_resistor.
+        # Rearranging gives:
+        #     P_in = V_out / (load_resistor * responsivity)
+        # Multiply by 1000 to convert watts to mW.
+        return [1000.0 * v / (load_resistor * responsivity) for v in voltages]
+        
+        
 
     def show_status(self):
         """
         Print basic status information about the connected device.
         """
         if not self._is_connected:
-            print("No DAQ device is connected.")
+            print("[DAQ] No DAQ device is connected.")
             return
         
-        print(f"DAQ Device Name: {self.device_name}")
+        print(f"[DAQ] Device Name: {self.device_name}")
         channels = self.list_ai_channels()
-        print(f"AI Channels: {channels}")
+        print(f"[DAQ] AI Channels: {channels}")
 
     def disconnect(self):
         """
@@ -176,9 +222,9 @@ class DAQ:
          but here we reset our connected state.)
         """
         if self._is_connected:
-            print(f"Disconnecting DAQ device: {self.device_name}")
+            print(f"[DAQ] Disconnecting DAQ device: {self.device_name}")
             # Mark not connected
             self._is_connected = False
             self.device_name = None
         else:
-            print("No DAQ device to disconnect.")
+            print("[DAQ] No DAQ device to disconnect.")

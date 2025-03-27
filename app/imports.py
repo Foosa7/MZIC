@@ -17,6 +17,7 @@ import traceback
 import ast
 import ctypes
 from datetime import datetime
+from scipy.linalg import expm
 
 # Third-Party Libraries
 import serial
