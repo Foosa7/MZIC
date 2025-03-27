@@ -523,6 +523,10 @@ class Window1Content(ctk.CTkFrame):
             apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
             print("Grid cleared and all values set to zero")
             self._capture_output(self.qontrol.show_status, self.status_display)
+            # Clear the content of the mapping_display
+            self.mapping_display.configure(state="normal")  # Enable editing
+            self.mapping_display.delete("1.0", "end")  # Delete all text
+            self.mapping_display.configure(state="disabled")  # Disable editing
 
         except Exception as e:
             self._show_error(f"Failed to clear grid: {str(e)}")

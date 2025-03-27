@@ -291,28 +291,29 @@ class Example(Frame):
                 bottom_node
             )
 
-
-
     def create_x_shape(self, center_name, x, y, arm_length, label):
-        """Creates an X shape with label."""
+        """Creates an X shape with label and a small dot on the top-left side."""
+        # Create the center node
         self.nodes[center_name] = Node(center_name, x, y)
+        
+        # Add the label
         self.cross_labels[center_name] = self.canvas.create_text(
             x + arm_length - 20, y,
             text=label,
             anchor='w', font=("Arial", 12), fill="white"
         )
-
-        # # Create top-left dot (added feature)
-        # tl_x = x - arm_length
-        # tl_y = y - arm_length
-        # self.canvas.create_oval(
-        #     tl_x - 3, tl_y - 3,  # Coordinates for top-left corner
-        #     tl_x + 3, tl_y + 3,  # Coordinates for bottom-right corner
-        #     fill="white",         # Match label color
-        #     outline="white"       # Remove border
-        # )
-
-        # Create arm nodes.
+        
+        # Create the top-left dot
+        tl_x = x - arm_length
+        tl_y = y - arm_length
+        self.canvas.create_oval(
+            tl_x - 3, tl_y - 3,  # Coordinates for top-left corner
+            tl_x + 3, tl_y + 3,  # Coordinates for bottom-right corner
+            fill="white",         # Fill color for the dot
+            outline="white"       # Border color for the dot
+        )
+        
+        # Create arm nodes
         for suffix, (dx, dy) in {
             "TL": (-arm_length, -arm_length),
             "TR": (arm_length, -arm_length),
@@ -322,6 +323,37 @@ class Example(Frame):
             arm_name = f"{center_name}_{suffix}"
             self.nodes[arm_name] = Node(arm_name, x + dx, y + dy)
             self.create_path(self.nodes[center_name], self.nodes[arm_name])
+
+
+    # def create_x_shape(self, center_name, x, y, arm_length, label):
+    #     """Creates an X shape with label."""
+    #     self.nodes[center_name] = Node(center_name, x, y)
+    #     self.cross_labels[center_name] = self.canvas.create_text(
+    #         x + arm_length - 20, y,
+    #         text=label,
+    #         anchor='w', font=("Arial", 12), fill="white"
+    #     )
+
+    #     # # Create top-left dot (added feature)
+    #     # tl_x = x - arm_length
+    #     # tl_y = y - arm_length
+    #     # self.canvas.create_oval(
+    #     #     tl_x - 3, tl_y - 3,  # Coordinates for top-left corner
+    #     #     tl_x + 3, tl_y + 3,  # Coordinates for bottom-right corner
+    #     #     fill="white",         # Match label color
+    #     #     outline="white"       # Remove border
+    #     # )
+
+    #     # Create arm nodes.
+    #     for suffix, (dx, dy) in {
+    #         "TL": (-arm_length, -arm_length),
+    #         "TR": (arm_length, -arm_length),
+    #         "BL": (-arm_length, arm_length),
+    #         "BR": (arm_length, arm_length)
+    #     }.items():
+    #         arm_name = f"{center_name}_{suffix}"
+    #         self.nodes[arm_name] = Node(arm_name, x + dx, y + dy)
+    #         self.create_path(self.nodes[center_name], self.nodes[arm_name])
 
     def get_cross_modes(self):
         """Returns a dict mapping cross labels to their selection type (bar/cross/split)."""
