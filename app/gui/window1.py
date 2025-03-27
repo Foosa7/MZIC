@@ -57,6 +57,8 @@ class Window1Content(ctk.CTkFrame):
         # self._update_selection_display()
         self._setup_event_bindings()
 
+        self.selected_unit = "mW"  # Default unit for power measurement
+
     def _create_grid_container(self):
         """Create expanded grid display area"""
         self.grid_container = ctk.CTkFrame(self.main_frame)
@@ -177,6 +179,15 @@ class Window1Content(ctk.CTkFrame):
             command=self._read_all_measurements
         )
         self.read_daq_button.pack(side="left", padx=5, pady=5)
+
+        # Unit selection dropdown
+        self.unit_selector = ctk.CTkOptionMenu(
+            measure_button_frame,
+            values=["uW", "mW", "W"],  
+            command=self._update_selected_unit  
+        )
+        self.unit_selector.set("uW")  # default unit
+        self.unit_selector.pack(side="left", padx=5, pady=5) 
 
         self.samples_entry = ctk.CTkEntry(
             measure_button_frame,
@@ -323,6 +334,10 @@ class Window1Content(ctk.CTkFrame):
                 readings.append(f"Thorlabs {i}: Error - {e}")
 
         self._thorlabs_last_result = "\n".join(readings)
+
+    def _update_selected_unit(self, selected_unit):
+        """Update the selected unit for power measurement."""
+        self.selected_unit = selected_unit
 
     def _update_measurement_text(self, text):
         """Update the measurement text box with the provided text."""
