@@ -479,11 +479,11 @@ class Window1Content(ctk.CTkFrame):
         """
         try:
             # Get current grid configuration
-            print(AppData.default_json_grid)
-            # grid_config = json.loads(self.custom_grid.export_paths_json())
-            grid_config = AppData.default_json_grid
+            # print(AppData.default_json_grid)
+            grid_config = json.loads(self.custom_grid.export_paths_json())
+            # grid_config = AppData.default_json_grid
             if not grid_config:
-                self._show_error("No grid configuration found")
+                self._show_error("No grid configuration found W1")
                 return
                 
             # Create label mapping for channel assignments
