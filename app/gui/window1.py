@@ -174,7 +174,7 @@ class Window1Content(ctk.CTkFrame):
         self.read_daq_button = ctk.CTkButton(
             measure_button_frame,
             text="Read DAQ",
-            command=self._read_all_daq_channels
+            command=self._read_daq_channels
         )
         self.read_daq_button.pack(side="left", padx=5, pady=5)
 
@@ -251,7 +251,7 @@ class Window1Content(ctk.CTkFrame):
     #     self.custom_grid.pack(fill="both", expand=True)
     #     self._attach_grid_listeners()
 
-    def _read_all_daq_channels(self):
+    def _read_daq_channels(self):
         """
         Lists all available AI channels on the DAQ device,
         reads averaged voltage for each channel, and displays them in the text box.
