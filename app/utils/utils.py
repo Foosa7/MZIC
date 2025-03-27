@@ -9,6 +9,31 @@ import pickle
 from io import BytesIO
 from tkinter import filedialog, messagebox
 
+def load_config(config_path="config/settings.json"):
+    """Load the configuration file."""
+    if os.path.exists(config_path):
+        with open(config_path, "r") as file:
+            return json.load(file)
+    return {}
+
+def import_pickle(config):
+    """Loads a pickle file from the path in config and returns the data."""
+    import_file = config.get("default_config", "")
+
+    # Ensure the file path is correctly formatted for Windows
+    import_file = os.path.normpath(import_file)
+
+    if not import_file or not os.path.exists(import_file):
+        print(f"Default pickle file not found: {import_file}")
+        return None
+
+    with open(import_file, "rb") as file:
+        imported_data = pickle.load(file)
+
+    print(f"Successfully imported {import_file}")
+    return imported_data  # Return the loaded data
+
+
 
 def importfunc(obj):
     """
