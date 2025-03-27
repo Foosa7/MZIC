@@ -178,13 +178,22 @@ class Window1Content(ctk.CTkFrame):
             text="Read Devices",
             command=self._read_all_measurements
         )
-        self.read_daq_button.pack(side="left", padx=5, pady=5)
+        self.read_daq_button.pack(side="left", padx=20, pady=5)
+
+        # Add this before the unit selector dropdown
+        unit_label = ctk.CTkLabel(
+            measure_button_frame,
+            text="Units:",
+            anchor="w"  # Align text to the left
+        )
+        unit_label.pack(side="left", padx=5, pady=5)
 
         # Unit selection dropdown
         self.unit_selector = ctk.CTkOptionMenu(
             measure_button_frame,
             values=["uW", "mW", "W"],  
-            command=self._update_selected_unit  
+            command=self._update_selected_unit,
+            width=30 
         )
         self.unit_selector.set("uW")  # default unit
         self.unit_selector.pack(side="left", padx=5, pady=5) 
@@ -327,9 +336,9 @@ class Window1Content(ctk.CTkFrame):
 
         for i, device in enumerate(devices):
             try:
-                power = device.read_power(unit="uW")
+                power = device.read_power(unit=self.selected_unit)
                 print(power)
-                readings.append(f"Thorlabs {i} -> {power:.3f} uW")
+                readings.append(f"Thorlabs {i} -> {power:.3f} {self.selected_unit}")
             except Exception as e:
                 readings.append(f"Thorlabs {i}: Error - {e}")
 
