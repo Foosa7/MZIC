@@ -337,7 +337,6 @@ class Window1Content(ctk.CTkFrame):
         for i, device in enumerate(devices):
             try:
                 power = device.read_power(unit=self.selected_unit)
-                print(power)
                 readings.append(f"Thorlabs {i} -> {power:.3f} {self.selected_unit}")
             except Exception as e:
                 readings.append(f"Thorlabs {i}: Error - {e}")
