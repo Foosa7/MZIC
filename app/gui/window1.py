@@ -264,14 +264,17 @@ class Window1Content(ctk.CTkFrame):
         Lists all available AI channels on the DAQ device,
         reads averaged voltage for each channel, and displays them in the text box.
         """
+        lines = []
 
         if not self.daq:
-            self._update_measurement_text("No DAQ object found.")
+            lines.append("No device found.")
+            self._daq_last_result = "\n".join(lines)
             return
 
         channels = self.daq.list_ai_channels()
         if not channels:
-            self._update_measurement_text("No DAQ channels found or DAQ not connected.")
+            lines.append("No device found.")
+            self._daq_last_result = "\n".join(lines)
             return
         
         try:
@@ -286,7 +289,8 @@ class Window1Content(ctk.CTkFrame):
 
         readings = self.daq.read_power_in_mW(channels=channels, samples_per_channel=num_samples)
         if readings is None:
-            self._update_measurement_text("Failed to read from DAQ or DAQ not connected.")
+            lines.append("Failed to read from DAQ or DAQ not connected.")
+            self._daq_last_result = "\n".join(lines)
             return
 
         # Normalize to list for consistent processing
