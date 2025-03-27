@@ -182,7 +182,7 @@ class ThorlabsDevice:
         self.device.sense.correction.wavelength = self.wavelength
         print(f"[Thorlabs] Connected to {self.params['Model']} at {resource}")
 
-    def read_power(self, unit="mW"):
+    def read_power(self, unit="uW"):
         """
         Read the power measurement from the device.
 

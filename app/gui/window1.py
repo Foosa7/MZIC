@@ -57,7 +57,7 @@ class Window1Content(ctk.CTkFrame):
         # self._update_selection_display()
         self._setup_event_bindings()
 
-        self.selected_unit = "mW"  # Default unit for power measurement
+        self.selected_unit = "uW"  # Default unit for power measurement
 
     def _create_grid_container(self):
         """Create expanded grid display area"""
@@ -307,7 +307,7 @@ class Window1Content(ctk.CTkFrame):
             self.samples_entry.delete(0, "end")
             self.samples_entry.insert(0, str(num_samples))
 
-        readings = self.daq.read_power_in_mW(channels=channels, samples_per_channel=num_samples)
+        readings = self.daq.read_power(channels=channels, samples_per_channel=num_samples, unit=self.selected_unit)
         if readings is None:
             lines.append("Failed to read from DAQ or DAQ not connected.")
             self._daq_last_result = "\n".join(lines)
@@ -320,7 +320,7 @@ class Window1Content(ctk.CTkFrame):
         # Build text output
         lines = []
         for ch_name, voltage in zip(channels, readings):
-            lines.append(f"{ch_name} -> {voltage:.3f} mW")
+            lines.append(f"{ch_name} -> {voltage:.3f} {self.selected_unit}")
 
         # Save this part to combine with Thorlabs 
         self._daq_last_result = "\n".join(lines)    
