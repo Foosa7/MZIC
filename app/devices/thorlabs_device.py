@@ -182,12 +182,34 @@ class ThorlabsDevice:
         self.device.sense.correction.wavelength = self.wavelength
         print(f"[Thorlabs] Connected to {self.params['Model']} at {resource}")
 
-    def read_power(self):
+    def read_power(self, unit="mW"):
+        """
+        Read the power measurement from the device.
+
+        Args:
+            unit (str): The desired unit for the power reading. 
+                        Options are "mW" (default) or "W".
+
+        Returns:
+            float: The power reading in the specified unit.
+        """
         if self.device:
             try:
-                return self.device.read * 1000
+                power_in_watts = self.device.read  # Read power in watts
             except AttributeError:
-                return self.device.power * 1000
+                power_in_watts = self.device.power  # Fallback to another attribute
+
+            # Convert to the desired unit
+            if unit == "mW":
+                return power_in_watts * 1e3  # Convert to milliwatts
+            
+            elif unit == "uW":
+                return power_in_watts * 1e6  # Convert to microwatts
+
+            elif unit == "W":
+                return power_in_watts  # Return in watts
+            else:
+                raise ValueError(f"Unsupported unit: {unit}. Use 'mW', 'uW' or 'W'.")
         return 0.0
 
     def set_wavelength(self, wavelength):
