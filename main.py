@@ -1,6 +1,7 @@
 # main.py
 from app.imports import *
-from app.utils.utils import import_pickle
+from app.utils.utils import import_default_pkl
+from app.utils.appdata import AppData
 import ctypes
 from nidaqmx.errors import DaqNotFoundError 
 
@@ -23,7 +24,14 @@ def main():
     with open(SETTINGS_PATH, "r") as f:
         config = json.load(f)
 
-    # List available Thorlabs devices
+    appdata = AppData(n_channels=0)   
+
+    try:
+        import_default_pkl(appdata)
+        print("Default pickle file imported successfully.")
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+            # List available Thorlabs devices
     available_devices = ThorlabsDevice.list_available_devices()
     print(f"Found {len(available_devices)} Thorlabs devices:")
     for i, device in enumerate(available_devices):
@@ -33,7 +41,7 @@ def main():
     qontrol = QontrolDevice(config=config)
     # Connect to Qontrol device
     qontrol.connect()
-    import_pickle(config)
+    # import_pickle(config)
 
     # Connect to multiple Thorlabs devices if available
     thorlabs_devices = []

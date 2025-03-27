@@ -11,7 +11,7 @@ from app.gui.window2 import Window2Content  # Import the Window2Content widget
 from app.gui.window3 import Window3Content  # Import the Window3Content widget
 from app.devices.qontrol_device import QontrolDevice  # Your QontrolDevice class
 import app.utils
-from app.utils.utils import importfunc
+from app.utils.utils import importfunc, import_default_pkl
 from app.utils.appdata import AppData   # Import the AppData class
 # from app.utils import utils            # This module contains apply_phase
 
@@ -144,29 +144,8 @@ class MainWindow(ctk.CTk):
             placeholder = ctk.CTkLabel(self.right_panel, text=f"{window_name} content not implemented yet.")
             placeholder.pack(expand=True, fill="both", padx=10, pady=10)
 
-    # def connect_devices(self):
-    #     if self.qontrol:
-    #         # Check if the device is already connected (assuming self.qontrol.device is set when connected)
-    #         if hasattr(self.qontrol, "device") and self.qontrol.device is not None:
-    #             # Already connected; update device info only.
-    #             params = self.qontrol.params
-    #             params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
-    #             self.device_control.update_device_info(params)
-    #         else:
-    #             # Not connected yet, so connect.
-    #             self.qontrol.connect()
-    #             params = self.qontrol.params
-    #             params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
-    #             self.device_control.update_device_info(params)
-    #     else:
-    #         messagebox.showerror("Connection Error", "No Qontrol device available!")
-
-    # def disconnect_devices(self):
-    #     if self.qontrol:
-    #         self.qontrol.disconnect()
-    #     self.device_control.update_device_info({})
-
     def connect_devices(self):
+        import_default_pkl(self.appdata)
         # Handle Qontrol connection should be connected by default
         if self.qontrol:
             if hasattr(self.qontrol, "device") and self.qontrol.device is not None:
@@ -207,6 +186,7 @@ class MainWindow(ctk.CTk):
                 if self.thorlabs.device:  # Only update if connection succeeded
                     params = self.thorlabs.params
                     self.device_control.update_device_info(params, "thorlabs")
+    
 
 
         # Handle DAQ connection
@@ -254,8 +234,6 @@ class MainWindow(ctk.CTk):
         
         # Clear Qontrol display
         self.device_control.update_device_info(None, "qontrol")
-
-
     
     def import_data(self):
         # Call the import function to update the appdata.
