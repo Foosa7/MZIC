@@ -178,6 +178,14 @@ class Window1Content(ctk.CTkFrame):
         )
         self.read_daq_button.pack(side="left", padx=5, pady=5)
 
+        # Entry to input number of samples for DAQ reading
+        self.samples_entry = ctk.CTkEntry(
+        measure_button_frame,
+        width=65,
+        placeholder_text="Samples"
+        )   
+        self.samples_entry.pack(side="left", padx=5, pady=5)
+
         # Compact error display
         self.error_display = ctk.CTkTextbox(
             inner_frame, 
@@ -257,6 +265,7 @@ class Window1Content(ctk.CTkFrame):
         Lists all available AI channels on the DAQ device,
         reads averaged voltage for each channel, and displays them in the text box.
         """
+
         if not self.daq:
             self._update_measurement_text("No DAQ object found.")
             return
@@ -265,8 +274,18 @@ class Window1Content(ctk.CTkFrame):
         if not channels:
             self._update_measurement_text("No DAQ channels found or DAQ not connected.")
             return
+        
+        try:
+            num_samples = int(self.samples_entry.get())   # Fails here with ValueError
+            if num_samples <= 0:
+                raise ValueError("Sample count must be positive.")
+        except Exception as e:
+            print(f"[DAQ] Invalid sample count input: {e}")  # Now safe
+            num_samples = 10
+            self.samples_entry.delete(0, "end")
+            self.samples_entry.insert(0, str(num_samples))
 
-        readings = self.daq.read_power_in_mW(channels=channels, samples_per_channel=10)
+        readings = self.daq.read_power_in_mW(channels=channels, samples_per_channel=num_samples)
         if readings is None:
             self._update_measurement_text("Failed to read from DAQ or DAQ not connected.")
             return
