@@ -193,10 +193,17 @@ class Window1Content(ctk.CTkFrame):
 
         self.toggle_graph_button = ctk.CTkButton(
             row0_frame,
-            text="Start/Stop",
+            text="Start/Stop Graph",
             command=self._toggle_live_graph
         )
         self.toggle_graph_button.pack(side="left", padx=5, pady=5)
+
+        self.export_graph_button = ctk.CTkButton(
+            row0_frame,
+            text="Export Graph",
+            command=self._export_live_graph  # Add the export functionality
+        )
+        self.export_graph_button.pack(side="left", padx=5, pady=5)
 
         # Second row: Units label, Unit selector, and Samples entry
         row1_frame = ctk.CTkFrame(measure_button_frame)
@@ -417,6 +424,24 @@ class Window1Content(ctk.CTkFrame):
         else:
             self._start_live_graph()
 
+    def _export_live_graph(self):
+        """Export the current live graph as an image file."""
+        try:
+            # Ask the user for the file location and name
+            file_path = filedialog.asksaveasfilename(
+                title="Save Live Graph",
+                defaultextension=".png",
+                filetypes=(("PNG files", "*.png"), ("All files", "*.*"))
+            )
+            if not file_path:
+                return  # User canceled the save dialog
+
+            # Save the current figure
+            self.figure.savefig(file_path, format="png", dpi=300, bbox_inches="tight")
+            print(f"Live graph exported to {file_path}")
+        except Exception as e:
+            print(f"Error exporting live graph: {e}")
+
     def _read_all_daq_channels(self):
         """
         Lists all available AI channels on the DAQ device,
@@ -492,6 +517,7 @@ class Window1Content(ctk.CTkFrame):
         self.measurement_text_box.insert("1.0", text)  # Insert new text
         self.measurement_text_box.configure(state="disabled")  # Disable editing
 
+
     def _read_all_measurements(self):
         """
         Unified method that reads DAQ first, then Thorlabs,
@@ -500,10 +526,24 @@ class Window1Content(ctk.CTkFrame):
         self._daq_last_result = ""
         self._thorlabs_last_result = ""
 
+        # Add a timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Read DAQ channels
         self._read_all_daq_channels()
+
+        # Read Thorlabs devices
         self._read_thorlabs_powers()
 
-        combined = "DAQ Readings:\n" + self._daq_last_result + "\n\nThorlabs Readings:\n" + self._thorlabs_last_result
+        # Format the DAQ readings with the timestamp aligned to the right
+        daq_header = f"DAQ Readings:{' ' * (95 - len('DAQ Readings:'))}{timestamp}"
+
+        # Combine results with the formatted DAQ header
+        combined = (
+            daq_header + "\n" +
+            self._daq_last_result +
+            "\n\nThorlabs Readings:\n" + self._thorlabs_last_result
+        )
         self._update_measurement_text(combined)
 
     def build_grid(self, grid_size):
