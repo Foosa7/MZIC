@@ -317,6 +317,36 @@ class Window1Content(ctk.CTkFrame):
         self.start_time = time.time()
         self.is_live_updating = False
 
+    def label_lines_inline(self, ax, lines, offset=0.3):
+        """
+        Place text labels next to the last point of each line,
+        matching the line’s color, inside the graph area..
+        """
+        for label, line in lines:
+            x_data = line.get_xdata()
+            y_data = line.get_ydata()
+            if len(x_data) == 0:
+                continue  # Skip if there is no data
+
+            # Get the last data point
+            x_pos = x_data[-1]
+            y_pos = y_data[-1]
+
+            # Adjust the position to keep the label inside the graph
+            x_offset = -0.5  # Move slightly left of the last point
+            y_offset = 5.0   # Align vertically with the line
+
+            # Add the label inside the graph
+            ax.text(
+                x_pos + x_offset,
+                y_pos + y_offset,
+                label,
+                color=line.get_color(),
+                va='bottom',
+                ha='right',  # Align text to the right
+                fontsize=7
+            )
+
     def _update_live_graph(self):
         if not self.is_live_updating:
             return
@@ -326,47 +356,45 @@ class Window1Content(ctk.CTkFrame):
             channels = self.daq.list_ai_channels()
             readings = self.daq.read_power(channels=channels, samples_per_channel=10, unit=self.selected_unit)
             
-            # Update common time axis
+            # Update the common time axis
             current_time = time.time() - self.start_time
             self.time_data.append(current_time)
             if len(self.time_data) > 100:
                 self.time_data.pop(0)
-
-            # Initialize channel_data entries if not present
+            
+            # Initialize/update channel data dictionary for each channel
             for i, ch in enumerate(channels):
                 if ch not in self.channel_data:
                     self.channel_data[ch] = []
                 self.channel_data[ch].append(readings[i])
                 if len(self.channel_data[ch]) > 100:
                     self.channel_data[ch].pop(0)
-
-            # Clear and replot all channels
+            
+            # Clear the axes and plot each channel’s data
             self.ax.clear()
             self.ax.set_facecolor('#363636')
             self.ax.grid(True, color='gray', linestyle='--', linewidth=0.5)
             
-            # Plot data for each channel individually
+            # Store each line for inline labeling
+            lines = []
             for ch in channels:
-                self.ax.plot(self.time_data, self.channel_data[ch],
-                            label=f"Device {ch}", linewidth=1.5)
-
-            # Apply styling and labels
+                line, = self.ax.plot(self.time_data, self.channel_data[ch], linewidth=1.5)
+                lines.append((ch, line))
+                    
+            # Label each line inline
+            self.label_lines_inline(self.ax, lines, offset=0.3)
+            
+            # Reapply labels and styling
             self.ax.set_xlabel("Time (s)", color='white', fontsize=10)
             self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
             self.ax.tick_params(colors='white', which='both')
             for spine in self.ax.spines.values():
                 spine.set_color('white')
-            legend = self.ax.legend(frameon=True, facecolor='#2b2b2b', edgecolor='white')
-            for text in legend.get_texts():
-                text.set_color('white')
-
-            # Redraw canvas
+            
             self.canvas.draw()
-
         except Exception as e:
             print(f"Error updating live graph: {e}")
-
-        # Schedule next update
+        
         self.after(1000, self._update_live_graph)
 
     def _start_live_graph(self):
