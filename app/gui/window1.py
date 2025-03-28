@@ -190,24 +190,6 @@ class Window1Content(ctk.CTkFrame):
         self.start_graph_button = ctk.CTkButton(row0_frame,
                                                 text="Start Graph",
                                                 command=self._start_live_graph)
-<<<<<<< HEAD
-<<<<<<< HEAD
-        self.start_graph_button.pack(side="left", padx=5, pady=5)
-        self.stop_graph_button = ctk.CTkButton(row0_frame,
-                                               text="Stop Graph",
-                                               command=self._stop_live_graph)
-        self.stop_graph_button.pack(side="left", padx=5, pady=5)
-
-        # Add Start/Stop buttons for the live graph
-        self.start_graph_button = ctk.CTkButton(
-            measure_button_frame,
-            text="Start Graph",
-            command=self._start_live_graph
-        )
-=======
->>>>>>> d0e7fff (all buttons displayed measure tab)
-=======
->>>>>>> d0e7fffb6da255a69e4f3d46b0aab83d505d944b
         self.start_graph_button.pack(side="left", padx=5, pady=5)
         self.stop_graph_button = ctk.CTkButton(row0_frame,
                                                text="Stop Graph",
