@@ -193,10 +193,17 @@ class Window1Content(ctk.CTkFrame):
 
         self.toggle_graph_button = ctk.CTkButton(
             row0_frame,
-            text="Start/Stop",
+            text="Start/Stop Graph",
             command=self._toggle_live_graph
         )
         self.toggle_graph_button.pack(side="left", padx=5, pady=5)
+
+        self.export_graph_button = ctk.CTkButton(
+            row0_frame,
+            text="Export Graph",
+            command=self._export_live_graph  # Add the export functionality
+        )
+        self.export_graph_button.pack(side="left", padx=5, pady=5)
 
         # Second row: Units label, Unit selector, and Samples entry
         row1_frame = ctk.CTkFrame(measure_button_frame)
@@ -317,46 +324,84 @@ class Window1Content(ctk.CTkFrame):
         self.start_time = time.time()
         self.is_live_updating = False
 
+    def label_lines_inline(self, ax, lines, offset=0.3):
+        """
+        Place text labels next to the last point of each line,
+        matching the line’s color, inside the graph area..
+        """
+        for label, line in lines:
+            x_data = line.get_xdata()
+            y_data = line.get_ydata()
+            if len(x_data) == 0:
+                continue  # Skip if there is no data
+
+            # Get the last data point
+            x_pos = x_data[-1]
+            y_pos = y_data[-1]
+
+            # Adjust the position to keep the label inside the graph
+            x_offset = -0.5  # Move slightly left of the last point
+            y_offset = 0.0   # Align vertically with the line
+
+            # Add the label inside the graph
+            ax.text(
+                x_pos + x_offset,
+                y_pos + y_offset,
+                label,
+                color=line.get_color(),
+                va='bottom',
+                ha='right',  # Align text to the right
+                fontsize=7
+            )
+
     def _update_live_graph(self):
         if not self.is_live_updating:
             return
 
         try:
-            # 1) Read data
+            # Read data from all channels
             channels = self.daq.list_ai_channels()
             readings = self.daq.read_power(channels=channels, samples_per_channel=10, unit=self.selected_unit)
-
+            
+            # Update the common time axis
             current_time = time.time() - self.start_time
             self.time_data.append(current_time)
-            self.live_data.append(sum(readings) / len(readings))
-
             if len(self.time_data) > 100:
                 self.time_data.pop(0)
-                self.live_data.pop(0)
-
-            # 2) Clear and replot (NO call to tight_layout here)
+            
+            # Initialize/update channel data dictionary for each channel
+            for i, ch in enumerate(channels):
+                if ch not in self.channel_data:
+                    self.channel_data[ch] = []
+                self.channel_data[ch].append(readings[i])
+                if len(self.channel_data[ch]) > 100:
+                    self.channel_data[ch].pop(0)
+            
+            # Clear the axes and plot each channel’s data
             self.ax.clear()
             self.ax.set_facecolor('#363636')
             self.ax.grid(True, color='gray', linestyle='--', linewidth=0.5)
-            self.ax.plot(self.time_data, self.live_data, label="Average Power", color="cyan", linewidth=1.5)
-
-            # 3) Same dark styling
-            #self.ax.set_title("Live Power Readings", color='white', fontsize=12)
+            
+            # Store each line for inline labeling
+            lines = []
+            for ch in channels:
+                line, = self.ax.plot(self.time_data, self.channel_data[ch], linewidth=1.5)
+                lines.append((ch, line))
+                    
+            # Label each line inline
+            self.label_lines_inline(self.ax, lines, offset=0.3)
+            
+            # Reapply labels and styling
             self.ax.set_xlabel("Time (s)", color='white', fontsize=10)
             self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
             self.ax.tick_params(colors='white', which='both')
             for spine in self.ax.spines.values():
                 spine.set_color('white')
-            legend = self.ax.legend(frameon=True, facecolor='#2b2b2b', edgecolor='white')
-            for text in legend.get_texts():
-                text.set_color('white')
-
-            # Just draw, do NOT call tight_layout
+            
             self.canvas.draw()
-
         except Exception as e:
             print(f"Error updating live graph: {e}")
-
+        
         self.after(1000, self._update_live_graph)
 
     def _start_live_graph(self):
@@ -365,7 +410,7 @@ class Window1Content(ctk.CTkFrame):
             self.is_live_updating = True
             self.start_time = time.time()
             self.time_data = []
-            self.live_data = []
+            self.channel_data = {} #  dict for channel data
             self._update_live_graph()
 
     def _stop_live_graph(self):
@@ -378,6 +423,24 @@ class Window1Content(ctk.CTkFrame):
             self._stop_live_graph()
         else:
             self._start_live_graph()
+
+    def _export_live_graph(self):
+        """Export the current live graph as an image file."""
+        try:
+            # Ask the user for the file location and name
+            file_path = filedialog.asksaveasfilename(
+                title="Save Live Graph",
+                defaultextension=".png",
+                filetypes=(("PNG files", "*.png"), ("All files", "*.*"))
+            )
+            if not file_path:
+                return  # User canceled the save dialog
+
+            # Save the current figure
+            self.figure.savefig(file_path, format="png", dpi=300, bbox_inches="tight")
+            print(f"Live graph exported to {file_path}")
+        except Exception as e:
+            print(f"Error exporting live graph: {e}")
 
     def _read_all_daq_channels(self):
         """
@@ -444,8 +507,47 @@ class Window1Content(ctk.CTkFrame):
         self._thorlabs_last_result = "\n".join(readings)
 
     def _update_selected_unit(self, selected_unit):
-        """Update the selected unit for power measurement."""
-        self.selected_unit = selected_unit
+        """Update the selected unit for power measurement and refresh the live graph."""
+        self.selected_unit = selected_unit  # Update the selected unit
+
+        # Define conversion factors
+        conversion_factors = {
+            "uW": 1,          # MicroWatts (default)
+            "mW": 1e-3,       # MilliWatts
+            "W": 1e-6         # Watts
+        }
+
+        # Get the conversion factor for the selected unit
+        conversion_factor = conversion_factors.get(self.selected_unit, 1)
+
+        # Update the Y-axis label to reflect the new unit
+        self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
+
+        # Convert the data to the new unit
+        for channel in self.channel_data:
+            self.channel_data[channel] = [
+                value * conversion_factor for value in self.channel_data[channel]
+            ]
+
+        # Re-draw the live graph with the updated unit
+        if self.is_live_updating:
+            self._update_live_graph()
+        else:
+            # Clear the graph if live updating is not active
+            self.ax.clear()
+            self.ax.set_facecolor('#363636')
+            self.ax.grid(True, color='gray', linestyle='--', linewidth=0.5)
+            self.ax.set_xlabel("Time (s)", color='white', fontsize=10)
+            self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
+            self.ax.tick_params(colors='white', which='both')
+            for spine in self.ax.spines.values():
+                spine.set_color('white')
+
+            # Re-plot the converted data
+            for channel, data in self.channel_data.items():
+                self.ax.plot(self.time_data, data, label=channel, linewidth=1.5)
+
+            self.canvas.draw()
 
     def _update_measurement_text(self, text):
         """Update the measurement text box with the provided text."""
@@ -453,6 +555,7 @@ class Window1Content(ctk.CTkFrame):
         self.measurement_text_box.delete("1.0", "end")  # Clear existing text
         self.measurement_text_box.insert("1.0", text)  # Insert new text
         self.measurement_text_box.configure(state="disabled")  # Disable editing
+
 
     def _read_all_measurements(self):
         """
@@ -462,10 +565,24 @@ class Window1Content(ctk.CTkFrame):
         self._daq_last_result = ""
         self._thorlabs_last_result = ""
 
+        # Add a timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Read DAQ channels
         self._read_all_daq_channels()
+
+        # Read Thorlabs devices
         self._read_thorlabs_powers()
 
-        combined = "DAQ Readings:\n" + self._daq_last_result + "\n\nThorlabs Readings:\n" + self._thorlabs_last_result
+        # Format the DAQ readings with the timestamp aligned to the right
+        daq_header = f"DAQ Readings:{' ' * (95 - len('DAQ Readings:'))}{timestamp}"
+
+        # Combine results with the formatted DAQ header
+        combined = (
+            daq_header + "\n" +
+            self._daq_last_result +
+            "\n\nThorlabs Readings:\n" + self._thorlabs_last_result
+        )
         self._update_measurement_text(combined)
 
     def build_grid(self, grid_size):
