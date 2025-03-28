@@ -314,7 +314,7 @@ class Window1Content(ctk.CTkFrame):
         # Dark background
         self.figure.patch.set_facecolor('#2b2b2b')
         self.ax.set_facecolor('#363636')
-        self.ax.set_title("Live Power Readings", color='white', fontsize=12)
+        #self.ax.set_title("Live Power Readings", color='white', fontsize=12)
         self.ax.set_xlabel("Time (s)", color='white', fontsize=10)
         self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
         self.ax.tick_params(colors='white', which='both')
