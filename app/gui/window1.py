@@ -322,26 +322,35 @@ class Window1Content(ctk.CTkFrame):
             return
 
         try:
-            # 1) Read data
+            # Read data from all channels
             channels = self.daq.list_ai_channels()
             readings = self.daq.read_power(channels=channels, samples_per_channel=10, unit=self.selected_unit)
-
+            
+            # Update common time axis
             current_time = time.time() - self.start_time
             self.time_data.append(current_time)
-            self.live_data.append(sum(readings) / len(readings))
-
             if len(self.time_data) > 100:
                 self.time_data.pop(0)
-                self.live_data.pop(0)
 
-            # 2) Clear and replot (NO call to tight_layout here)
+            # Initialize channel_data entries if not present
+            for i, ch in enumerate(channels):
+                if ch not in self.channel_data:
+                    self.channel_data[ch] = []
+                self.channel_data[ch].append(readings[i])
+                if len(self.channel_data[ch]) > 100:
+                    self.channel_data[ch].pop(0)
+
+            # Clear and replot all channels
             self.ax.clear()
             self.ax.set_facecolor('#363636')
             self.ax.grid(True, color='gray', linestyle='--', linewidth=0.5)
-            self.ax.plot(self.time_data, self.live_data, label="Average Power", color="cyan", linewidth=1.5)
+            
+            # Plot data for each channel individually
+            for ch in channels:
+                self.ax.plot(self.time_data, self.channel_data[ch],
+                            label=f"Device {ch}", linewidth=1.5)
 
-            # 3) Same dark styling
-            #self.ax.set_title("Live Power Readings", color='white', fontsize=12)
+            # Apply styling and labels
             self.ax.set_xlabel("Time (s)", color='white', fontsize=10)
             self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
             self.ax.tick_params(colors='white', which='both')
@@ -351,12 +360,13 @@ class Window1Content(ctk.CTkFrame):
             for text in legend.get_texts():
                 text.set_color('white')
 
-            # Just draw, do NOT call tight_layout
+            # Redraw canvas
             self.canvas.draw()
 
         except Exception as e:
             print(f"Error updating live graph: {e}")
 
+        # Schedule next update
         self.after(1000, self._update_live_graph)
 
     def _start_live_graph(self):
@@ -365,7 +375,7 @@ class Window1Content(ctk.CTkFrame):
             self.is_live_updating = True
             self.start_time = time.time()
             self.time_data = []
-            self.live_data = []
+            self.channel_data = {} #  dict for channel data
             self._update_live_graph()
 
     def _stop_live_graph(self):
