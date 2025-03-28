@@ -180,21 +180,23 @@ class Window1Content(ctk.CTkFrame):
         measure_button_frame = ctk.CTkFrame(measure_tab)
         measure_button_frame.grid(row=2, column=0, sticky="ew")
 
-        # First row: Read Devices, Start Graph, Stop Graph
+        # First row: Read Devices, Start/Stop
         row0_frame = ctk.CTkFrame(measure_button_frame)
         row0_frame.pack(fill="x", pady=2)
-        self.read_daq_button = ctk.CTkButton(row0_frame,
-                                             text="Read Devices",
-                                             command=self._read_all_measurements)
+
+        self.read_daq_button = ctk.CTkButton(
+            row0_frame,
+            text="Read Devices",
+            command=self._read_all_measurements
+        )
         self.read_daq_button.pack(side="left", padx=5, pady=5)
-        self.start_graph_button = ctk.CTkButton(row0_frame,
-                                                text="Start Graph",
-                                                command=self._start_live_graph)
-        self.start_graph_button.pack(side="left", padx=5, pady=5)
-        self.stop_graph_button = ctk.CTkButton(row0_frame,
-                                               text="Stop Graph",
-                                               command=self._stop_live_graph)
-        self.stop_graph_button.pack(side="left", padx=5, pady=5)
+
+        self.toggle_graph_button = ctk.CTkButton(
+            row0_frame,
+            text="Start/Stop",
+            command=self._toggle_live_graph
+        )
+        self.toggle_graph_button.pack(side="left", padx=5, pady=5)
 
         # Second row: Units label, Unit selector, and Samples entry
         row1_frame = ctk.CTkFrame(measure_button_frame)
@@ -357,8 +359,6 @@ class Window1Content(ctk.CTkFrame):
 
         self.after(1000, self._update_live_graph)
 
-
-
     def _start_live_graph(self):
         """Start live graph updates."""
         if not self.is_live_updating:
@@ -371,6 +371,13 @@ class Window1Content(ctk.CTkFrame):
     def _stop_live_graph(self):
         """Stop live graph updates."""
         self.is_live_updating = False
+
+    def _toggle_live_graph(self):
+        """Toggle live graph updates on/off."""
+        if self.is_live_updating:
+            self._stop_live_graph()
+        else:
+            self._start_live_graph()
 
     def _read_all_daq_channels(self):
         """
