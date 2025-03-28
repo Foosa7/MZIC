@@ -120,3 +120,44 @@ class MockDAQ:
             self.device_name = None
         else:
             print("[MockDAQ] No device to disconnect.")
+
+    def list_ai_channels(self):
+        if not self._is_connected:
+            print("[MockDAQ] Device not connected.")
+            return []  # Return an empty list instead of None
+        return [f"{self.device_name}/ai{i}" for i in range(8)]
+
+
+    def read_power(self, channels=None, samples_per_channel=10, unit="uW"):
+        """
+        Simulate reading power values for the specified channels.
+
+        :param channels: A list of channel names, e.g., ['MockDAQ/ai0', 'MockDAQ/ai1'].
+                        If None, read from all available AI channels.
+        :param samples_per_channel: Number of samples to simulate for each channel.
+        :param unit: The desired unit for power measurement. Options are "mW", "uW", or "W".
+        :return: A list of simulated power values in the specified unit.
+        """
+        if not self._is_connected:
+            print("[MockDAQ] Device not connected.")
+            return None
+
+        # Default to all available channels if none are specified
+        if channels is None:
+            channels = self.list_ai_channels()
+
+        if not channels:
+            print("[MockDAQ] No channels to read from.")
+            return []  # Return an empty list if no channels are available
+
+        simulated_power_in_watts = [0.001 * (i + 1) for i in range(len(channels))]  # Simulated power in watts
+
+        # Convert to the desired unit
+        if unit == "mW":
+            return [p * 1000.0 for p in simulated_power_in_watts]  # Convert to milliwatts
+        elif unit == "uW":
+            return [p * 1e6 for p in simulated_power_in_watts]  # Convert to microwatts
+        elif unit == "W":
+            return simulated_power_in_watts  # Keep in watts
+        else:
+            raise ValueError(f"Unsupported unit: {unit}. Use 'mW', 'uW', or 'W'.")
