@@ -341,7 +341,7 @@ class Window1Content(ctk.CTkFrame):
 
             # Adjust the position to keep the label inside the graph
             x_offset = -0.5  # Move slightly left of the last point
-            y_offset = 5.0   # Align vertically with the line
+            y_offset = 0.0   # Align vertically with the line
 
             # Add the label inside the graph
             ax.text(
@@ -507,8 +507,52 @@ class Window1Content(ctk.CTkFrame):
         self._thorlabs_last_result = "\n".join(readings)
 
     def _update_selected_unit(self, selected_unit):
-        """Update the selected unit for power measurement."""
-        self.selected_unit = selected_unit
+        """Update the selected unit for power measurement and refresh the live graph."""
+        self.selected_unit = selected_unit  # Update the selected unit
+
+        # Define conversion factors
+        conversion_factors = {
+            "uW": 1,          # MicroWatts (default)
+            "mW": 1e-3,       # MilliWatts
+            "W": 1e-6         # Watts
+        }
+
+        # Get the conversion factor for the selected unit
+        conversion_factor = conversion_factors.get(self.selected_unit, 1)
+
+        # Update the Y-axis label to reflect the new unit
+        self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
+
+        # Convert the data to the new unit
+        for channel in self.channel_data:
+            self.channel_data[channel] = [
+                value * conversion_factor for value in self.channel_data[channel]
+            ]
+
+        # Re-draw the live graph with the updated unit
+        if self.is_live_updating:
+            self._update_live_graph()
+        else:
+            # Clear the graph if live updating is not active
+            self.ax.clear()
+            self.ax.set_facecolor('#363636')
+            self.ax.grid(True, color='gray', linestyle='--', linewidth=0.5)
+            self.ax.set_xlabel("Time (s)", color='white', fontsize=10)
+            self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
+            self.ax.tick_params(colors='white', which='both')
+            for spine in self.ax.spines.values():
+                spine.set_color('white')
+
+            # Re-plot the converted data
+            for channel, data in self.channel_data.items():
+                self.ax.plot(self.time_data, data, label=channel, linewidth=1.5)
+
+            # Add a legend
+            legend = self.ax.legend(frameon=True, facecolor='#2b2b2b', edgecolor='white')
+            for text in legend.get_texts():
+                text.set_color('white')
+
+            self.canvas.draw()
 
     def _update_measurement_text(self, text):
         """Update the measurement text box with the provided text."""
