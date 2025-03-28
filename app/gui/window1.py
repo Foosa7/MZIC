@@ -59,6 +59,8 @@ class Window1Content(ctk.CTkFrame):
 
         self.selected_unit = "uW"  # Default unit for power measurement
 
+        self._initialize_live_graph() # Initialize the live graph
+
     def _create_grid_container(self):
         """Create expanded grid display area"""
         self.grid_container = ctk.CTkFrame(self.main_frame)
@@ -162,55 +164,56 @@ class Window1Content(ctk.CTkFrame):
         ### Measure tab ###
         measure_tab = notebook.add("Measure")
         measure_tab.grid_columnconfigure(0, weight=1)
-        measure_tab.grid_rowconfigure(0, weight=1)
-        measure_tab.grid_rowconfigure(1, weight=0)
+        measure_tab.grid_rowconfigure(0, weight=1)  # Row for the live graph
+        measure_tab.grid_rowconfigure(1, weight=0)  # Row for the text box
+        measure_tab.grid_rowconfigure(2, weight=0)  # Row for the buttons
 
-        # Shared Textbox for both DAQ + Thorlabs readings
+        # Live Graph Frame (top part of Measure tab)
+        self.live_graph_frame = ctk.CTkFrame(measure_tab, height=300)
+        self.live_graph_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+
+        # Shared Textbox for both DAQ + Thorlabs readings (middle part of Measure tab)
         self.measurement_text_box = ctk.CTkTextbox(measure_tab, state="disabled")
-        self.measurement_text_box.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.measurement_text_box.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
-        # Button + Sample Entry Frame
+        # Button + Sample Entry Frame (bottom part of Measure tab) - Approach 3: Two-row layout
         measure_button_frame = ctk.CTkFrame(measure_tab)
-        measure_button_frame.grid(row=1, column=0, sticky="ew")
+        measure_button_frame.grid(row=2, column=0, sticky="ew")
 
-        self.read_daq_button = ctk.CTkButton(
-            measure_button_frame,
-            text="Read Devices",
-            command=self._read_all_measurements
-        )
-        self.read_daq_button.pack(side="left", padx=20, pady=5)
+        # First row: Read Devices, Start Graph, Stop Graph
+        row0_frame = ctk.CTkFrame(measure_button_frame)
+        row0_frame.pack(fill="x", pady=2)
+        self.read_daq_button = ctk.CTkButton(row0_frame,
+                                             text="Read Devices",
+                                             command=self._read_all_measurements)
+        self.read_daq_button.pack(side="left", padx=5, pady=5)
+        self.start_graph_button = ctk.CTkButton(row0_frame,
+                                                text="Start Graph",
+                                                command=self._start_live_graph)
+        self.start_graph_button.pack(side="left", padx=5, pady=5)
+        self.stop_graph_button = ctk.CTkButton(row0_frame,
+                                               text="Stop Graph",
+                                               command=self._stop_live_graph)
+        self.stop_graph_button.pack(side="left", padx=5, pady=5)
 
-        # Add this before the unit selector dropdown
-        unit_label = ctk.CTkLabel(
-            measure_button_frame,
-            text="Units:",
-            anchor="w"  # Align text to the left
-        )
+        # Second row: Units label, Unit selector, and Samples entry
+        row1_frame = ctk.CTkFrame(measure_button_frame)
+        row1_frame.pack(fill="x", pady=2)
+        unit_label = ctk.CTkLabel(row1_frame, text="Units:", anchor="w")
         unit_label.pack(side="left", padx=5, pady=5)
-
-        # Unit selection dropdown
-        self.unit_selector = ctk.CTkOptionMenu(
-            measure_button_frame,
-            values=["uW", "mW", "W"],  
-            command=self._update_selected_unit,
-            width=30 
-        )
-        self.unit_selector.set("uW")  # default unit
-        self.unit_selector.pack(side="left", padx=5, pady=5) 
-
-        self.samples_entry = ctk.CTkEntry(
-            measure_button_frame,
-            width=65,
-            placeholder_text="Samples"
-        )
+        self.unit_selector = ctk.CTkOptionMenu(row1_frame,
+                                               values=["uW", "mW", "W"],
+                                               command=self._update_selected_unit,
+                                               width=30)
+        self.unit_selector.set("uW")
+        self.unit_selector.pack(side="left", padx=5, pady=5)
+        self.samples_entry = ctk.CTkEntry(row1_frame,
+                                          width=65,
+                                          placeholder_text="Samples")
         self.samples_entry.pack(side="left", padx=5, pady=5)
 
-        # Compact error display
-        self.error_display = ctk.CTkTextbox(
-            inner_frame, 
-            height=100,  # Reduced height
-            state="disabled"
-        )
+        # Compact error display in inner_frame
+        self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
         self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
 
     def _start_status_updates(self):
@@ -278,6 +281,96 @@ class Window1Content(ctk.CTkFrame):
     #     )
     #     self.custom_grid.pack(fill="both", expand=True)
     #     self._attach_grid_listeners()
+
+    def _initialize_live_graph(self):
+        # Create figure, axes, and styling as usual
+        self.figure = Figure(figsize=(3,3), dpi=100)
+        self.ax = self.figure.add_subplot(111)
+
+        # Dark background
+        self.figure.patch.set_facecolor('#2b2b2b')
+        self.ax.set_facecolor('#363636')
+        #self.ax.set_title("Live Power Readings", color='white', fontsize=12)
+        self.ax.set_xlabel("Time (s)", color='white', fontsize=10)
+        self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
+        self.ax.tick_params(colors='white', which='both')
+        for spine in self.ax.spines.values():
+            spine.set_color('white')
+        self.ax.grid(True, color='gray', linestyle='--', linewidth=0.5)
+
+        # Embed the canvas
+        self.canvas = FigureCanvasTkAgg(self.figure, self.live_graph_frame)
+        self.canvas.get_tk_widget().pack(fill="both", expand=True)
+
+        # set a manual margin so it won't shift as labels change. ---
+        # (Adjust left=0.12 or 0.15 if your Y‐axis labels get cut off or cause a shift.)
+        self.figure.subplots_adjust(left=0.15, right=0.85, top=0.85, bottom=0.15)
+
+        # Draw once so it’s “centered” from the start
+        self.canvas.draw()
+
+        # Initialize data arrays
+        self.live_data = []
+        self.time_data = []
+        self.start_time = time.time()
+        self.is_live_updating = False
+
+    def _update_live_graph(self):
+        if not self.is_live_updating:
+            return
+
+        try:
+            # 1) Read data
+            channels = self.daq.list_ai_channels()
+            readings = self.daq.read_power(channels=channels, samples_per_channel=10, unit=self.selected_unit)
+
+            current_time = time.time() - self.start_time
+            self.time_data.append(current_time)
+            self.live_data.append(sum(readings) / len(readings))
+
+            if len(self.time_data) > 100:
+                self.time_data.pop(0)
+                self.live_data.pop(0)
+
+            # 2) Clear and replot (NO call to tight_layout here)
+            self.ax.clear()
+            self.ax.set_facecolor('#363636')
+            self.ax.grid(True, color='gray', linestyle='--', linewidth=0.5)
+            self.ax.plot(self.time_data, self.live_data, label="Average Power", color="cyan", linewidth=1.5)
+
+            # 3) Same dark styling
+            #self.ax.set_title("Live Power Readings", color='white', fontsize=12)
+            self.ax.set_xlabel("Time (s)", color='white', fontsize=10)
+            self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
+            self.ax.tick_params(colors='white', which='both')
+            for spine in self.ax.spines.values():
+                spine.set_color('white')
+            legend = self.ax.legend(frameon=True, facecolor='#2b2b2b', edgecolor='white')
+            for text in legend.get_texts():
+                text.set_color('white')
+
+            # Just draw, do NOT call tight_layout
+            self.canvas.draw()
+
+        except Exception as e:
+            print(f"Error updating live graph: {e}")
+
+        self.after(1000, self._update_live_graph)
+
+
+
+    def _start_live_graph(self):
+        """Start live graph updates."""
+        if not self.is_live_updating:
+            self.is_live_updating = True
+            self.start_time = time.time()
+            self.time_data = []
+            self.live_data = []
+            self._update_live_graph()
+
+    def _stop_live_graph(self):
+        """Stop live graph updates."""
+        self.is_live_updating = False
 
     def _read_all_daq_channels(self):
         """
