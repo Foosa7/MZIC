@@ -59,6 +59,8 @@ class Window1Content(ctk.CTkFrame):
 
         self.selected_unit = "uW"  # Default unit for power measurement
 
+        self._initialize_live_graph() # Initialize the live graph
+
     def _create_grid_container(self):
         """Create expanded grid display area"""
         self.grid_container = ctk.CTkFrame(self.main_frame)
@@ -162,16 +164,21 @@ class Window1Content(ctk.CTkFrame):
         ### Measure tab ###
         measure_tab = notebook.add("Measure")
         measure_tab.grid_columnconfigure(0, weight=1)
-        measure_tab.grid_rowconfigure(0, weight=1)
-        measure_tab.grid_rowconfigure(1, weight=0)
+        measure_tab.grid_rowconfigure(0, weight=1)  # Row for the live graph
+        measure_tab.grid_rowconfigure(1, weight=0)  # Row for the text box
+        measure_tab.grid_rowconfigure(2, weight=0)  # Row for the buttons
 
-        # Shared Textbox for both DAQ + Thorlabs readings
+        # Live Graph Frame (move this to the top)
+        self.live_graph_frame = ctk.CTkFrame(measure_tab, height=300)
+        self.live_graph_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+
+        # Shared Textbox for both DAQ + Thorlabs readings (move this below the graph)
         self.measurement_text_box = ctk.CTkTextbox(measure_tab, state="disabled")
-        self.measurement_text_box.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        self.measurement_text_box.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
-        # Button + Sample Entry Frame
+        # Button + Sample Entry Frame (remains at the bottom)
         measure_button_frame = ctk.CTkFrame(measure_tab)
-        measure_button_frame.grid(row=1, column=0, sticky="ew")
+        measure_button_frame.grid(row=2, column=0, sticky="ew")
 
         self.read_daq_button = ctk.CTkButton(
             measure_button_frame,
@@ -179,6 +186,21 @@ class Window1Content(ctk.CTkFrame):
             command=self._read_all_measurements
         )
         self.read_daq_button.pack(side="left", padx=20, pady=5)
+
+        # Add Start/Stop buttons for the live graph
+        self.start_graph_button = ctk.CTkButton(
+            measure_button_frame,
+            text="Start Graph",
+            command=self._start_live_graph
+        )
+        self.start_graph_button.pack(side="left", padx=5, pady=5)
+
+        self.stop_graph_button = ctk.CTkButton(
+            measure_button_frame,
+            text="Stop Graph",
+            command=self._stop_live_graph
+        )
+        self.stop_graph_button.pack(side="left", padx=5, pady=5)
 
         # Add this before the unit selector dropdown
         unit_label = ctk.CTkLabel(
@@ -195,8 +217,8 @@ class Window1Content(ctk.CTkFrame):
             command=self._update_selected_unit,
             width=30 
         )
-        self.unit_selector.set("uW")  # default unit
-        self.unit_selector.pack(side="left", padx=5, pady=5) 
+        self.unit_selector.set("uW")  # Default unit
+        self.unit_selector.pack(side="left", padx=5, pady=5)
 
         self.samples_entry = ctk.CTkEntry(
             measure_button_frame,
@@ -278,6 +300,97 @@ class Window1Content(ctk.CTkFrame):
     #     )
     #     self.custom_grid.pack(fill="both", expand=True)
     #     self._attach_grid_listeners()
+
+    def _initialize_live_graph(self):
+        """Initialize the live graph for DAQ channel power."""
+        self.figure = Figure(figsize=(6, 4), dpi=100)
+        self.ax = self.figure.add_subplot(111)
+        self.figure.patch.set_facecolor('#2b2b2b')  # Dark background for the figure
+        self.ax.set_facecolor('#363636')  # Dark background for the plot area
+
+        self.ax.set_title("Live Power Readings", color='white', fontsize=12)
+        self.ax.set_xlabel("Time (s)", color='white', fontsize=10)
+        self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
+        self.ax.tick_params(colors='white', which='both')  # White tick labels
+        self.ax.grid(True, color='gray', linestyle='--', linewidth=0.5)  # Styled grid
+
+        for spine in self.ax.spines.values(): 
+            spine.set_color('white') # Style the plot borders
+
+        self.figure.tight_layout()  # Adjust layout for better spacing
+
+        # Embed the canvas in the live graph frame
+        self.canvas = FigureCanvasTkAgg(self.figure, self.live_graph_frame)
+        self.canvas.get_tk_widget().pack(fill="both", expand=True, padx=5, pady=5)
+
+        # Initialize data for the graph
+        self.live_data = []  # Store live data for plotting
+        self.time_data = []  # Store time data for plotting
+        self.start_time = time.time()
+        self.is_live_updating = False
+
+    def _update_live_graph(self):
+        """Update the live graph with the latest DAQ channel power readings."""
+        if not self.is_live_updating:
+            return
+
+        try:
+            # Read power from DAQ channels
+            channels = self.daq.list_ai_channels()
+            readings = self.daq.read_power(channels=channels, samples_per_channel=10, unit=self.selected_unit)
+
+            # Update time and power data
+            current_time = time.time() - self.start_time
+            self.time_data.append(current_time)
+            self.live_data.append(sum(readings) / len(readings))  # Average power across channels
+
+            # Keep only the last 100 points for better performance
+            if len(self.time_data) > 100:
+                self.time_data.pop(0)
+                self.live_data.pop(0)
+
+            # Update the graph
+            self.ax.clear()
+            self.ax.set_facecolor('#363636')  # Dark background for the plot area
+            self.ax.plot(self.time_data, self.live_data, label="Average Power", color="blue", linewidth=1.5)
+
+            # Set consistent titles, labels, and grid
+            self.ax.set_title("Live Power Readings", color='white', fontsize=12)
+            self.ax.set_xlabel("Time (s)", color='white', fontsize=10)
+            self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
+            self.ax.tick_params(colors='white', which='both')  # White tick labels
+            self.ax.grid(True, color='gray', linestyle='--', linewidth=0.5)  # Styled grid
+
+            # Style the plot borders
+            for spine in self.ax.spines.values():
+                spine.set_color('white')
+
+            # Add a legend with consistent styling
+            legend = self.ax.legend(frameon=True, facecolor='#2b2b2b', edgecolor='white')
+            for text in legend.get_texts():
+                text.set_color('white')
+
+            # Redraw the canvas
+            self.canvas.draw()
+
+        except Exception as e:
+            print(f"Error updating live graph: {e}")
+
+        # Schedule the next update
+        self.after(1000, self._update_live_graph)
+
+    def _start_live_graph(self):
+        """Start live graph updates."""
+        if not self.is_live_updating:
+            self.is_live_updating = True
+            self.start_time = time.time()
+            self.time_data = []
+            self.live_data = []
+            self._update_live_graph()
+
+    def _stop_live_graph(self):
+        """Stop live graph updates."""
+        self.is_live_updating = False
 
     def _read_all_daq_channels(self):
         """
