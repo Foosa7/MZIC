@@ -358,7 +358,7 @@ class Window1Content(ctk.CTkFrame):
             self.ax.plot(self.time_data, self.live_data, label="Average Power", color="cyan", linewidth=1.5)
 
             # 3) Same dark styling
-            self.ax.set_title("Live Power Readings", color='white', fontsize=12)
+            #self.ax.set_title("Live Power Readings", color='white', fontsize=12)
             self.ax.set_xlabel("Time (s)", color='white', fontsize=10)
             self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
             self.ax.tick_params(colors='white', which='both')
