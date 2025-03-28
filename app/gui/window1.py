@@ -547,11 +547,6 @@ class Window1Content(ctk.CTkFrame):
             for channel, data in self.channel_data.items():
                 self.ax.plot(self.time_data, data, label=channel, linewidth=1.5)
 
-            # Add a legend
-            legend = self.ax.legend(frameon=True, facecolor='#2b2b2b', edgecolor='white')
-            for text in legend.get_texts():
-                text.set_color('white')
-
             self.canvas.draw()
 
     def _update_measurement_text(self, text):
