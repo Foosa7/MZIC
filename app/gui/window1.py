@@ -168,71 +168,52 @@ class Window1Content(ctk.CTkFrame):
         measure_tab.grid_rowconfigure(1, weight=0)  # Row for the text box
         measure_tab.grid_rowconfigure(2, weight=0)  # Row for the buttons
 
-        # Live Graph Frame (move this to the top)
+        # Live Graph Frame (top part of Measure tab)
         self.live_graph_frame = ctk.CTkFrame(measure_tab, height=300)
         self.live_graph_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
-        # Shared Textbox for both DAQ + Thorlabs readings (move this below the graph)
+        # Shared Textbox for both DAQ + Thorlabs readings (middle part of Measure tab)
         self.measurement_text_box = ctk.CTkTextbox(measure_tab, state="disabled")
         self.measurement_text_box.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
-        # Button + Sample Entry Frame (remains at the bottom)
+        # Button + Sample Entry Frame (bottom part of Measure tab) - Approach 3: Two-row layout
         measure_button_frame = ctk.CTkFrame(measure_tab)
         measure_button_frame.grid(row=2, column=0, sticky="ew")
 
-        self.read_daq_button = ctk.CTkButton(
-            measure_button_frame,
-            text="Read Devices",
-            command=self._read_all_measurements
-        )
-        self.read_daq_button.pack(side="left", padx=20, pady=5)
-
-        # Add Start/Stop buttons for the live graph
-        self.start_graph_button = ctk.CTkButton(
-            measure_button_frame,
-            text="Start Graph",
-            command=self._start_live_graph
-        )
+        # First row: Read Devices, Start Graph, Stop Graph
+        row0_frame = ctk.CTkFrame(measure_button_frame)
+        row0_frame.pack(fill="x", pady=2)
+        self.read_daq_button = ctk.CTkButton(row0_frame,
+                                             text="Read Devices",
+                                             command=self._read_all_measurements)
+        self.read_daq_button.pack(side="left", padx=5, pady=5)
+        self.start_graph_button = ctk.CTkButton(row0_frame,
+                                                text="Start Graph",
+                                                command=self._start_live_graph)
         self.start_graph_button.pack(side="left", padx=5, pady=5)
-
-        self.stop_graph_button = ctk.CTkButton(
-            measure_button_frame,
-            text="Stop Graph",
-            command=self._stop_live_graph
-        )
+        self.stop_graph_button = ctk.CTkButton(row0_frame,
+                                               text="Stop Graph",
+                                               command=self._stop_live_graph)
         self.stop_graph_button.pack(side="left", padx=5, pady=5)
 
-        # Add this before the unit selector dropdown
-        unit_label = ctk.CTkLabel(
-            measure_button_frame,
-            text="Units:",
-            anchor="w"  # Align text to the left
-        )
+        # Second row: Units label, Unit selector, and Samples entry
+        row1_frame = ctk.CTkFrame(measure_button_frame)
+        row1_frame.pack(fill="x", pady=2)
+        unit_label = ctk.CTkLabel(row1_frame, text="Units:", anchor="w")
         unit_label.pack(side="left", padx=5, pady=5)
-
-        # Unit selection dropdown
-        self.unit_selector = ctk.CTkOptionMenu(
-            measure_button_frame,
-            values=["uW", "mW", "W"],  
-            command=self._update_selected_unit,
-            width=30 
-        )
-        self.unit_selector.set("uW")  # Default unit
+        self.unit_selector = ctk.CTkOptionMenu(row1_frame,
+                                               values=["uW", "mW", "W"],
+                                               command=self._update_selected_unit,
+                                               width=30)
+        self.unit_selector.set("uW")
         self.unit_selector.pack(side="left", padx=5, pady=5)
-
-        self.samples_entry = ctk.CTkEntry(
-            measure_button_frame,
-            width=65,
-            placeholder_text="Samples"
-        )
+        self.samples_entry = ctk.CTkEntry(row1_frame,
+                                          width=65,
+                                          placeholder_text="Samples")
         self.samples_entry.pack(side="left", padx=5, pady=5)
 
-        # Compact error display
-        self.error_display = ctk.CTkTextbox(
-            inner_frame, 
-            height=100,  # Reduced height
-            state="disabled"
-        )
+        # Compact error display in inner_frame
+        self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
         self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
 
     def _start_status_updates(self):
