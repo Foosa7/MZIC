@@ -359,49 +359,57 @@ class Window1Content(ctk.CTkFrame):
             return
 
         try:
-            # Read data from all channels
-            channels = self.daq.list_ai_channels()
+            channels = self.daq.list_ai_channels()  # e.g. ['ai0','ai1','ai2','ai3','ai4','ai5','ai6','ai7']
             readings = self.daq.read_power(channels=channels, samples_per_channel=10, unit=self.selected_unit)
             
-            # Update the common time axis
+            # Time axis
             current_time = time.time() - self.start_time
             self.time_data.append(current_time)
             if len(self.time_data) > 100:
                 self.time_data.pop(0)
-            
-            # Initialize/update channel data dictionary for each channel
-            for i, ch in enumerate(channels):
-                if ch not in self.channel_data:
-                    self.channel_data[ch] = []
-                self.channel_data[ch].append(readings[i])
-                if len(self.channel_data[ch]) > 100:
-                    self.channel_data[ch].pop(0)
-            
-            # Clear the axes and plot each channel’s data
+
+            # Update / trim each channel’s data
+            for i, ch_name in enumerate(channels):
+                if ch_name not in self.channel_data:
+                    self.channel_data[ch_name] = []
+                self.channel_data[ch_name].append(readings[i])
+                if len(self.channel_data[ch_name]) > 100:
+                    self.channel_data[ch_name].pop(0)
+
+            # Clear the axes
             self.ax.clear()
             self.ax.set_facecolor('#363636')
             self.ax.grid(True, color='gray', linestyle='--', linewidth=0.5)
-            
-            # Store each line for inline labeling
+
+            # Build a lines list for inline labeling
             lines = []
-            for ch in channels:
-                line, = self.ax.plot(self.time_data, self.channel_data[ch], linewidth=1.5)
-                lines.append((ch, line))
-                    
-            # Label each line inline
+
+            # For each pinned index in AppData.selected_output_pins
+            for pin_idx in AppData.selected_output_pins:
+                # Make sure it's valid
+                if 0 <= pin_idx < len(channels):
+                    ch_name = channels[pin_idx]
+                    # Plot that channel
+                    line, = self.ax.plot(self.time_data,
+                                        self.channel_data[ch_name],
+                                        linewidth=1.5)
+                    lines.append((ch_name, line))
+
+            # Inline labeling for each line
             self.label_lines_inline(self.ax, lines, offset=0.3)
-            
-            # Reapply labels and styling
+
+            # Reapply labels/styling
             self.ax.set_xlabel("Time (s)", color='white', fontsize=10)
             self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
             self.ax.tick_params(colors='white', which='both')
             for spine in self.ax.spines.values():
                 spine.set_color('white')
-            
+
             self.canvas.draw()
+
         except Exception as e:
             print(f"Error updating live graph: {e}")
-        
+
         self.after(1000, self._update_live_graph)
 
     def _start_live_graph(self):
