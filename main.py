@@ -10,10 +10,10 @@ def main():
 
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
-        print("Set DPI awareness")
+        print("[INFO] Set DPI awareness")
     except:
         pass
-        print("Failed to set DPI awareness")
+        print("[INFO] Failed to set DPI awareness")
     # Initialize the GUI theme
 
     ctk.set_appearance_mode("dark")
@@ -25,7 +25,7 @@ def main():
 
     # List available Thorlabs devices
     available_devices = ThorlabsDevice.list_available_devices()
-    print(f"Found {len(available_devices)} Thorlabs devices:")
+    print(f"[INFO][Thorlabs] Found {len(available_devices)} Thorlabs devices:")
     for i, device in enumerate(available_devices):
         print(f"{i+1}. {device['model']} (SN: {device['serial']})")
     
@@ -70,17 +70,17 @@ def main():
     # Attempt to use a DAQ device or mock if unavailable
     try:
         daq_devices_info = DAQ.list_available_devices()
-        print(f"Found {len(daq_devices_info)} NI-DAQ device(s):")
+        print(f"[INFO][DAQ] Found {len(daq_devices_info)} NI-DAQ device(s):")
         for i, dev_info in enumerate(daq_devices_info):
             print(f"{i+1}. {dev_info['product_type']} (Name: {dev_info['name']})")
     
         if len(daq_devices_info) == 0:
-            print("No DAQ devices found, using mock NI-DAQ device.")
+            print("[INFO][DAQ] No DAQ devices found, using mock NI-DAQ device.")
             daq = MockDAQ()
         else:
             daq = DAQ.get_device(config=config)
     except DaqNotFoundError:
-        print("NI-DAQmx not found, using mock NI-DAQ device.")
+        print("[INFO][DAQ] NI-DAQmx not found, using mock NI-DAQ device.")
         daq = MockDAQ()
 
     # Start the GUI application (you'll need to modify your MainWindow to handle multiple power meters)
