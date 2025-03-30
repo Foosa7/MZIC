@@ -7,6 +7,8 @@ class AppData:
     last_selected = {"cross": "", "arm": ""}  # Set default starting value
     io_config = {} 
 
+    selected_output_pins = set() # store which pin is selected
+
     saved_unitary_U1 = None     
     saved_unitary_U2 = None     
     saved_unitary_U3 = None    

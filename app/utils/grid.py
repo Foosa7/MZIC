@@ -395,17 +395,30 @@ class Example(Frame):
     def handle_input_label_selection(self, label_number):
         """Handles logic when an input label is selected."""
         print(f"Input label {label_number} selected.")
-        # Update the power meter or any other UI element accordingly.
-        # For example:
-        # self.update_power_meter("input", label_number)
-
+       
     def handle_output_label_selection(self, label_number):
-        """Handles logic when an output label is selected."""
-        print(f"Output label {label_number} selected.")
-        # Update the power meter or any other UI element accordingly.
-        # For example:
-        # self.update_power_meter("output", label_number)
+        # For instance, pin_map = {"7": 0, "8": 1, "9": 2, ...} to ai channels
+        pin_map = {
+            "7": 0,
+            "8": 1,
+            "9": 2,
+            "10": 3,
+            "11": 4,
+            "12": 5,
+            "13": 6,
+            "14": 7
+        }
 
+        if label_number in pin_map:
+            pin_idx = pin_map[label_number]
+            # If the user clicks on the same label again, remove it
+            # or if it's not selected yet, add it
+            if pin_idx in AppData.selected_output_pins:
+                AppData.selected_output_pins.remove(pin_idx)
+                print(f"Unpinned channel {pin_idx}")
+            else:
+                AppData.selected_output_pins.add(pin_idx)
+                print(f"Pinned channel {pin_idx}")
 
     def toggle_path_selection(self, path):
         """Toggles path selection state."""
