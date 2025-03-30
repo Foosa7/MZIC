@@ -28,10 +28,10 @@ class Switch:
             response = ser.read(7)
 
         if len(response) == 7 and response[4] == 0xEE:
-            print(f"[Switch] channel {channel} set successfully.")
+            print(f"[INFO][Switch] channel {channel} set successfully.")
             return True
         else:
-            print(f"[Switch] Failed to set channel. Response: {response.hex()}")
+            print(f"[INFO][Switch] Failed to set channel. Response: {response.hex()}")
             return False
 
     def get_channel(self):
@@ -48,8 +48,8 @@ class Switch:
 
         if len(response) == 7 and response[3] == 0x02:
             current_channel = response[5]
-            print(f"[Switch] Current active channel: {current_channel}")
+            print(f"[INFO][Switch] Current active channel: {current_channel}")
             return current_channel
         else:
-            print(f"[Switch] Failed to get channel. Response: {response.hex()}")
+            print(f"[INFO][Switch] Failed to get channel. Response: {response.hex()}")
             return None
