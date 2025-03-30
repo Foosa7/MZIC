@@ -24,13 +24,13 @@ def import_pickle(config):
     import_file = os.path.normpath(import_file)
 
     if not import_file or not os.path.exists(import_file):
-        print(f"Default pickle file not found: {import_file}")
+        print(f"[ERROR] Default pickle file not found: {import_file}")
         return None
 
     with open(import_file, "rb") as file:
         imported_data = pickle.load(file)
 
-    print(f"Successfully imported {import_file}")
+    print(f"[INFO] Successfully imported {import_file}")
     return imported_data  # Return the loaded data
 
 

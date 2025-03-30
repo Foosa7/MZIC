@@ -176,7 +176,7 @@ class MainWindow(ctk.CTk):
             else:
                 # Not connected yet, so connect.
                 self.qontrol.connect()
-                print("Re-Connecting to Qontrol device...")
+                print("[INFO][Qontrol] Re-Connecting to device...")
                 if self.qontrol.device:  # Only update if connection succeeded
                     params = self.qontrol.params
                     params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
@@ -193,7 +193,7 @@ class MainWindow(ctk.CTk):
                     self.device_control.update_device_info(params, device_id)
                 else:
                     thorlabs_device.connect()
-                    print(f"Re-Connecting to Thorlabs device {i}...")
+                    print(f"[INFO][Thorlabs] Re-Connecting to device {i}...")
                     if thorlabs_device.device:  # Only update if connection succeeded
                         params = thorlabs_device.params
                         self.device_control.update_device_info(params, device_id)
@@ -203,7 +203,7 @@ class MainWindow(ctk.CTk):
                 self.device_control.update_device_info(params, "thorlabs")
             else:
                 self.thorlabs.connect()
-                print("Re-Connecting to Thorlabs device...")
+                print("[INFO][Thorlabs] Re-Connecting to Thorlabs device...")
                 if self.thorlabs.device:  # Only update if connection succeeded
                     params = self.thorlabs.params
                     self.device_control.update_device_info(params, "thorlabs")
@@ -212,7 +212,7 @@ class MainWindow(ctk.CTk):
         # Handle DAQ connection
         if self.daq:
             if self.daq._is_connected:
-                print("DAQ is already connected.")
+                print("[INFO][DAQ] Already connected.")
                 # Build a small status dict
                 status_dict = {
                     "DAQ Device": self.daq.device_name,
@@ -221,14 +221,14 @@ class MainWindow(ctk.CTk):
                 self.device_control.update_device_info(status_dict, "daq")
             else:
                 if self.daq.connect():
-                    print("Connected to DAQ device.")
+                    print("[INFO][DAQ] Connected to device.")
                     status_dict = {
                         "DAQ Device": self.daq.device_name,
                         "Channels": ", ".join(self.daq.list_ai_channels() or [])
                     }
                     self.device_control.update_device_info(status_dict, "daq")
                 else:
-                    print("DAQ connection failed.")
+                    print("[INFO][DAQ] Connection failed.")
                     self.device_control.update_device_info(None, "daq")
 
     def disconnect_devices(self):
@@ -261,14 +261,14 @@ class MainWindow(ctk.CTk):
         # Call the import function to update the appdata.
         importfunc(self.appdata)
         # For demonstration, print one of the imported matrices.
-        print("Updated with Pickle file:", self.appdata.caliparamlist_lincub_cross[1])
+        print("[INFO] Updated with Pickle file:", self.appdata.caliparamlist_lincub_cross[1])
         # messagebox.showinfo("Import", "Data imported successfully!")
 
     def export_data(self):
-        print("Export function triggered.")
+        print("[INFO] Export function triggered.")
 
     def mesh_changed(self, new_mesh_size):
-        print("Mesh size changed to:", new_mesh_size)
+        print("[INFO] Mesh size changed to:", new_mesh_size)
     
         # If the current tab is Window 1 => update
         if isinstance(self.current_content, Window1Content):
