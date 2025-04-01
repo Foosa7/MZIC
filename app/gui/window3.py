@@ -211,7 +211,7 @@ class Window3Content(ctk.CTkFrame):
 
             # Measure the output power with DAQ
             if channels:
-                measured_values = self.daq.read_power_in_mW(channels=channels, samples_per_channel=5)
+                measured_values = self.daq.read_power(channels=channels, samples_per_channel=5)
             else:
                 measured_values = []
 

@@ -169,43 +169,43 @@ class DAQ:
             
     def read_power(self, channels=None, samples_per_channel=10, min_val=-10.0, max_val=10.0, load_resistor=50, responsivity=1.07, unit="uW"):
         """
-        Read voltage from specified channels and convert to power in the specified unit.
-
-        Conversion:
-            P_in (W) = V_out / (load_resistor * responsivity)
-
-        :param channels: A list of channel names, e.g. ['Dev1/ai0', 'Dev1/ai2'].
-                         If None, read from all available AI channels on the device.
-        :param samples_per_channel: Number of samples to read for each channel.
-        :param min_val: Minimum expected voltage.
-        :param max_val: Maximum expected voltage.
-        :param load_resistor: The terminating resistor value in ohms (default 50 Ω).
-        :param responsivity: Photodiode responsivity in A/W (default 1.07 A/W for 1550 nm).
-        :param unit: The desired unit for power measurement. Options are "mW", "uW", or "W".
-        :return: A list of power values in the specified unit.
+        Read voltage from specified channels and convert to power in the specified unit,
+        applying photodiode-specific calibration for PD1 (AI0) and PD2 (AI1).
         """
+
         voltages = self.read_voltage(
             channels=channels,
             samples_per_channel=samples_per_channel,
             min_val=min_val,
             max_val=max_val
         )
-        
+
         if voltages is None:
             return None
-        
-        # Convert the measured voltage to power in watts.
-        power_in_watts = [v / (load_resistor * responsivity) for v in voltages]
+
+        # Convert voltage to power using photodiode-specific calibration
+        power_in_watts = []
+        for i, ch in enumerate(channels):
+            V = voltages[i]
+            if "ai0" in ch.lower():  # Match analog input 0
+                power = 3.6748e-04 * V + (-2.5863e-05)  # PD1
+            elif "ai1" in ch.lower():  # Match analog input 1
+                power = 3.6573e-04 * V + (-2.4071e-05)  # PD2
+            else:
+                # Fallback to default conversion
+                power = V / (load_resistor * responsivity)
+            power_in_watts.append(power)
 
         # Convert to the desired unit
         if unit == "mW":
-            return [p * 1000.0 for p in power_in_watts]  # Convert to milliwatts
+            return [p * 1e3 for p in power_in_watts]
         elif unit == "uW":
-            return [p * 1e6 for p in power_in_watts]  # Convert to microwatts
+            return [p * 1e6 for p in power_in_watts]
         elif unit == "W":
-            return power_in_watts  # Keep in watts
+            return power_in_watts
         else:
             raise ValueError(f"[ERROR][DAQ] Unsupported unit: {unit}. Use 'mW', 'uW', or 'W'.")
+
 
     def show_status(self):
         """
