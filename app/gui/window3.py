@@ -11,13 +11,14 @@ from app.utils.appdata import AppData
 
 class Window3Content(ctk.CTkFrame):
     
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, daq, grid_size = "8x8", **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, grid_size = "8x8", **kwargs):
         super().__init__(master, **kwargs)
         self.channel = channel
         self.fit = fit
         self.IOconfig = IOconfig
         self.app = app
         self.qontrol = qontrol
+        self.thorlabs = thorlabs
         self.daq = daq
 
         # NxN dimension
@@ -177,7 +178,8 @@ class Window3Content(ctk.CTkFrame):
 
         # Prepare to store data: e.g., a list of [t_step, power_ch0, power_ch1, ...]
         results = []
-        channels = self.daq.list_ai_channels() or []  # make sure it's always a list
+
+        headers = ["time_step", "site1_ai0", "site2_ai1", "site3_thorlabs"]
 
         for step_idx in range(N_val):
             current_time = T_list[step_idx]
@@ -209,26 +211,38 @@ class Window3Content(ctk.CTkFrame):
             # Settle time for the system to reach steady state
             time.sleep(dwell)
 
-            # Measure the output power with DAQ
-            if channels:
-                measured_values = self.daq.read_power(channels=channels, samples_per_channel=5)
-            else:
-                measured_values = []
+            # ---- DAQ measurements (ai0, ai1 => site1, site2) ----
+            daq_values = [0.0, 0.0]
+            if self.daq and self.daq.list_ai_channels():
+                channels = ["Dev1/ai0", "Dev1/ai1"]
+                daq_vals = self.daq.read_power(channels=channels, samples_per_channel=5, unit='uW')
+                if isinstance(daq_vals, list) and len(daq_vals) >= 2: # If daq_vals has 2 values, store them
+                    daq_values = [daq_vals[0], daq_vals[1]]
 
-            if isinstance(measured_values, float):
-                measured_values = [measured_values]
+            # ---- Thorlabs measurements => site3
+            thorlabs_vals = 0.0
+            if self.thorlabs:
+                if isinstance(self.thorlabs, list):
+                    device = self.thorlabs[0]  # or pick whichever you want
+                else:
+                    device = self.thorlabs
 
-            results.append([step_idx + 1] + measured_values)
+                try:
+                    thorlabs_vals = device.read_power(unit="uW")
+                except Exception as e:
+                    print(f"Thorlabs read error: {e}")
+
+            # Build one row => [step_idx+1, site1_daq, site2_daq, site3_thorlabs]
+            row = [step_idx + 1, daq_values[0], daq_values[1], thorlabs_vals]
+            results.append(row)
 
             # Export the results to CSV
         zero_config = self._create_zero_config()
         apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
 
-        self._export_results_to_csv(results, channels)
+        self._export_results_to_csv(results, headers)
         print("AMF experiment complete!")
         # Create a zero-value configuration for all crosspoints.
-
-
 
     def _build_unitary_at_timestep(self, current_time, H1, H2, H3, T_period, direction):
         """
@@ -454,15 +468,12 @@ class Window3Content(ctk.CTkFrame):
             # No resistance parameters, use default
             return float(round(1000 * np.sqrt(P/(50.0*1000)), 2))
 
-
-
-    def _export_results_to_csv(self, results, channels):
-        """Simple CSV exporter for time-step data."""
+    def _export_results_to_csv(self, results, headers):
+        """Export step data with custom headers (includes DAQ + Thorlabs)."""
         if not results:
             print("No results to save.")
             return
 
-        # Let user pick the export location
         path = filedialog.asksaveasfilename(
             title='Save AMF Results',
             defaultextension='.csv',
@@ -471,28 +482,18 @@ class Window3Content(ctk.CTkFrame):
         if not path:
             return
 
-        # Build header row: e.g. step, then channel names
-        headers = ["time_step"] + channels
-
         try:
             with open(path, 'w', encoding='utf-8') as f:
                 # Write header
                 f.write(",".join(headers) + "\n")
                 # Write rows
                 for row in results:
-                    # row = [step, v_ch0, v_ch1, ...]
                     line_str = ",".join(str(x) for x in row)
                     f.write(line_str + "\n")
 
             print(f"Results saved to {path}")
         except Exception as e:
             print(f"Failed to save results: {e}")
-
-
-
-
-
-
 
     def get_unitary_mapping(self):
         '''Returns a dictionary mapping tab names to their corresponding entry grids and AppData variables.'''

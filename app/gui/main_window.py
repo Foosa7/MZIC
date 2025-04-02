@@ -135,6 +135,7 @@ class MainWindow(ctk.CTk):
                 IOconfig="Config1",
                 app=self.appdata,
                 qontrol=self.qontrol,
+                thorlabs=self.thorlabs,
                 daq = self.daq,
                 grid_size=mesh_size
             )            
