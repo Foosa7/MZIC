@@ -409,16 +409,22 @@ class Example(Frame):
             "14": 7
         }
 
-        if label_number in pin_map:
-            pin_idx = pin_map[label_number]
-            # If the user clicks on the same label again, remove it
-            # or if it's not selected yet, add it
-            if pin_idx in AppData.selected_output_pins:
-                AppData.selected_output_pins.remove(pin_idx)
-                print(f"Unpinned channel {pin_idx}")
-            else:
-                AppData.selected_output_pins.add(pin_idx)
-                print(f"Pinned channel {pin_idx}")
+        if label_number not in pin_map:
+            return
+        
+        pin_idx = pin_map[label_number]
+        label_tag = f"output_label_{label_number}"
+
+        if pin_idx in AppData.selected_output_pins:
+            # Unpin
+            AppData.selected_output_pins.remove(pin_idx)
+            print(f"Unpinned channel {pin_idx}")
+            # revert color to default (white)
+            self.canvas.itemconfig(label_tag, fill="white")
+        else:
+            # Pin
+            AppData.selected_output_pins.add(pin_idx)
+            print(f"Pinned channel {pin_idx}")
 
     def toggle_path_selection(self, path):
         """Toggles path selection state."""
