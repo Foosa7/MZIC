@@ -179,7 +179,7 @@ class Window3Content(ctk.CTkFrame):
         # Prepare to store data: e.g., a list of [t_step, power_ch0, power_ch1, ...]
         results = []
 
-        headers = ["time_step", "site1_ai0", "site2_ai1", "site3_thorlabs"]
+        headers = ["time_step", "site1", "site2", "site3"]
 
         for step_idx in range(N_val):
             current_time = T_list[step_idx]
@@ -215,7 +215,7 @@ class Window3Content(ctk.CTkFrame):
             daq_values = [0.0, 0.0]
             if self.daq and self.daq.list_ai_channels():
                 channels = ["Dev1/ai0", "Dev1/ai1"]
-                daq_vals = self.daq.read_power(channels=channels, samples_per_channel=5, unit='uW')
+                daq_vals = self.daq.read_power(channels=channels, samples_per_channel=1, unit='uW')
                 if isinstance(daq_vals, list) and len(daq_vals) >= 2: # If daq_vals has 2 values, store them
                     daq_values = [daq_vals[0], daq_vals[1]]
 
