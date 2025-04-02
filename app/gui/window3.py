@@ -191,12 +191,19 @@ class Window3Content(ctk.CTkFrame):
                 T_period=T_period,  
                 direction=direction
             )
+            
+            # Save unitary at each timestep
+            unitary_dir = "unitary_history"
+            os.makedirs(unitary_dir, exist_ok=True)
+            unitary_path = os.path.join(unitary_dir, f"unitary_step_{step_idx+1:03d}.npy")
+            np.save(unitary_path, U_step)
 
             #Decompose the unitary:
             try:
                 # Perform decomposition
                 I = itf.square_decomposition(U_step)
                 bs_list = I.BS_list
+                print(bs_list)
                 mzi_convention.clements_to_chip(bs_list)
         
                 # Store the decomposition result in AppData
