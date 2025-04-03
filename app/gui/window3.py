@@ -68,6 +68,21 @@ class Window3Content(ctk.CTkFrame):
         )
         self.export_unitary_button.pack(anchor='center', pady=(5,5))
 
+        # Create button frame using pack
+        button_frame = ctk.CTkFrame(self.bottom_buttons_frame, fg_color='transparent')
+        button_frame.pack(anchor='center', pady=(5,5))
+
+        # Add the NH Experiment button using pack
+        self.nh_button = ctk.CTkButton(
+            button_frame,
+            text="Run NH Experiment",
+            command=self.run_nh_experiment_from_folder,
+            width=120,
+            height=30
+        )
+        self.nh_button.pack(side='left', padx=5, pady=5)
+
+
         # Common unitaries
         self.common_unitaries_frame = ctk.CTkFrame(self.bottom_buttons_frame, fg_color='transparent')
         self.common_unitaries_frame.pack(anchor='center', pady=(5,5))
@@ -252,6 +267,85 @@ class Window3Content(ctk.CTkFrame):
         self._export_results_to_csv(results, headers)
         print("AMF experiment complete!")
         # Create a zero-value configuration for all crosspoints.
+
+    def run_nh_experiment_from_folder(self):
+        """
+        1) Prompts the user to select a folder containing .npy files.
+        2) Loads each .npy file in sequence, assigns it to U_step, and processes it.
+        3) Applies phases, measures output power, and saves results to a CSV file.
+        """
+        try:
+            # Get dwell time
+            dwell = float(self.dwell_entry.get())
+        except ValueError as e:
+            print(f"Error reading AMF inputs: {e}")
+            return
+
+        # Prompt the user to select a folder
+        folder_path = filedialog.askdirectory(title="Select Folder Containing .npy Files")
+        if not folder_path:
+            print("No folder selected. Aborting.")
+            return
+
+        # Get all .npy files in the folder, sorted by step number
+        npy_files = sorted(
+            [f for f in os.listdir(folder_path) if f.endswith(".npy")],
+            key=lambda x: int(x.split("_")[1].split(".")[0])  # Extract step number from filename
+        )
+
+        if not npy_files:
+            print("No .npy files found in the selected folder.")
+            return
+
+        # Prepare to store data: e.g., a list of [step_idx, power_ch0, power_ch1]
+        results = []
+        headers = ["step", "site1", "site2"]
+
+        for step_idx, npy_file in enumerate(npy_files, start=1):
+            file_path = os.path.join(folder_path, npy_file)
+
+            # Load the .npy file as U_step
+            try:
+                U_step = np.load(file_path)
+                print(f"Loaded {npy_file}")
+            except Exception as e:
+                print(f"Error loading {npy_file}: {e}")
+                continue
+
+            # Decompose the unitary
+            try:
+                I = itf.square_decomposition(U_step)
+                bs_list = I.BS_list
+                print(bs_list)
+                mzi_convention.clements_to_chip(bs_list)
+
+                # Store the decomposition result in AppData
+                setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
+            except Exception as e:
+                print(f"Error in decomposition for {npy_file}: {e}")
+                continue
+
+            # Apply the phase
+            self.apply_phase_new()
+
+            # Settle time for the system to reach steady state
+            time.sleep(dwell)
+
+            # ---- DAQ measurements (ai0, ai1 => site1, site2) ----
+            daq_values = [0.0, 0.0]
+            if self.daq and self.daq.list_ai_channels():
+                channels = ["Dev1/ai0", "Dev1/ai1"]
+                daq_vals = self.daq.read_power(channels=channels, samples_per_channel=1, unit='uW')
+                if isinstance(daq_vals, list) and len(daq_vals) >= 2:  # If daq_vals has 2 values, store them
+                    daq_values = [daq_vals[0], daq_vals[1]]
+
+            # Build one row => [step_idx, site1_daq, site2_daq]
+            row = [step_idx, daq_values[0], daq_values[1]]
+            results.append(row)
+
+        # Export the results to CSV
+        self._export_results_to_csv(results, headers)
+        print("NH complete!")      
 
     def _build_unitary_at_timestep(self, current_time, H1, H2, H3, T_period, direction):
         """
