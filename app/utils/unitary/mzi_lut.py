@@ -88,7 +88,7 @@ def get_json_output(n, bs_list):
     for label, (theta, phi) in mapping.items():
         
         output[label] = {
-            "arms": [],
+            "arms": ['TL', 'TR', 'BL', 'BR'],	
             "theta": str(theta),
             "phi": str(phi),
             

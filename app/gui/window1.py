@@ -786,6 +786,7 @@ class Window1Content(ctk.CTkFrame):
             # print(AppData.default_json_grid)
             grid_config = json.loads(self.custom_grid.export_paths_json())
             # grid_config = AppData.default_json_grid
+            print(grid_config)
             if not grid_config:
                 self._show_error("No grid configuration found W1")
                 return

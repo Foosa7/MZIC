@@ -60,13 +60,13 @@ def build_unitary_at_timestep(current_time, H1, H2, H3, T_period, direction):
 
 def main():
     # --- Parameters ---
-    c_val = 1.0            # coupling constant
-    rabi_cycles = 3.0      # how many "Rabi cycles" in each T_period
+    c_val = 1         # coupling constant
+    rabi_cycles = 3.1      # how many "Rabi cycles" in each T_period
     T_period = rabi_cycles * (np.pi / (2.0 * c_val))
     
-    T_total = 3 * T_period  # For example, simulate 3 periods total
+    T_total = 30 * T_period  # For example, simulate 3 periods total
     print(T_total)
-    N_val   = 300           # number of time steps
+    N_val   = max(150, int(T_total*5))           # number of time steps
     direction = "CW"        # can set "CW" or "CCW"
     
     # --- Define the 3 Hamiltonians ---
