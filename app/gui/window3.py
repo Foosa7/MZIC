@@ -192,11 +192,13 @@ class Window3Content(ctk.CTkFrame):
                 direction=direction
             )
             
+            '''
             # Save unitary at each timestep
             unitary_dir = "unitary_history"
             os.makedirs(unitary_dir, exist_ok=True)
             unitary_path = os.path.join(unitary_dir, f"unitary_step_{step_idx+1:03d}.npy")
             np.save(unitary_path, U_step)
+            '''
 
             #Decompose the unitary:
             try:
