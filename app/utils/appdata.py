@@ -5,18 +5,13 @@ class AppData:
     default_json_grid = {}
     _last_selection_lock = Lock()
     last_selected = {"cross": "", "arm": ""}  # Set default starting value
-    io_config = {} 
+    io_config = {}  # This will store the current IO config state
 
     selected_output_pins = set() # store which pin is selected
 
     saved_unitary_U1 = None     
     saved_unitary_U2 = None     
     saved_unitary_U3 = None    
-
-    # @classmethod
-    # def update_last_selection(cls, cross, arm):
-    #     cls.last_selected["cross"] = cross.split('-')[0]  # Handle composite labels
-    #     cls.last_selected["arm"] = arm.split('-')[0]
 
     @classmethod
     def update_last_selection(cls, cross, arm):
@@ -30,6 +25,21 @@ class AppData:
         else:
             cls.last_selected["arm"] = ""
 
+    @classmethod
+    def update_io_config(cls, cross, state):
+        """Update IO configuration for a specific cross"""
+        # Map TR/BR to cross/bar
+        if state == 'TR' or state == 'BL':
+            cls.io_config[cross] = 'cross'
+        elif state == 'TL' or state == 'BR':
+            cls.io_config[cross] = 'bar'
+        else:
+            cls.io_config[cross] = state  # For direct 'cross'/'bar' updates
+
+    @classmethod
+    def get_io_config(cls, cross):
+        """Get IO configuration for a specific cross"""
+        return cls.io_config.get(cross, 'cross')  # Default to cross if not set
 
     @classmethod 
     def get_last_selection(cls):

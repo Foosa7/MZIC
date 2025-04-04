@@ -162,7 +162,7 @@ class DeviceControlWidget(ctk.CTkFrame):
         
         for attr_name in dir(self):
             if attr_name.startswith("thorlabs_model_label") and attr_name != "thorlabs_model_label":
-                get_attr(self, attr_name).configure(text=f"Thorlabs {attr_name[19:]} Model: -")
+                getattr(self, attr_name).configure(text=f"Thorlabs {attr_name[19:]} Model: -")
 
     
 class AppControlWidget(ctk.CTkFrame):

@@ -11,8 +11,7 @@ def main():
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
         print("[INFO] Set DPI awareness")
-    except:
-        pass
+    except Exception:
         print("[INFO] Failed to set DPI awareness")
     # Initialize the GUI theme
 
@@ -28,7 +27,7 @@ def main():
     print(f"[INFO][Thorlabs] Found {len(available_devices)} Thorlabs devices:")
     for i, device in enumerate(available_devices):
         print(f"{i+1}. {device['model']} (SN: {device['serial']})")
-    
+
     # Initialize devices
     qontrol = QontrolDevice(config=config)
     # Connect to Qontrol device
@@ -37,7 +36,7 @@ def main():
 
     # Connect to multiple Thorlabs devices if available
     thorlabs_devices = []
-    
+
     if available_devices:
         # Connect to the first device
         thorlabs = ThorlabsDevice.get_device(
@@ -45,7 +44,7 @@ def main():
             config=config
         )
         thorlabs_devices.append(thorlabs)
-        
+
         # Connect to additional devices if available
         if len(available_devices) > 1:
             thorlabs1 = ThorlabsDevice.get_device(
@@ -53,7 +52,7 @@ def main():
                 config=config
             )
             thorlabs_devices.append(thorlabs1)
-            
+
         if len(available_devices) > 2:
             thorlabs2 = ThorlabsDevice.get_device(
                 serial=available_devices[2]['serial'], 
@@ -73,7 +72,7 @@ def main():
         print(f"[INFO][DAQ] Found {len(daq_devices_info)} NI-DAQ device(s):")
         for i, dev_info in enumerate(daq_devices_info):
             print(f"{i+1}. {dev_info['product_type']} (Name: {dev_info['name']})")
-    
+
         if len(daq_devices_info) == 0:
             print("[INFO][DAQ] No DAQ devices found, using mock NI-DAQ device.")
             daq = MockDAQ()

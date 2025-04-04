@@ -167,21 +167,19 @@ class MainWindow(ctk.CTk):
     #         self.qontrol.disconnect()
     #     self.device_control.update_device_info({})
 
+    def _update_qontrol_display(self):
+        params = self.qontrol.params
+        params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
+        self.device_control.update_device_info(params, "qontrol")
+
     def connect_devices(self):
         # Handle Qontrol connection should be connected by default
         if self.qontrol:
             if hasattr(self.qontrol, "device") and self.qontrol.device is not None:
-                params = self.qontrol.params
-                params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
-                self.device_control.update_device_info(params, "qontrol")
-            else:
-                # Not connected yet, so connect.
-                self.qontrol.connect()
+                self._update_qontrol_display()
+            elif self.qontrol.connect():
                 print("[INFO][Qontrol] Re-Connecting to device...")
-                if self.qontrol.device:  # Only update if connection succeeded
-                    params = self.qontrol.params
-                    params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
-                    self.device_control.update_device_info(params, "qontrol")
+                self._update_qontrol_display()
 
 
         # Handle Thorlabs connection(s)
@@ -214,23 +212,18 @@ class MainWindow(ctk.CTk):
         if self.daq:
             if self.daq._is_connected:
                 print("[INFO][DAQ] Already connected.")
-                # Build a small status dict
-                status_dict = {
-                    "DAQ Device": self.daq.device_name,
-                    "Channels": ", ".join(self.daq.list_ai_channels() or [])
-                }
-                self.device_control.update_device_info(status_dict, "daq")
+            elif self.daq.connect():
+                print("[INFO][DAQ] Connected to device.")
             else:
-                if self.daq.connect():
-                    print("[INFO][DAQ] Connected to device.")
-                    status_dict = {
-                        "DAQ Device": self.daq.device_name,
-                        "Channels": ", ".join(self.daq.list_ai_channels() or [])
-                    }
-                    self.device_control.update_device_info(status_dict, "daq")
-                else:
-                    print("[INFO][DAQ] Connection failed.")
-                    self.device_control.update_device_info(None, "daq")
+                print("[INFO][DAQ] Connection failed.")
+                self.device_control.update_device_info(None, "daq")
+                return
+
+            status_dict = {
+                "DAQ Device": self.daq.device_name,
+                "Channels": ", ".join(self.daq.list_ai_channels() or [])
+            }
+            self.device_control.update_device_info(status_dict, "daq")
 
     def disconnect_devices(self):
         if self.qontrol:

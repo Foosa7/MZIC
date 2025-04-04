@@ -436,38 +436,16 @@ class Example(Frame):
             self.canvas.itemconfig(path.line_id, fill="white")
             self.selected_paths.remove(path.line_id)
         
-        affected_crosses = set()
-        for node in [path.node1, path.node2]:
-            cross_label = self.get_cross_label_from_node(node)
-            if cross_label:
-                affected_crosses.add(cross_label)
-
-        for cross_label in affected_crosses:
-            if adding:
-                self.cross_selected_count[cross_label] += 1
-                if self.cross_selected_count[cross_label] == 1:
-                    self.create_input_boxes(cross_label)
-                else:
-                    # Update the input box now that a new arm was added.
-                    self.update_input_box_mode(cross_label)
-            else:
-                self.cross_selected_count[cross_label] -= 1
-                if self.cross_selected_count[cross_label] == 0:
-                    self.delete_input_boxes(cross_label)
-                else:
-                    self.update_input_box_mode(cross_label)
-
-        if adding:
-            center, arm = self._parse_path_components(path)
-            if center and arm:
-                self.last_selection = {"cross": center, "arm": arm}
-                AppData.update_last_selection(center, arm)  # Keep synced with AppData
-                modes = self.get_cross_modes()
-                AppData.io_config = modes
-                self.event_generate("<<SelectionUpdated>>")  # Trigger update event
-                self.update_selection()
-
-
+        # Get center and arm
+        center, arm = self._parse_path_components(path)
+        
+        if adding and center and arm:
+            self.last_selection = {"cross": center, "arm": arm}
+            AppData.update_last_selection(center, arm)
+            # Update IO config in AppData
+            AppData.update_io_config(center, arm)
+            self.event_generate("<<SelectionUpdated>>")
+            self.update_selection()
 
     def update_input_box_mode(self, visible_label):
         """Updates the theta input box for the given cross (by visible label) with the default value.
