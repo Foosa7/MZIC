@@ -8,6 +8,7 @@ from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mappin
 from app.utils.unitary import mzi_lut
 from app.utils.unitary import mzi_convention
 from app.utils.appdata import AppData
+from datetime import datetime
 
 class Window3Content(ctk.CTkFrame):
     
@@ -194,7 +195,9 @@ class Window3Content(ctk.CTkFrame):
         # Prepare to store data: e.g., a list of [t_step, power_ch0, power_ch1, ...]
         results = []
 
-        headers = ["time_step", "site1", "site2", "site3"]
+        # headers = ["time_step", "site1", "site2", "site3"]
+        headers = ["timestamp", "time_step", "site1", "site2", "site3"] # Updated headers
+
 
         for step_idx in range(N_val):
             current_time = T_list[step_idx]
@@ -256,8 +259,10 @@ class Window3Content(ctk.CTkFrame):
                 except Exception as e:
                     print(f"Thorlabs read error: {e}")
 
+            
+            current_timestamp = datetime.now().strftime("%H:%M:%S")
             # Build one row => [step_idx+1, site1_daq, site2_daq, site3_thorlabs]
-            row = [step_idx + 1, daq_values[0], daq_values[1], thorlabs_vals]
+            row = [current_timestamp, step_idx + 1, daq_values[0], daq_values[1], thorlabs_vals]
             results.append(row)
 
             # Export the results to CSV
@@ -299,7 +304,8 @@ class Window3Content(ctk.CTkFrame):
 
         # Prepare to store data: e.g., a list of [step_idx, power_ch0, power_ch1]
         results = []
-        headers = ["step", "site1", "site2"]
+        # headers = ["step", "site1", "site2"]
+        headers = ["timestamp", "step", "site1", "site2"] # Updated headers
 
         for step_idx, npy_file in enumerate(npy_files, start=1):
             file_path = os.path.join(folder_path, npy_file)
@@ -338,9 +344,10 @@ class Window3Content(ctk.CTkFrame):
                 daq_vals = self.daq.read_power(channels=channels, samples_per_channel=1, unit='uW')
                 if isinstance(daq_vals, list) and len(daq_vals) >= 2:  # If daq_vals has 2 values, store them
                     daq_values = [daq_vals[0], daq_vals[1]]
-
+            
+            current_timestamp = datetime.now().strftime("%H:%M:%S")
             # Build one row => [step_idx, site1_daq, site2_daq]
-            row = [step_idx, daq_values[0], daq_values[1]]
+            row = [current_timestamp, step_idx, daq_values[0], daq_values[1]]
             results.append(row)
 
         # Export the results to CSV
