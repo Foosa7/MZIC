@@ -159,6 +159,53 @@ class Window3Content(ctk.CTkFrame):
         )
         self.run_button.pack(pady=(10,0))
 
+    def _read_all_daq_channels(self):
+        """
+        Lists all available AI channels on the DAQ device,
+        reads averaged voltage for each channel, and displays them in the text box.
+        """
+        lines = []
+
+        if not self.daq:
+            lines.append("No device found.")
+            self._daq_last_result = "\n".join(lines)
+            return
+
+        channels = self.daq.list_ai_channels()
+        if not channels:
+            lines.append("No device found.")
+            self._daq_last_result = "\n".join(lines)
+            return
+        
+        try:
+            num_samples = int(self.samples_entry.get())   # Fails here with ValueError
+            if num_samples <= 0:
+                raise ValueError("Sample count must be positive.")
+        except Exception as e:
+            print(f"[DAQ] Invalid sample count input: {e}")  # Now safe
+            num_samples = 10
+            self.samples_entry.delete(0, "end")
+            self.samples_entry.insert(0, str(num_samples))
+
+        readings = self.daq.read_power(channels=channels, samples_per_channel=num_samples, unit=self.selected_unit)
+        if readings is None:
+            lines.append("Failed to read from DAQ or DAQ not connected.")
+            self._daq_last_result = "\n".join(lines)
+            return
+
+        # Normalize to list for consistent processing
+        if isinstance(readings, float):
+            readings = [readings]  # wrap float in list if only one channel
+
+        # Build text output
+        lines = []
+        for ch_name, voltage in zip(channels, readings):
+            lines.append(f"{ch_name} -> {voltage} {self.selected_unit}")
+
+        # Save this part to combine with Thorlabs 
+        self._daq_last_result = "\n".join(lines)    
+
+
     def run_amf_experiment(self):
         """
         1) Reads user parameters c, T, N, direction, dwell time.
@@ -238,13 +285,31 @@ class Window3Content(ctk.CTkFrame):
             # Settle time for the system to reach steady state
             time.sleep(dwell)
 
-            # ---- DAQ measurements (ai0, ai1 => site1, site2) ----
-            daq_values = [0.0, 0.0]
+            # Read DAQ channels and get values
+            daq_values = [0.0, 0.0]  # Default values
             if self.daq and self.daq.list_ai_channels():
-                channels = ["Dev1/ai0", "Dev1/ai1"]
-                daq_vals = self.daq.read_power(channels=channels, samples_per_channel=1, unit='uW')
-                if isinstance(daq_vals, list) and len(daq_vals) >= 2: # If daq_vals has 2 values, store them
-                    daq_values = [daq_vals[0], daq_vals[1]]
+                try:
+                    self._read_all_daq_channels()
+                    # Get the values from the last reading
+                    if hasattr(self, '_daq_last_result'):
+                        lines = self._daq_last_result.split('\n')
+                        # Parse the power values from each line
+                        # Format is like "Dev1/ai0 -> X.XXX uW"
+                        daq_values = []
+                        for line in lines:
+                            if '->' in line:
+                                value = float(line.split('->')[1].split()[0])
+                                daq_values.append(value)
+                    
+                    # Ensure we have at least 2 values (pad with 0 if needed)
+                    while len(daq_values) < 2:
+                        daq_values.append(0.0)
+                        
+                    # Clear DAQ task after reading
+                    self.daq.clear_task()
+                except Exception as e:
+                    print(f"Error reading DAQ: {e}")
+                    daq_values = [0.0, 0.0]
 
             # ---- Thorlabs measurements => site3
             thorlabs_vals = 0.0
@@ -265,94 +330,230 @@ class Window3Content(ctk.CTkFrame):
             row = [current_timestamp, step_idx + 1, daq_values[0], daq_values[1], thorlabs_vals]
             results.append(row)
 
-            # Export the results to CSV
-        zero_config = self._create_zero_config()
-        apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
+            # # Create a zero-value configuration for all crosspoints.
+            # zero_config = self._create_zero_config()
+            
+            # # Apply the zero configuration to the device.
+            # apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
+            # print("All values set to zero")
+            # time.sleep(dwell/2)
+
+            print(row)
 
         self._export_results_to_csv(results, headers)
         print("AMF experiment complete!")
         # Create a zero-value configuration for all crosspoints.
 
+
     def run_nh_experiment_from_folder(self):
         """
-        1) Prompts the user to select a folder containing .npy files.
-        2) Loads each .npy file in sequence, assigns it to U_step, and processes it.
-        3) Applies phases, measures output power, and saves results to a CSV file.
+        1) Prompts user to select folder containing .npy files
+        2) Loads each .npy file in sequence, assigns to U_step, processes it
+        3) Applies phases, measures output power continuously during dwell time, saves averaged results
         """
         try:
-            # Get dwell time
+            # Get dwell time and setup sampling parameters
             dwell = float(self.dwell_entry.get())
-        except ValueError as e:
-            print(f"Error reading AMF inputs: {e}")
-            return
+            sample_rate = 1000  # Hz
+            samples_per_channel = int(dwell * sample_rate)  # Total samples to collect during dwell
 
-        # Prompt the user to select a folder
-        folder_path = filedialog.askdirectory(title="Select Folder Containing .npy Files")
-        if not folder_path:
-            print("No folder selected. Aborting.")
-            return
+            # Prompt for folder selection
+            folder_path = filedialog.askdirectory(title="Select Folder Containing Unitary Step Files")
+            if not folder_path:
+                print("No folder selected. Aborting.")
+                return
 
-        # Get all .npy files in the folder, sorted by step number
-        npy_files = sorted(
-            [f for f in os.listdir(folder_path) if f.endswith(".npy")],
-            key=lambda x: int(x.split("_")[1].split(".")[0])  # Extract step number from filename
-        )
+            # Get .npy files with expected naming pattern
+            npy_files = sorted(
+                [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("unitary_step_")],
+                key=lambda x: int(x.split("_")[2].split(".")[0])  # Extract number from 'unitary_step_001.npy'
+            )
 
-        if not npy_files:
-            print("No .npy files found in the selected folder.")
-            return
+            if not npy_files:
+                print("No unitary step files found in selected folder.")
+                return
 
-        # Prepare to store data: e.g., a list of [step_idx, power_ch0, power_ch1]
-        results = []
-        # headers = ["step", "site1", "site2"]
-        headers = ["timestamp", "step", "site1", "site2"] # Updated headers
+            # Prepare results storage
+            results = []
+            headers = ["timestamp", "step", "site1", "site2"]
 
-        for step_idx, npy_file in enumerate(npy_files, start=1):
-            file_path = os.path.join(folder_path, npy_file)
+            # Process each unitary file
+            for step_idx, npy_file in enumerate(npy_files, start=1):
+                file_path = os.path.join(folder_path, npy_file)
+                print(f"\nProcessing step {step_idx}: {npy_file}")
 
-            # Load the .npy file as U_step
-            try:
-                U_step = np.load(file_path)
-                print(f"Loaded {npy_file}")
-            except Exception as e:
-                print(f"Error loading {npy_file}: {e}")
-                continue
+                # Load unitary
+                try:
+                    U_step = np.load(file_path)
+                except Exception as e:
+                    print(f"Error loading {npy_file}: {e}")
+                    continue
 
-            # Decompose the unitary
-            try:
-                I = itf.square_decomposition(U_step)
-                bs_list = I.BS_list
-                print(bs_list)
-                mzi_convention.clements_to_chip(bs_list)
+                # Decompose unitary
+                try:
+                    I = itf.square_decomposition(U_step)
+                    bs_list = I.BS_list
+                    mzi_convention.clements_to_chip(bs_list)
+                    setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
+                except Exception as e:
+                    print(f"Error in decomposition: {e}")
+                    continue
 
-                # Store the decomposition result in AppData
-                setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
-            except Exception as e:
-                print(f"Error in decomposition for {npy_file}: {e}")
-                continue
+                # Apply phases
+                self.apply_phase_new()
 
-            # Apply the phase
-            self.apply_phase_new()
+                # DAQ measurements with continuous sampling during dwell time
+                daq_values = [0.0, 0.0]
+                if self.daq and self.daq.list_ai_channels():
+                    channels = ["Dev1/ai0", "Dev1/ai1"]
+                    try:
+                        # Read power continuously during dwell time
+                        daq_vals = self.daq.read_power(
+                            channels=channels,
+                            samples_per_channel=samples_per_channel,
+                            sample_rate=sample_rate,
+                            unit='uW'
+                        )
 
-            # Settle time for the system to reach steady state
-            time.sleep(dwell)
+                        # Process and average the readings
+                        if isinstance(daq_vals, list) and len(daq_vals) >= 2:
+                            if isinstance(daq_vals[0], list):  # Multiple samples per channel
+                                # Calculate mean for each channel
+                                daq_values = [
+                                    sum(ch_samples)/len(ch_samples) 
+                                    for ch_samples in daq_vals
+                                ]
+                            else:  # Single sample per channel
+                                daq_values = daq_vals
 
-            # ---- DAQ measurements (ai0, ai1 => site1, site2) ----
-            daq_values = [0.0, 0.0]
-            if self.daq and self.daq.list_ai_channels():
-                channels = ["Dev1/ai0", "Dev1/ai1"]
-                daq_vals = self.daq.read_power(channels=channels, samples_per_channel=1, unit='uW')
-                if isinstance(daq_vals, list) and len(daq_vals) >= 2:  # If daq_vals has 2 values, store them
-                    daq_values = [daq_vals[0], daq_vals[1]]
+                        # Clear DAQ task
+                        self.daq.clear_task()
+
+                    except Exception as e:
+                        print(f"Error reading DAQ: {e}")
+                        daq_values = [0.0, 0.0]
+
+                # Record results with timestamp
+                current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                row = [current_timestamp, step_idx, daq_values[0], daq_values[1]]
+                results.append(row)
+                
+                # Print current values
+                print(f"Step {step_idx} measurements:")
+                print(f"  Site 1: {daq_values[0]:.3f} µW")
+                print(f"  Site 2: {daq_values[1]:.3f} µW")
+
+            # Export results
+            if results:
+                self._export_results_to_csv(results, headers)
+                print("\nNH experiment complete!")
+                
+                # Reset phases to zero
+                zero_config = self._create_zero_config()
+                apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
+                print("All values reset to zero")
+            else:
+                print("\nNo results collected during experiment")
+
+        except Exception as e:
+            print(f"Experiment failed: {e}")
+            import traceback
+            traceback.print_exc()
+
+
+    # def run_nh_experiment_from_folder(self):
+    #     """
+    #     1) Prompts the user to select a folder containing .npy files.
+    #     2) Loads each .npy file in sequence, assigns it to U_step, and processes it.
+    #     3) Applies phases, measures output power, and saves results to a CSV file.
+    #     """
+    #     try:
+    #         # Get dwell time
+    #         dwell = float(self.dwell_entry.get())
+    #     except ValueError as e:
+    #         print(f"Error reading NH inputs: {e}")
+    #         return
+
+    #     # Prompt the user to select a folder
+    #     folder_path = filedialog.askdirectory(title="Select Folder Containing .npy Files")
+    #     if not folder_path:
+    #         print("No folder selected. Aborting.")
+    #         return
+
+    #     # # Get all .npy files in the folder, sorted by step number
+    #     # npy_files = sorted(
+    #     #     [f for f in os.listdir(folder_path) if f.endswith(".npy")],
+    #     #     key=lambda x: int(x.split("_")[1].split(".")[0])  # Extract step number from filename
+    #     # )
+
+    #     # Get all .npy files in the folder, sorted by step number
+    #     npy_files = sorted(
+    #         [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("unitary_step_")],
+    #         key=lambda x: int(x.split("_")[2].split(".")[0])  # Extract number from 'unitary_step_001.npy'
+    #     )
+
+    #     if not npy_files:
+    #         print("No .npy files found in the selected folder.")
+    #         return
+
+    #     # Prepare to store data: e.g., a list of [step_idx, power_ch0, power_ch1]
+    #     results = []
+    #     # headers = ["step", "site1", "site2"]
+    #     headers = ["timestamp", "step", "site1", "site2"] # Updated headers
+
+    #     for step_idx, npy_file in enumerate(npy_files, start=1):
+    #         file_path = os.path.join(folder_path, npy_file)
+
+    #         # Load the .npy file as U_step
+    #         try:
+    #             U_step = np.load(file_path)
+    #             print(f"Loaded {npy_file}")
+    #         except Exception as e:
+    #             print(f"Error loading {npy_file}: {e}")
+    #             continue
+
+    #         # Decompose the unitary
+    #         try:
+    #             I = itf.square_decomposition(U_step)
+    #             bs_list = I.BS_list
+    #             print(bs_list)
+    #             mzi_convention.clements_to_chip(bs_list)
+
+    #             # Store the decomposition result in AppData
+    #             setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
+    #         except Exception as e:
+    #             print(f"Error in decomposition for {npy_file}: {e}")
+    #             continue
+
+    #         # Apply the phase
+    #         self.apply_phase_new()
+
+    #         # Settle time for the system to reach steady state
+    #         time.sleep(dwell)
+
+    #         # ---- DAQ measurements (ai0, ai1 => site1, site2) ----
+    #         daq_values = [0.0, 0.0]
+    #         if self.daq and self.daq.list_ai_channels():
+    #             channels = ["Dev1/ai0", "Dev1/ai1"]
+    #             daq_vals = self.daq.read_power(channels=channels, samples_per_channel=1, unit='uW')
+    #             if isinstance(daq_vals, list) and len(daq_vals) >= 2:  # If daq_vals has 2 values, store them
+    #                 daq_values = [daq_vals[0], daq_vals[1]]
             
-            current_timestamp = datetime.now().strftime("%H:%M:%S")
-            # Build one row => [step_idx, site1_daq, site2_daq]
-            row = [current_timestamp, step_idx, daq_values[0], daq_values[1]]
-            results.append(row)
+    #         current_timestamp = datetime.now().strftime("%H:%M:%S")
+    #         # Build one row => [step_idx, site1_daq, site2_daq]
+    #         row = [current_timestamp, step_idx, daq_values[0], daq_values[1]]
+    #         results.append(row)
 
-        # Export the results to CSV
-        self._export_results_to_csv(results, headers)
-        print("NH complete!")      
+
+    #     # Export the results to CSV
+    #     self._export_results_to_csv(results, headers)
+    #     print("NH complete!")      
+    #             # Create a zero-value configuration for all crosspoints.
+    #     zero_config = self._create_zero_config()
+
+    #     # Apply the zero configuration to the device.
+    #     apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
+    #     print("All values set to zero")
 
     def _build_unitary_at_timestep(self, current_time, H1, H2, H3, T_period, direction):
         """
@@ -489,6 +690,7 @@ class Window3Content(ctk.CTkFrame):
             if failed_channels:
                 result_message = f"Failed to apply to {len(failed_channels)} channels"
                 print(result_message)
+                print("Failed channels:", failed_channels)
                 
             # Debugging: Print the grid size
             print(f"Grid size: {self.grid_size}")
@@ -533,16 +735,17 @@ class Window3Content(ctk.CTkFrame):
         b = params['omega']
         c = params['phase']
         d = params['offset']
-        
+        phase_value_offset = phase_value
         # Check if phase is within valid range
         if phase_value < c/np.pi:
-            print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi:.2f}π for channel {channel}")
-            # Multiply phase_value by 2 and continue with calculation
-            phase_value = phase_value + 2
-            print(f"Using adjusted phase value: {phase_value}π")
+            print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
+            # Add phase_value by 2 and continue with calculation
+            phase_value_offset  = phase_value + 2.0
+            
+            print(f"Using adjusted phase value: {phase_value_offset}π")
 
         # Calculate heating power for this phase shift
-        P = abs((phase_value*np.pi - c) / b)
+        P = abs((phase_value_offset*np.pi - c) / b)
         
         # Get resistance parameters
         if channel < len(self.app.resistance_parameter_list):
@@ -687,10 +890,10 @@ class Window3Content(ctk.CTkFrame):
         for i in range(rows):
             for j in range(cols):
                 val = matrix[i, j]
-                val_str = f'{val.real:.4f}'
+                val_str = f'{val.real}'
                 if abs(val.imag) > 1e-12:
                     sign = '+' if val.imag >= 0 else '-'
-                    val_str = f'{val.real:.4f}{sign}{abs(val.imag):.4f}j'
+                    val_str = f'{val.real}{sign}{abs(val.imag)}j'
                 entries_2d[i][j].delete(0, 'end')
                 entries_2d[i][j].insert(0, val_str)
 

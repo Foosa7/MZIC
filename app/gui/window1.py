@@ -491,7 +491,7 @@ class Window1Content(ctk.CTkFrame):
         # Build text output
         lines = []
         for ch_name, voltage in zip(channels, readings):
-            lines.append(f"{ch_name} -> {voltage:.3f} {self.selected_unit}")
+            lines.append(f"{ch_name} -> {voltage} {self.selected_unit}")
 
         # Save this part to combine with Thorlabs 
         self._daq_last_result = "\n".join(lines)    
@@ -508,7 +508,7 @@ class Window1Content(ctk.CTkFrame):
         for i, device in enumerate(devices):
             try:
                 power = device.read_power(unit=self.selected_unit)
-                readings.append(f"Thorlabs {i} -> {power:.3f} {self.selected_unit}")
+                readings.append(f"Thorlabs {i} -> {power} {self.selected_unit}")
             except Exception as e:
                 readings.append(f"Thorlabs {i}: Error - {e}")
 
@@ -912,7 +912,7 @@ class Window1Content(ctk.CTkFrame):
         
         # Check if phase is within valid range
         if phase_value < c/np.pi:
-            print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi:.2f}π for channel {channel}")
+            print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
             # Multiply phase_value by 2 and continue with calculation
             phase_value = phase_value + 2
             print(f"Using adjusted phase value: {phase_value}π")
@@ -1019,7 +1019,7 @@ class Window1Content(ctk.CTkFrame):
         start_current = 0
         end_current = self.qontrol.globalcurrrentlimit
         steps = 10
-        delay = 0.5
+        delay = 0.05 ## Delay between current steps in seconds change this back to 0.5
         currents = np.linspace(start_current, end_current, steps).astype(float)
         voltages = []
 
