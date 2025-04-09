@@ -364,11 +364,16 @@ class Window3Content(ctk.CTkFrame):
                 return
 
             # Get .npy files with expected naming pattern
+            # npy_files = sorted(
+            #     # [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("unitary_step_")],
+            #     [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("step_")],                
+            #     key=lambda x: int(x.split("_")[2].split(".")[0])  # Extract number from 'unitary_step_001.npy'
+            # )
+            # Get .npy files with expected naming pattern
             npy_files = sorted(
-                [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("unitary_step_")],
-                key=lambda x: int(x.split("_")[2].split(".")[0])  # Extract number from 'unitary_step_001.npy'
+                [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("step_")],
+                key=lambda x: int(x.split("_")[1].split(".")[0])  # Extract number from 'step_1.npy'
             )
-
             if not npy_files:
                 print("No unitary step files found in selected folder.")
                 return

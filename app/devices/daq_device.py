@@ -215,9 +215,9 @@ class DAQ:
         for i, ch in enumerate(channels):
             V = voltages[i]
             if "ai0" in ch.lower():  # Match analog input 0
-                power = 3.6748e-04 * V  # PD1
+                power = 3.2607e-04 * V  # PD1
             elif "ai1" in ch.lower():  # Match analog input 1
-                power = 3.6573e-04 * V  # PD2
+                power = 3.0369e-04 * V  # PD2
             else:
                 # Fallback to default conversion
                 power = V / (self.config.get('load_resistor', 50) * 
