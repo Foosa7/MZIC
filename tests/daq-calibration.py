@@ -2,54 +2,53 @@ from scipy.optimize import curve_fit
 import numpy as np
 import matplotlib.pyplot as plt
 
-
-'''
-V_PD2 = np.array([3.98, 3.67, 2.93, 2.18, 1.45, 764*1e-3, 141*1e-3])  # millivolts from NI
-P_thorlabs = np.array([1.534, 1.277, 1.016, 0.759, 0.508, 265.8*1e3, 48.7*1e3])  # microwatts
-'''
-
 # Data
-V_PD1 = np.array([743.18, 795.52, 921.14, 989, 1104.3, 1277.1, 1465.5, 1753.4, 2020.3, 2334.3, 2938.85, 3375.9, 3684.7, 3899.3, 3920.3])  # millivolts from NI
-V_PD2 = np.array([748.44, 795.55, 921.16, 986.5, 1099.3, 1277.1, 1470.7, 1758.6, 2022.9, 2342.15, 2941.4, 3375.8, 3666.35, 3935.8, 3956.8])  # millivolts from NI
-P_thorlabs = np.array([259.1, 277.1, 321.1, 343.1, 384.7, 444.7, 512, 611, 704, 814, 1023, 1179, 1291, 1395, 1527])  # microwatts
-
+V_PDs = {
+    "PD1": np.array([4330,  3990,  3540, 2770,  2200, 1780,  1270,  947,  581,  105]),  # millivolts from NI
+    "PD2": np.array([4350,  4000,  3540, 2810, 2280, 1780,  1290,  963,  591,  105]),  # millivolts from NI
+    "PD3": np.array([4370,  4340,  3560, 3160, 2550, 2010,  1440,  1080,  665,  120]),  # millivolts from NI
+    "PD4": np.array([4220, 3810,  3390,  2670, 2115, 1690,  1220,  911,  565,  105]),  # millivolts from NI
+    "PD5": np.array([4420, 4380,  3980,  3160, 2550, 1980,  1420,  1060,  654,  120]),  # millivolts from NI
+    "PD6": np.array([4360, 4330,  4010,  3180, 2580, 2020,  1455,  1090,  665,  120]),  # millivolts from NI
+    "PD7": np.array([4370, 4290,  3850,  3040, 2460, 1930,  1385,  1040,  638,  115]),  # millivolts from NI
+    "PD8": np.array([4250, 3820,  3370,  2670, 2180, 1710,  1225,  921,  560,  105]),  # millivolts from NI
+}
+P_thorlabs = np.array([1710, 1533, 1366, 1074, 868, 683, 490,  369.8,  226.7,  41.55])  # microwatts
 
 # Convert units to Volts and Watts
-V_PD1 = V_PD1 / 1000  # V
-V_PD2 = V_PD2 / 1000  # V
-P_thorlabs = P_thorlabs / 1e6  # W
+for key in V_PDs:
+    V_PDs[key] = V_PDs[key] / 1000  # Convert millivolts to volts
+P_thorlabs = P_thorlabs / 1e6  # Convert microwatts to watts
 
 # Fit function
 def model(V, a, b):
     return a * V + b
 
-# Fit both PDs
-params1, _ = curve_fit(model, V_PD1, P_thorlabs)
-a1, b1 = params1
+# Fit each photodiode and store results
+fit_results = {}
+V_fit = None
+for pd_name, V_PD in V_PDs.items():
+    if len(V_PD) == 0 or len(P_thorlabs) == 0:
+        print(f"Skipping {pd_name} due to missing data.")
+        continue
 
-params2, _ = curve_fit(model, V_PD2, P_thorlabs)
-a2, b2 = params2
+    # Perform curve fitting
+    params, _ = curve_fit(model, V_PD, P_thorlabs)
+    a, b = params
+    fit_results[pd_name] = (a, b)
 
-# Print results
-print("Photodiode 1 Fit:  P = a1 * V + b1")
-print(f"  a1 = {a1:.4e} W/V")
-print(f"  b1 = {b1:.4e} W\n")
+    # Generate fit lines for plotting
+    if V_fit is None:
+        V_fit = np.linspace(min(V_PD.min() for V_PD in V_PDs.values() if len(V_PD) > 0),
+                            max(V_PD.max() for V_PD in V_PDs.values() if len(V_PD) > 0), 200)
 
-print("Photodiode 2 Fit:  P = a2 * V + b2")
-print(f"  a2 = {a2:.4e} W/V")
-print(f"  b2 = {b2:.4e} W\n")
-
-# Generate fit lines
-V_fit = np.linspace(min(V_PD1.min(), V_PD2.min()), max(V_PD1.max(), V_PD2.max()), 200)
-P_fit1 = model(V_fit, a1, b1)
-P_fit2 = model(V_fit, a2, b2)
-
-# Plot
-plt.figure(figsize=(8, 5))
-plt.scatter(V_PD1, P_thorlabs, label='PD1 Data', color='blue', marker='o')
-plt.scatter(V_PD2, P_thorlabs, label='PD2 Data', color='green', marker='x')
-plt.plot(V_fit, P_fit1, label='PD1 Fit', color='blue', linestyle='--')
-plt.plot(V_fit, P_fit2, label='PD2 Fit', color='green', linestyle='--')
+# Plot results
+plt.figure(figsize=(10, 6))
+for pd_name, (a, b) in fit_results.items():
+    V_PD = V_PDs[pd_name]
+    P_fit = model(V_fit, a, b)
+    plt.scatter(V_PD, P_thorlabs, label=f'{pd_name} Data', marker='o')
+    plt.plot(V_fit, P_fit, label=f'{pd_name} Fit: P = {a:.4e} * V + {b:.4e}', linestyle='--')
 
 # Labels and formatting
 plt.xlabel('Photodiode Voltage (V)')
@@ -59,5 +58,11 @@ plt.legend()
 plt.grid(True)
 plt.tight_layout()
 plt.show()
+
+# Print fit results
+for pd_name, (a, b) in fit_results.items():
+    print(f"{pd_name} Fit:  P = a * V + b")
+    print(f"  a = {a:.4e} W/V")
+    print(f"  b = {b:.4e} W\n")
 
 
