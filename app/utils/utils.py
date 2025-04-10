@@ -1,6 +1,7 @@
 # app/utils/utils.py
 
 import math
+import json
 import numpy as np
 import sympy as sp
 from tkinter import messagebox

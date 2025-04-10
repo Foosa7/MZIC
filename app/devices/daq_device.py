@@ -167,33 +167,61 @@ class DAQ:
 
         return data
             
-    def read_power(self, channels=None, samples_per_channel=10, min_val=-10.0, max_val=10.0, load_resistor=50, responsivity=1.07, unit="uW"):
+    def read_power(self, channels=None, samples_per_channel=10, sample_rate=1000, min_val=-10.0, max_val=10.0, unit="uW"):
         """
-        Read voltage from specified channels and convert to power in the specified unit,
-        applying photodiode-specific calibration for PD1 (AI0) and PD2 (AI1).
+        Read voltage from specified channels and convert to power in the specified unit.
+        
+        Args:
+            channels (list): List of channel names to read from
+            samples_per_channel (int): Number of samples to take per channel
+            sample_rate (float): Sampling rate in Hz
+            min_val (float): Minimum voltage value
+            max_val (float): Maximum voltage value
+            unit (str): Power unit ('mW', 'uW', or 'W')
+        
+        Returns:
+            list: Power readings in specified unit
         """
-
-        voltages = self.read_voltage(
-            channels=channels,
-            samples_per_channel=samples_per_channel,
-            min_val=min_val,
-            max_val=max_val
-        )
-
-        if voltages is None:
-            return None
+        with nidaqmx.Task() as task:
+            # Add channels to the task
+            for ch in channels:
+                task.ai_channels.add_ai_voltage_chan(
+                    physical_channel=ch,
+                    min_val=min_val,
+                    max_val=max_val
+                )
+            
+            # Configure timing
+            task.timing.cfg_samp_clk_timing(
+                rate=sample_rate,
+                sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+                samps_per_chan=samples_per_channel
+            )
+            
+            # Read voltage data
+            voltages = task.read(number_of_samples_per_channel=samples_per_channel)
+            
+            # Convert to numpy array for easier processing
+            voltages = np.array(voltages)
+            
+            # Average the samples for each channel
+            if voltages.ndim == 2:
+                voltages = np.mean(voltages, axis=1)
+            else:
+                voltages = [np.mean(voltages)]
 
         # Convert voltage to power using photodiode-specific calibration
         power_in_watts = []
         for i, ch in enumerate(channels):
             V = voltages[i]
             if "ai0" in ch.lower():  # Match analog input 0
-                power = 3.6748e-04 * V # +  (-2.5863e-05)  # PD1
+                power = 3.2607e-04 * V  # PD1
             elif "ai1" in ch.lower():  # Match analog input 1
-                power = 3.6573e-04 * V # + (-2.4071e-05)  # PD2
+                power = 3.0369e-04 * V  # PD2
             else:
                 # Fallback to default conversion
-                power = V / (load_resistor * responsivity)
+                power = V / (self.config.get('load_resistor', 50) * 
+                            self.config.get('responsivity', 1.07))
             power_in_watts.append(power)
 
         # Convert to the desired unit
@@ -205,7 +233,6 @@ class DAQ:
             return power_in_watts
         else:
             raise ValueError(f"[ERROR][DAQ] Unsupported unit: {unit}. Use 'mW', 'uW', or 'W'.")
-
 
     def show_status(self):
         """
@@ -232,3 +259,16 @@ class DAQ:
             self.device_name = None
         else:
             print("[INFO][DAQ] No device to disconnect.")
+
+    def clear_task(self):
+        """
+        Clear any existing DAQ tasks.
+        Should be called after completing measurements to release hardware resources.
+        """
+        try:
+            with nidaqmx.Task() as task:
+                # Creating and closing an empty task helps clear any hanging tasks
+                pass
+            print("[INFO][DAQ] Task cleared successfully")
+        except Exception as e:
+            print(f"[WARNING][DAQ] Error clearing task: {e}")
