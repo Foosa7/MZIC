@@ -285,31 +285,59 @@ class Window3Content(ctk.CTkFrame):
             # Settle time for the system to reach steady state
             time.sleep(dwell)
 
-            # Read DAQ channels and get values
-            daq_values = [0.0, 0.0]  # Default values
+            # DAQ measurements with continuous sampling during dwell time
+            daq_values = [0.0, 0.0]
             if self.daq and self.daq.list_ai_channels():
+                channels = ["Dev1/ai0", "Dev1/ai1"]
                 try:
-                    self._read_all_daq_channels()
-                    # Get the values from the last reading
-                    if hasattr(self, '_daq_last_result'):
-                        lines = self._daq_last_result.split('\n')
-                        # Parse the power values from each line
-                        # Format is like "Dev1/ai0 -> X.XXX uW"
-                        daq_values = []
-                        for line in lines:
-                            if '->' in line:
-                                value = float(line.split('->')[1].split()[0])
-                                daq_values.append(value)
-                    
-                    # Ensure we have at least 2 values (pad with 0 if needed)
-                    while len(daq_values) < 2:
-                        daq_values.append(0.0)
-                        
-                    # Clear DAQ task after reading
+                    # Read power continuously during dwell time
+                    daq_vals = self.daq.read_power(
+                        channels=channels,
+                        samples_per_channel=samples_per_channel,
+                        sample_rate=sample_rate,
+                        unit='uW'
+                    )
+
+                    # Process and average the readings
+                    if isinstance(daq_vals, list) and len(daq_vals) >= 2:
+                        if isinstance(daq_vals[0], list):  # Multiple samples per channel
+                            # Calculate mean for each channel
+                            daq_values = [
+                                sum(ch_samples)/len(ch_samples) 
+                                for ch_samples in daq_vals
+                            ]
+                        else:  # Single sample per channel
+                            daq_values = daq_vals
+
+                    # Clear DAQ task
                     self.daq.clear_task()
-                except Exception as e:
-                    print(f"Error reading DAQ: {e}")
-                    daq_values = [0.0, 0.0]
+
+
+            # # Read DAQ channels and get values
+            # daq_values = [0.0, 0.0]  # Default values
+            # if self.daq and self.daq.list_ai_channels():
+            #     try:
+            #         self._read_all_daq_channels()
+            #         # Get the values from the last reading
+            #         if hasattr(self, '_daq_last_result'):
+            #             lines = self._daq_last_result.split('\n')
+            #             # Parse the power values from each line
+            #             # Format is like "Dev1/ai0 -> X.XXX uW"
+            #             daq_values = []
+            #             for line in lines:
+            #                 if '->' in line:
+            #                     value = float(line.split('->')[1].split()[0])
+            #                     daq_values.append(value)
+                    
+            #         # Ensure we have at least 2 values (pad with 0 if needed)
+            #         while len(daq_values) < 2:
+            #             daq_values.append(0.0)
+                        
+            #         # Clear DAQ task after reading
+            #         self.daq.clear_task()
+            #     except Exception as e:
+            #         print(f"Error reading DAQ: {e}")
+            #         daq_values = [0.0, 0.0]
 
             # ---- Thorlabs measurements => site3
             thorlabs_vals = 0.0

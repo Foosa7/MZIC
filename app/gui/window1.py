@@ -1445,3 +1445,94 @@ class Window1Content(ctk.CTkFrame):
             
         # Keep reference to prevent garbage collection
         self._current_measure_image = ctk_image
+
+    # def apply_phase_sweep(self):
+    #     """
+    #     Apply phase settings to the entire grid based on phase calibration data.
+    #     Processes all theta and phi values in the current grid configuration.
+    #     """
+    #     try:
+    #         # Get current grid configuration
+    #         grid_config = AppData.default_json_grid
+    #         print(grid_config)
+    #         if not grid_config:
+    #             print("No grid configuration found")
+    #             return
+                
+    #         # Create label mapping for channel assignments
+    #         label_map = create_label_mapping(8)  # Assuming 8x8 grid
+            
+    #         # Create a new configuration with current values
+    #         phase_grid_config = copy.deepcopy(grid_config)
+            
+    #         # Track successful and failed applications
+    #         applied_channels = []
+    #         failed_channels = []
+            
+    #         # Process each cross in the grid
+    #         for cross_label, data in grid_config.items():
+    #             # Skip if this cross isn't in our mapping
+    #             if cross_label not in label_map:
+    #                 continue
+                    
+    #             theta_ch, phi_ch = label_map[cross_label]
+    #             theta_val = data.get("theta", "0")
+    #             phi_val = data.get("phi", "0")
+
+    #             # Process theta channel
+    #             if theta_ch is not None and theta_val:
+    #                 try:
+    #                     theta_float = float(theta_val)
+    #                     current_theta = self._calculate_current_for_phase(theta_ch, theta_float, "cross", "bar")
+    #                     if current_theta is not None:
+    #                         # Quantize to 5 decimal places
+    #                         current_theta = round(current_theta, 5)
+    #                         # Update the phase_grid_config with current value
+    #                         phase_grid_config[cross_label]["theta"] = str(current_theta)  # Store in A
+    #                         applied_channels.append(f"{cross_label}:θ = {current_theta:.5f} mA")
+    #                     else:
+    #                         failed_channels.append(f"{cross_label}:θ (no calibration)")
+    #                 except Exception as e:
+    #                     failed_channels.append(f"{cross_label}:θ ({str(e)})")
+
+    #             # Process phi channel
+    #             if phi_ch is not None and phi_val:
+    #                 try:
+    #                     phi_float = float(phi_val)
+    #                     current_phi = self._calculate_current_for_phase(phi_ch, phi_float, "cross", "bar")
+    #                     if current_phi is not None:
+    #                         # Quantize to 5 decimal places
+    #                         current_phi = round(current_phi, 5)
+    #                         # Update the phase_grid_config with current value
+    #                         phase_grid_config[cross_label]["phi"] = str(current_phi)  # Store in A
+    #                         applied_channels.append(f"{cross_label}:φ = {current_phi:.5f} mA")
+    #                     else:
+    #                         failed_channels.append(f"{cross_label}:φ (no calibration)")
+    #                 except Exception as e:
+    #                     failed_channels.append(f"{cross_label}:φ ({str(e)})")
+            
+    #         # Store the phase grid config for later use
+    #         self.phase_grid_config = phase_grid_config
+            
+    #         # Only show error message if there are failures
+    #         if failed_channels:
+    #             result_message = f"Failed to apply to {len(failed_channels)} channels"
+    #             print(result_message)
+    #             print("Failed channels:", failed_channels)
+                
+    #         # Debugging: Print the grid size
+    #         print(f"Grid size: {self.grid_size}")
+            
+    #         try:
+    #             config_json = json.dumps(phase_grid_config)
+    #             apply_grid_mapping(self.qontrol, config_json, self.grid_size)
+    #         except Exception as e:
+    #             print(f"Device update failed: {str(e)}")        
+
+    #         return phase_grid_config
+            
+    #     except Exception as e:
+    #         print(f"Failed to apply phases: {str(e)}")
+    #         import traceback
+    #         traceback.print_exc()
+    #         return None
