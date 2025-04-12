@@ -214,13 +214,26 @@ class DAQ:
         power_in_watts = []
         for i, ch in enumerate(channels):
             V = voltages[i]
-            if "ai0" in ch.lower():  # Match analog input 0
-                power = 3.2607e-04 * V  # PD1
-            elif "ai1" in ch.lower():  # Match analog input 1
-                power = 3.0369e-04 * V  # PD2
+            if "ai0" in ch.lower():  
+                power = 3.8934e-04 * V  # PD1
+            elif "ai1" in ch.lower():  
+                power = 3.8853e-04 * V  # PD2
+            elif "ai2" in ch.lower(): 
+                power = 3.7686e-04 * V  # PD3
+            elif "ai3" in ch.lower():  
+                power = 4.0387e-04 * V  # PD4
+            elif "ai4" in ch.lower():  
+                power = 3.6247e-04 * V  # PD5
+            elif "ai5" in ch.lower(): 
+                power = 3.6618e-04 * V  # PD6
+            elif "ai6" in ch.lower():  
+                power = 3.7097e-04 * V  # PD7
+            elif "ai7" in ch.lower():  
+                power = 4.0287e-04 * V  # PD8
+
             else:
                 # Fallback to default conversion
-                power = V / (self.config.get('load_resistor', 50) * 
+                power = V / (self.config.get('load_resistor', 4700) * 
                             self.config.get('responsivity', 1.07))
             power_in_watts.append(power)
 
