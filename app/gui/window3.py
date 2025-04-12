@@ -231,6 +231,10 @@ class Window3Content(ctk.CTkFrame):
         H2 = np.array([[1, 0 ,0], [0,0,c_val], [0, c_val, 0]])
         H3 = np.array([[0,0,c_val], [0, 1, 0], [c_val, 0, 0]])
 
+        sample_rate = 1000  # Hz
+        samples_per_channel = int(dwell * sample_rate)  # Total samples to collect during dwell
+
+
         # Initial conditions
         a = np.zeros(3)
         a[0] = 1 # first input
