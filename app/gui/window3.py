@@ -379,8 +379,8 @@ class Window3Content(ctk.CTkFrame):
             # )
             # Get .npy files with expected naming pattern
             npy_files = sorted(
-                [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("step_")],
-                key=lambda x: int(x.split("_")[1].split(".")[0])  # Extract number from 'step_1.npy'
+                [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("U_step_")],
+                key=lambda x: int(x.split("_")[2].split(".")[0])  # Extract number from 'step_1.npy'
             )
             if not npy_files:
                 print("No unitary step files found in selected folder.")
@@ -388,7 +388,7 @@ class Window3Content(ctk.CTkFrame):
 
             # Prepare results storage
             results = []
-            headers = ["timestamp", "step", "site1", "site2"]
+            headers = ["timestamp", "step", "site1", "site2", "site3"]
 
             # Process each unitary file
             for step_idx, npy_file in enumerate(npy_files, start=1):
@@ -416,9 +416,9 @@ class Window3Content(ctk.CTkFrame):
                 self.apply_phase_new()
 
                 # DAQ measurements with continuous sampling during dwell time
-                daq_values = [0.0, 0.0]
+                daq_values = [0.0, 0.0, 0.0]
                 if self.daq and self.daq.list_ai_channels():
-                    channels = ["Dev1/ai0", "Dev1/ai1"]
+                    channels = ["Dev1/ai0", "Dev1/ai1", "Dev1/ai2"]
                     try:
                         # Read power continuously during dwell time
                         daq_vals = self.daq.read_power(
@@ -444,17 +444,18 @@ class Window3Content(ctk.CTkFrame):
 
                     except Exception as e:
                         print(f"Error reading DAQ: {e}")
-                        daq_values = [0.0, 0.0]
+                        daq_values = [0.0, 0.0, 0.0]
 
                 # Record results with timestamp
                 current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                row = [current_timestamp, step_idx, daq_values[0], daq_values[1]]
+                row = [current_timestamp, step_idx, daq_values[0], daq_values[1], daq_values[2]]
                 results.append(row)
                 
                 # Print current values
                 print(f"Step {step_idx} measurements:")
                 print(f"  Site 1: {daq_values[0]:.3f} µW")
                 print(f"  Site 2: {daq_values[1]:.3f} µW")
+                print(f"  Site 3: {daq_values[2]:.3f} µW")
 
             # Export results
             if results:
