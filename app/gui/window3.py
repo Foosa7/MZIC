@@ -294,6 +294,7 @@ class Window3Content(ctk.CTkFrame):
             # Read DAQ channels and get values
             daq_values = [0.0, 0.0, 0.0]  # Default values
             if self.daq and self.daq.list_ai_channels():
+                channels = ["Dev1/ai0", "Dev1/ai1"]
                 try:
                     self._read_all_daq_channels()
                     # Get the values from the last reading
