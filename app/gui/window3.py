@@ -227,9 +227,15 @@ class Window3Content(ctk.CTkFrame):
             return
 
         # Hamiltonians, 3x3
-        H1 = np.array([[0,c_val,0], [c_val, 0, 0], [0, 0, 1]])
-        H2 = np.array([[1, 0 ,0], [0,0,c_val], [0, c_val, 0]])
-        H3 = np.array([[0,0,c_val], [0, 1, 0], [c_val, 0, 0]])
+        H1 = np.array([[0,     c_val, 0    ],
+                       [c_val, 0,     0    ],
+                       [0,     0,     0    ]], dtype=float)
+        H2 = np.array([[0,     0,     0    ],
+                       [0,     0,     c_val],
+                       [0,     c_val, 0    ]], dtype=float)
+        H3 = np.array([[0,     0,     c_val],
+                       [0,     0,     0    ],
+                       [c_val, 0,     0    ]], dtype=float)
 
         # Initial conditions
         a = np.zeros(3)
@@ -286,7 +292,7 @@ class Window3Content(ctk.CTkFrame):
             time.sleep(dwell)
 
             # Read DAQ channels and get values
-            daq_values = [0.0, 0.0]  # Default values
+            daq_values = [0.0, 0.0, 0.0]  # Default values
             if self.daq and self.daq.list_ai_channels():
                 try:
                     self._read_all_daq_channels()
@@ -301,16 +307,17 @@ class Window3Content(ctk.CTkFrame):
                                 value = float(line.split('->')[1].split()[0])
                                 daq_values.append(value)
                     
-                    # Ensure we have at least 2 values (pad with 0 if needed)
-                    while len(daq_values) < 2:
+                    # Ensure we have at least 3 values (pad with 0 if needed)
+                    while len(daq_values) < 3:
                         daq_values.append(0.0)
                         
                     # Clear DAQ task after reading
                     self.daq.clear_task()
                 except Exception as e:
                     print(f"Error reading DAQ: {e}")
-                    daq_values = [0.0, 0.0]
+                    daq_values = [0.0, 0.0, 0.0]
 
+            '''
             # ---- Thorlabs measurements => site3
             thorlabs_vals = 0.0
             if self.thorlabs:
@@ -323,11 +330,11 @@ class Window3Content(ctk.CTkFrame):
                     thorlabs_vals = device.read_power(unit="uW")
                 except Exception as e:
                     print(f"Thorlabs read error: {e}")
-
+            '''
             
             current_timestamp = datetime.now().strftime("%H:%M:%S")
-            # Build one row => [step_idx+1, site1_daq, site2_daq, site3_thorlabs]
-            row = [current_timestamp, step_idx + 1, daq_values[0], daq_values[1], thorlabs_vals]
+            # Build one row => [step_idx+1, site1, site2, site3]
+            row = [current_timestamp, step_idx + 1, daq_values[0], daq_values[1], daq_values[2]]
             results.append(row)
 
             # # Create a zero-value configuration for all crosspoints.
@@ -338,7 +345,7 @@ class Window3Content(ctk.CTkFrame):
             # print("All values set to zero")
             # time.sleep(dwell/2)
 
-            print(row)
+            print('Step: ', step_idx + 1)
 
         self._export_results_to_csv(results, headers)
         print("AMF experiment complete!")
