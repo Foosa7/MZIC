@@ -18,23 +18,20 @@ def clements_to_chip(clements_bs_list):
             e^{iphi_chip}*sin(theta_chip/2)     cos(theta_chip/2)
             e^{iphi_chip}*cos(theta_chip/2)     -sin(theta_chip/2)
             
-    => phi_chip = phi_clements,  theta_chip = -2*theta_clements - pi  
-
+    => phi_chip = phi_clements + pi,  theta_chip = -2*theta_clements - pi, or theta_chip = 2*theta_clements + pi (factoring out minus sign)
     '''
 
     for bs in clements_bs_list:
-        bs.theta = -2 * bs.theta - np.pi
+        bs.theta = 2 * bs.theta + np.pi
         bs.theta = bs.theta % (2*np.pi)
-        print(bs.theta)
-        if abs(bs.theta) < 1e-10:
-            bs.theta = 0
+        #if abs(bs.theta) < 1e-10:
+        #    bs.theta = 0
         bs.theta = format(bs.theta/np.pi,'.10f')
      
-        
+        bs.phi = bs.phi + np.pi
         bs.phi = bs.phi % (2*np.pi)
-        print(bs.theta)
-        if abs(bs.phi) < 1e-10:
-            bs.phi = 0
+        #if abs(bs.phi) < 1e-10:
+        #    bs.phi = 0
         bs.phi = format(bs.phi/np.pi,'.10f')
     
 
