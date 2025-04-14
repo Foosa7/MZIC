@@ -9,6 +9,7 @@ from app.utils.unitary import mzi_lut
 from app.utils.unitary import mzi_convention
 from app.utils.appdata import AppData
 from datetime import datetime
+import re
 
 class Window3Content(ctk.CTkFrame):
     
@@ -378,14 +379,31 @@ class Window3Content(ctk.CTkFrame):
             #     key=lambda x: int(x.split("_")[2].split(".")[0])  # Extract number from 'unitary_step_001.npy'
             # )
             # Get .npy files with expected naming pattern
+            
+            
+            '''
             npy_files = sorted(
-                [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("U_step_")],
-                key=lambda x: int(x.split("_")[2].split(".")[0])  # Extract number from 'step_1.npy'
+                [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("step_")],
+                key=lambda x: int(x.split("_")[0].split(".")[0])  # Extract number from 'step_1.npy'
             )
             if not npy_files:
                 print("No unitary step files found in selected folder.")
                 return
 
+                
+            
+                
+            '''
+
+            # Get .npy files with numeric step values in their names
+            npy_files = sorted(
+                [f for f in os.listdir(folder_path) if f.endswith(".npy")],
+                key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else float('inf')  # Extract the first number in the filename
+            )
+
+            if not npy_files:
+                print("No unitary step files found in selected folder.")
+                return
             # Prepare results storage
             results = []
             headers = ["timestamp", "step", "site1", "site2", "site3"]
