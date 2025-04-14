@@ -215,21 +215,21 @@ class DAQ:
         for i, ch in enumerate(channels):
             V = voltages[i]
             if "ai0" in ch.lower():  
-                power = 3.8934e-04 * V  # PD1
+                power = 3.8934e-04 * V #- 1.3769e-6  # PD1
             elif "ai1" in ch.lower():  
-                power = 3.8853e-04 * V  # PD2
+                power = 3.8853e-04 * V  #- 7.2653e-6 # PD2
             elif "ai2" in ch.lower(): 
-                power = 3.7686e-04 * V  # PD3
+                power = 3.7686e-04 * V  #- 4.1698e-5 # PD3
             elif "ai3" in ch.lower():  
-                power = 4.0387e-04 * V  # PD4
+                power = 4.0387e-04 * V  #+ 3.57e-7# PD4
             elif "ai4" in ch.lower():  
-                power = 3.6247e-04 * V  # PD5
+                power = 3.6247e-04 * V  #-2.37e-5# PD5
             elif "ai5" in ch.lower(): 
-                power = 3.6618e-04 * V  # PD6
+                power = 3.6618e-04 * V  #-3.57e-5# PD6
             elif "ai6" in ch.lower():  
-                power = 3.7097e-04 * V  # PD7
+                power = 3.7097e-04 * V  #-2.139e-5# PD7
             elif "ai7" in ch.lower():  
-                power = 4.0287e-04 * V  # PD8
+                power = 4.0287e-04 * V  #-2.216e-6# PD8
 
             else:
                 # Fallback to default conversion
