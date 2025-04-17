@@ -948,7 +948,7 @@ class Window3Content(ctk.CTkFrame):
             setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
             '''
 
-            [A_phi, A_theta] = decompose_clements(matrix_u, block='mzi')
+            [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
             A_theta *= 2/np.pi
             A_phi += np.pi
             A_phi = A_phi % (2*np.pi)

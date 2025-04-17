@@ -35,7 +35,7 @@ def main():
     qontrol.connect()
     import_pickle(config)
 
-    # Connect to multiple Thorlabs devices if available
+    # Connect to multiple Thorlabs devices if available 
     thorlabs_devices = []
     
     if available_devices:
