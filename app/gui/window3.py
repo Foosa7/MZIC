@@ -10,6 +10,7 @@ from app.utils.unitary import mzi_convention
 from app.utils.appdata import AppData
 from datetime import datetime
 import re
+from pnn.methods import decompose_clements, reconstruct_clements
 
 class Window3Content(ctk.CTkFrame):
     
@@ -390,20 +391,16 @@ class Window3Content(ctk.CTkFrame):
                 print("No unitary step files found in selected folder.")
                 return
 
-                
-            
-                
             '''
 
-            # Get .npy files with numeric step values in their names
             npy_files = sorted(
-                [f for f in os.listdir(folder_path) if f.endswith(".npy")],
-                key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else float('inf')  # Extract the first number in the filename
+                [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("step_")],
+                key=lambda x: int(x.split("_")[1].split(".")[0])  # Extract number from 'step_1.npy'
             )
-
             if not npy_files:
                 print("No unitary step files found in selected folder.")
                 return
+
             # Prepare results storage
             results = []
             headers = ["timestamp", "step", "site1", "site2", "site3"]
@@ -421,6 +418,7 @@ class Window3Content(ctk.CTkFrame):
                     continue
 
                 # Decompose unitary
+                
                 try:
                     I = itf.square_decomposition(U_step)
                     bs_list = I.BS_list
@@ -434,9 +432,9 @@ class Window3Content(ctk.CTkFrame):
                 self.apply_phase_new()
 
                 # DAQ measurements with continuous sampling during dwell time
-                daq_values = [0.0, 0.0, 0.0]
+                daq_values = [0.0, 0.0, 0.0, 0.0]
                 if self.daq and self.daq.list_ai_channels():
-                    channels = ["Dev1/ai0", "Dev1/ai1", "Dev1/ai2"]
+                    channels = ["Dev1/ai0", "Dev1/ai1", "Dev1/ai2", "Dev1/ai3"]
                     try:
                         # Read power continuously during dwell time
                         daq_vals = self.daq.read_power(
@@ -462,11 +460,11 @@ class Window3Content(ctk.CTkFrame):
 
                     except Exception as e:
                         print(f"Error reading DAQ: {e}")
-                        daq_values = [0.0, 0.0, 0.0]
+                        daq_values = [0.0, 0.0, 0.0, 0.0]
 
                 # Record results with timestamp
                 current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                row = [current_timestamp, step_idx, daq_values[0], daq_values[1], daq_values[2]]
+                row = [current_timestamp, step_idx, daq_values[0], daq_values[1], daq_values[2], daq_values[3]]
                 results.append(row)
                 
                 # Print current values
@@ -474,6 +472,7 @@ class Window3Content(ctk.CTkFrame):
                 print(f"  Site 1: {daq_values[0]:.3f} µW")
                 print(f"  Site 2: {daq_values[1]:.3f} µW")
                 print(f"  Site 3: {daq_values[2]:.3f} µW")
+                print(f"  Site 4: {daq_values[3]:.3f} µW")
 
             # Export results
             if results:
@@ -939,6 +938,7 @@ class Window3Content(ctk.CTkFrame):
             return
     
         try:
+            '''
             # Perform decomposition
             I = itf.square_decomposition(matrix_u)
             bs_list = I.BS_list
@@ -946,10 +946,20 @@ class Window3Content(ctk.CTkFrame):
     
             # Store the decomposition result in AppData
             setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
-    
+            '''
+
+            [A_phi, A_theta] = decompose_clements(matrix_u, block='mzi')
+            A_theta *= 2/np.pi
+            A_phi += np.pi
+            A_phi = A_phi % (2*np.pi)
+            A_phi /= np.pi
+
+
+            setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, A_theta, A_phi))
+
         except Exception as e:
             print('Error in decomposition:', e)
-    
+
     def import_unitary_file(self):
         '''Import an .npy unitary file into the currently selected tab.'''
         path = filedialog.askopenfilename(

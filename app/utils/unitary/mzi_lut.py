@@ -2,6 +2,9 @@
 import json
 import math
 from app.imports import *
+#import numpy as np
+#from pnn.methods import decompose_clements, reconstruct_clements
+
 
 # Label sequence matching the physical layout
 LABEL_SEQUENCE_4x4 = [
@@ -49,6 +52,19 @@ LABEL_SEQUENCE_12x12 = [
     ["K6", "L5"]
 ]
 
+LABEL_CHIP_8x8 = [
+# PNN package mapping
+    ["A1", "C1", "E1", "G1"],
+    ["B1", "D1", "F1", "H1"],
+    ["A2", "C2", "E2", "G2"],
+    ["B2", "D2", "F2", "H2"],
+    ["A3", "C3", "E3", "G3"],
+    ["B3", "D3", "F3", "H3"],
+    ["A4", "C4", "E4", "G4"]
+]
+
+'''
+#Clements
 def get_label_sequence(n):
     if n == 4:
         return LABEL_SEQUENCE_4x4
@@ -56,6 +72,17 @@ def get_label_sequence(n):
         return LABEL_SEQUENCE_6x6
     elif n == 8:
         return LABEL_SEQUENCE_8x8
+    else:
+        return LABEL_SEQUENCE_12x12
+'''
+
+def get_label_sequence(n):
+    if n == 4:
+        return LABEL_SEQUENCE_4x4
+    elif n == 6:
+        return LABEL_SEQUENCE_6x6
+    elif n == 8:
+        return LABEL_CHIP_8x8
     else:
         return LABEL_SEQUENCE_12x12
 
@@ -78,6 +105,31 @@ def map_bs_list(n, bs_list):
     
     return mapping
 
+def map_pnn(n, A_theta, A_phi):
+    """Map beam splitters to physical labels based on pre-defined sequence"""
+    label_sequence = get_label_sequence(n)
+
+    A_theta = A_theta.flatten()
+    A_phi = A_phi.flatten()
+
+    N_length = len(A_theta)
+    
+    label_idx = 0
+    mapping = {}
+    
+    # Flatten the label sequence
+    flat_labels = [label for diagonal in label_sequence for label in diagonal]
+
+    for i in range(N_length):
+        if label_idx >= len(flat_labels):
+            break  # Prevent index errors for large N
+        label = flat_labels[label_idx]
+        mapping[label] = (A_theta[i], A_phi[i])
+        label_idx += 1
+    
+    return mapping
+
+'''
 def get_json_output(n, bs_list):
     """
     New version: Directly map BS list to physical layout
@@ -91,7 +143,41 @@ def get_json_output(n, bs_list):
             "arms": ['TL', 'TR', 'BL', 'BR'],	
             "theta": str(theta),
             "phi": str(phi),
-            
         }
         
     return output
+'''
+
+def get_json_output(n, A_theta, A_phi):
+    """
+    New version: Directly map BS list to physical layout
+    """
+    mapping = map_pnn(n, A_theta, A_phi)
+    output = {}
+    
+    for label, (theta, phi) in mapping.items():
+        
+        output[label] = {
+            "arms": ['TL', 'TR', 'BL', 'BR'],	
+            "theta": str(theta),
+            "phi": str(phi),
+        }
+        
+    return output
+
+'''
+def main():
+    
+    U = np.eye(8)
+    
+    [A_phi, A_theta, alpha] = decompose_clements(U, block='mzi')
+    A_theta *= 2/np.pi
+    A_phi += np.pi
+    A_phi = A_phi % (2*np.pi)
+    A_phi /= np.pi
+    output = get_json_output(8, A_theta, A_phi)
+    print(output)
+        
+if __name__ == "__main__":
+    main()
+'''
