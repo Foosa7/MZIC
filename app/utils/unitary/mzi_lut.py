@@ -52,6 +52,7 @@ LABEL_SEQUENCE_12x12 = [
     ["K6", "L5"]
 ]
 
+'''
 LABEL_CHIP_8x8 = [
 # PNN package mapping
     ["A1", "C1", "E1", "G1"],
@@ -62,8 +63,8 @@ LABEL_CHIP_8x8 = [
     ["B3", "D3", "F3", "H3"],
     ["A4", "C4", "E4", "G4"]
 ]
-
 '''
+
 #Clements
 def get_label_sequence(n):
     if n == 4:
@@ -74,8 +75,8 @@ def get_label_sequence(n):
         return LABEL_SEQUENCE_8x8
     else:
         return LABEL_SEQUENCE_12x12
-'''
 
+'''
 def get_label_sequence(n):
     if n == 4:
         return LABEL_SEQUENCE_4x4
@@ -85,6 +86,7 @@ def get_label_sequence(n):
         return LABEL_CHIP_8x8
     else:
         return LABEL_SEQUENCE_12x12
+'''
 
 def map_bs_list(n, bs_list):
     """Map beam splitters to physical labels based on pre-defined sequence"""
@@ -105,6 +107,8 @@ def map_bs_list(n, bs_list):
     
     return mapping
 
+
+'''
 def map_pnn(n, A_theta, A_phi):
     """Map beam splitters to physical labels based on pre-defined sequence"""
     label_sequence = get_label_sequence(n)
@@ -128,8 +132,8 @@ def map_pnn(n, A_theta, A_phi):
         label_idx += 1
     
     return mapping
-
 '''
+
 def get_json_output(n, bs_list):
     """
     New version: Directly map BS list to physical layout
@@ -146,8 +150,8 @@ def get_json_output(n, bs_list):
         }
         
     return output
-'''
 
+'''
 def get_json_output(n, A_theta, A_phi):
     """
     New version: Directly map BS list to physical layout
@@ -164,6 +168,7 @@ def get_json_output(n, A_theta, A_phi):
         }
         
     return output
+'''
 
 '''
 def main():

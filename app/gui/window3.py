@@ -10,7 +10,7 @@ from app.utils.unitary import mzi_convention
 from app.utils.appdata import AppData
 from datetime import datetime
 import re
-from pnn.methods import decompose_clements, reconstruct_clements
+#from pnn.methods import decompose_clements, reconstruct_clements
 
 class Window3Content(ctk.CTkFrame):
     
@@ -403,7 +403,7 @@ class Window3Content(ctk.CTkFrame):
 
             # Prepare results storage
             results = []
-            headers = ["timestamp", "step", "site1", "site2", "site3"]
+            headers = ["timestamp", "step", "site1", "site2", "site3", "site4"]
 
             # Process each unitary file
             for step_idx, npy_file in enumerate(npy_files, start=1):
@@ -761,23 +761,20 @@ class Window3Content(ctk.CTkFrame):
 
     def _calculate_current_from_params(self, channel, phase_value, params):
         """Calculate current from phase parameters"""
-        # Extract calibration parameters
-        A = params['amp']
-        b = params['omega']
-        c = params['phase']
-        d = params['offset']
-        phase_value_offset = phase_value
-        # Check if phase is within valid range
-        if phase_value < c/np.pi:
-            print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
-            # Add phase_value by 2 and continue with calculation
-            phase_value_offset  = phase_value + 2.0
-            
-            print(f"Using adjusted phase value: {phase_value_offset}π")
 
-        # Calculate heating power for this phase shift
-        P = abs((phase_value_offset*np.pi - c) / b)
-        
+        # --- calibration parameters -------------------------------------------
+        A = params['amp']
+        b = params['omega']            
+        c = params['phase']            # offset phase at I = 0  
+        d = params['offset']           # amplitude offset
+
+        # --- minimal phase advance --------------------------------------------
+        phase_target = phase_value * np.pi          # requested phase   [rad]
+        delta_phase  = (phase_target - c) % (2*np.pi) # 0 ≤ δφ < 2π
+
+        # Heater power
+        P = delta_phase / b     # always ≥ 0
+
         # Get resistance parameters
         if channel < len(self.app.resistance_parameter_list):
             r_params = self.app.resistance_parameter_list[channel]

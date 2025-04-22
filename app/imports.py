@@ -40,8 +40,8 @@ from unittest.mock import MagicMock
 from PIL import Image, ImageTk
 import sympy as sp
 import interferometer as itf
-import pnn
-from pnn.methods import decompose_clements, reconstruct_clements
+#import pnn
+#from pnn.methods import decompose_clements, reconstruct_clements
 
 # CustomTkinter GUI
 import customtkinter as ctk
