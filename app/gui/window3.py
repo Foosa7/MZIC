@@ -418,7 +418,7 @@ class Window3Content(ctk.CTkFrame):
                     continue
 
                 # Decompose unitary
-                '''
+                
                 try:
                     I = itf.square_decomposition(U_step)
                     bs_list = I.BS_list
@@ -427,8 +427,9 @@ class Window3Content(ctk.CTkFrame):
                 except Exception as e:
                     print(f"Error in decomposition: {e}")
                     continue
-                '''
+                
 
+                '''
                 try:
                     [A_phi, A_theta, *_] = decompose_clements(U_step, block='mzi')
                     A_theta *= 2/np.pi
@@ -439,7 +440,7 @@ class Window3Content(ctk.CTkFrame):
 
                 except Exception as e:
                     print('Error in decomposition:', e)
-               
+                '''
                 # Apply phases
                 self.apply_phase_new()
 
@@ -778,18 +779,26 @@ class Window3Content(ctk.CTkFrame):
         b = params['omega']
         c = params['phase']
         d = params['offset']
+                
+        # Find the positive phase the heater must add 
+        delta_phase = (phase_value % 2) * np.pi
+
+        # Calculate the heating power for this phase shift
+        P = delta_phase / b
+        
+        '''
         phase_value_offset = phase_value
         # Check if phase is within valid range
         if phase_value < c/np.pi:
             print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
             # Add phase_value by 2 and continue with calculation
-            phase_value_offset  = phase_value + 2.0
+            phase_value_offset  = phase_value
             
             print(f"Using adjusted phase value: {phase_value_offset}π")
 
         # Calculate heating power for this phase shift
         P = abs((phase_value_offset*np.pi - c) / b)
-        
+        '''
         # Get resistance parameters
         if channel < len(self.app.resistance_parameter_list):
             r_params = self.app.resistance_parameter_list[channel]
@@ -950,7 +959,7 @@ class Window3Content(ctk.CTkFrame):
             return
     
         try:
-            '''
+            
             # Perform decomposition
             I = itf.square_decomposition(matrix_u)
             bs_list = I.BS_list
@@ -958,17 +967,18 @@ class Window3Content(ctk.CTkFrame):
     
             # Store the decomposition result in AppData
             setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
-            '''
+            print(AppData.default_json_grid)
 
+            '''
             [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
             A_theta *= 2/np.pi
             A_phi += np.pi
             A_phi = A_phi % (2*np.pi)
             A_phi /= np.pi
-
+            
 
             setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, A_theta, A_phi))
-
+            '''
         except Exception as e:
             print('Error in decomposition:', e)
 

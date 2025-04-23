@@ -904,12 +904,19 @@ class Window1Content(ctk.CTkFrame):
 
     def _calculate_current_from_params(self, channel, phase_value, params):
         """Calculate current from phase parameters"""
-        # Extract calibration parameters
+        # Extract calibration parameters     
         A = params['amp']
         b = params['omega']
-        c = params['phase']
+        c = params['phase']     # offset phase in radians
         d = params['offset']
         
+        # Find the positive phase the heater must add 
+        delta_phase = (phase_value % 2) * np.pi
+
+        # Calculate the heating power for this phase shift
+        P = delta_phase / b
+
+        '''
         # Check if phase is within valid range
         if phase_value < c/np.pi:
             print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
@@ -919,7 +926,7 @@ class Window1Content(ctk.CTkFrame):
 
         # Calculate heating power for this phase shift
         P = abs((phase_value*np.pi - c) / b)
-        
+        '''
         # Get resistance parameters
         if channel < len(self.app.resistance_parameter_list):
             r_params = self.app.resistance_parameter_list[channel]
