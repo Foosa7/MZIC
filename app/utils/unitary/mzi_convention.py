@@ -22,20 +22,24 @@ def clements_to_chip(clements_bs_list):
     '''
 
     for bs in clements_bs_list:
-        #bs.theta = 2*bs.theta
-        bs.theta = 2 * bs.theta + np.pi
-        #bs.theta = -2 * bs.theta - np.pi
+        # Convert angle from Clements to chip convention
+        theta = 2*bs.theta + np.pi         # raw conversion
+        phi   = bs.phi + np.pi
 
-        bs.theta = bs.theta % (2*np.pi)
-        if abs(bs.theta) < 1e-10:
-            bs.theta = 0
-        bs.theta = format(bs.theta/np.pi,'.10f')
-     
-        bs.phi = bs.phi + np.pi
-        #bs.phi = bs.phi 
-        bs.phi = bs.phi % (2*np.pi)
-        if abs(bs.phi) < 1e-10:
-            bs.phi = 0
-        bs.phi = format(bs.phi/np.pi,'.10f')
-    
+        # -----  wrap θ into the canonical range 0 … π  -----
+        theta = theta % (2*np.pi)
+        if theta > np.pi:          # equivalent θ that lies in 0…π
+                theta -= np.pi         # remove the redundant block sign
+                phi   += np.pi         # and compensate it on φ
+        # ----------------------------------------------------
+
+        # final normalisation
+        theta = 0 if abs(theta) < 1e-10 else theta
+        phi   =   phi % (2*np.pi)
+        phi   = 0 if abs(phi)   < 1e-10 else phi
+
+        # store as multiples of π 
+        bs.theta = format(theta/np.pi, '.10f')
+        bs.phi   = format(phi  /np.pi, '.10f')
+        
 
