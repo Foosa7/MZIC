@@ -786,7 +786,7 @@ class Window3Content(ctk.CTkFrame):
 
         # Calculate the heating power for this phase shift
         P = delta_phase / b
-        
+        '''
         
         phase_value_offset = phase_value
         # Check if phase is within valid range
@@ -799,7 +799,7 @@ class Window3Content(ctk.CTkFrame):
 
         # Calculate heating power for this phase shift
         P = abs((phase_value_offset*np.pi - c) / b)
-        '''
+        
         
         # Get resistance parameters
         if channel < len(self.app.resistance_parameter_list):
