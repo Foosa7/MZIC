@@ -935,7 +935,7 @@ class Window3Content(ctk.CTkFrame):
             return
     
         try:
-            '''
+            
             # Perform decomposition
             I = itf.square_decomposition(matrix_u)
             bs_list = I.BS_list
@@ -943,17 +943,18 @@ class Window3Content(ctk.CTkFrame):
     
             # Store the decomposition result in AppData
             setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
-            '''
+            
 
+            '''
             [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
             A_theta *= 2/np.pi
             A_phi += np.pi
             A_phi = A_phi % (2*np.pi)
             A_phi /= np.pi
-
-
+            
             setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, A_theta, A_phi))
-
+            '''
+            
         except Exception as e:
             print('Error in decomposition:', e)
 
