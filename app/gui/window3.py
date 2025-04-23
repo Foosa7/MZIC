@@ -420,10 +420,23 @@ class Window3Content(ctk.CTkFrame):
                 # Decompose unitary
                 
                 try:
+
+
+                    '''
                     I = itf.square_decomposition(U_step)
                     bs_list = I.BS_list
                     mzi_convention.clements_to_chip(bs_list)
                     setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
+                    '''
+
+                    [A_phi, A_theta, *_] = decompose_clements(U_step, block='mzi')
+                    A_theta *= 2/np.pi
+                    A_phi += np.pi
+                    A_phi = A_phi % (2*np.pi)
+                    A_phi /= np.pi
+                    
+                    setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, A_theta, A_phi))
+
                 except Exception as e:
                     print(f"Error in decomposition: {e}")
                     continue
@@ -936,6 +949,7 @@ class Window3Content(ctk.CTkFrame):
     
         try:
             
+            '''
             # Perform decomposition
             I = itf.square_decomposition(matrix_u)
             bs_list = I.BS_list
@@ -943,9 +957,8 @@ class Window3Content(ctk.CTkFrame):
     
             # Store the decomposition result in AppData
             setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
-            
-
             '''
+
             [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
             A_theta *= 2/np.pi
             A_phi += np.pi
@@ -953,7 +966,7 @@ class Window3Content(ctk.CTkFrame):
             A_phi /= np.pi
             
             setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, A_theta, A_phi))
-            '''
+            
             
         except Exception as e:
             print('Error in decomposition:', e)
