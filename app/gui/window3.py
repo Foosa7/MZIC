@@ -779,14 +779,15 @@ class Window3Content(ctk.CTkFrame):
         b = params['omega']
         c = params['phase']
         d = params['offset']
-                
+        
+        '''
         # Find the positive phase the heater must add 
         delta_phase = (phase_value % 2) * np.pi
 
         # Calculate the heating power for this phase shift
         P = delta_phase / b
         
-        '''
+        
         phase_value_offset = phase_value
         # Check if phase is within valid range
         if phase_value < c/np.pi:
@@ -799,6 +800,7 @@ class Window3Content(ctk.CTkFrame):
         # Calculate heating power for this phase shift
         P = abs((phase_value_offset*np.pi - c) / b)
         '''
+        
         # Get resistance parameters
         if channel < len(self.app.resistance_parameter_list):
             r_params = self.app.resistance_parameter_list[channel]
