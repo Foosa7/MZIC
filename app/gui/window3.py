@@ -793,7 +793,7 @@ class Window3Content(ctk.CTkFrame):
         if phase_value < c/np.pi:
             print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
             # Add phase_value by 2 and continue with calculation
-            phase_value_offset  = phase_value
+            phase_value_offset  = phase_value + 2
             
             print(f"Using adjusted phase value: {phase_value_offset}π")
 
