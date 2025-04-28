@@ -31,7 +31,7 @@ def clements_to_chip(clements_bs_list):
             bs.theta = 0
         bs.theta = format(bs.theta/np.pi,'.10f')
      
-        bs.phi = bs.phi - np.pi
+        bs.phi = bs.phi + np.pi
         #bs.phi = bs.phi 
         bs.phi = bs.phi % (2*np.pi)
         if abs(bs.phi) < 1e-10:
