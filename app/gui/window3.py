@@ -431,7 +431,59 @@ class Window3Content(ctk.CTkFrame):
 
                     [A_phi, A_theta, *_] = decompose_clements(U_step, block='mzi')
                     A_theta *= 2/np.pi
-                    A_phi += np.pi
+                    '''
+                    # COMMON MODE PHASE
+    
+                    # ROW 1
+                    A_phi[0][0] = A_phi[0][0] 
+                    A_phi[0][1] = A_phi[0][1] + A_theta[1][0] + np.pi / 2
+                    A_phi[0][2] = A_phi[0][2] + A_theta[1][1] + np.pi / 2
+                    A_phi[0][3] = A_phi[0][2] + A_theta[1][2] + np.pi / 2
+                    
+                    
+                    # ROW 2
+                    A_phi[1][0] = A_phi[1][0] - A_theta[0][0] + A_theta[2][0]
+                    A_phi[1][1] = A_phi[1][1] - A_theta[0][1] + A_theta[2][1]
+                    A_phi[1][2] = A_phi[1][2] - A_theta[0][2] + A_theta[2][2]
+                    A_phi[1][3] = A_phi[1][3] - A_theta[0][3] + A_theta[2][3]
+                    
+                    
+                    # ROW 3
+                    A_phi[2][0] = A_phi[2][0] 
+                    A_phi[2][1] = A_phi[2][1] - A_theta[1][0] + A_theta[3][0]
+                    A_phi[2][2] = A_phi[2][2] - A_theta[1][1] + A_theta[3][1]
+                    A_phi[2][3] = A_phi[2][3] - A_theta[1][2] + A_theta[3][2]
+                    
+                    
+                    # ROW 4
+                    A_phi[3][0] = A_phi[3][0] - A_theta[2][0] + A_theta[4][0]
+                    A_phi[3][1] = A_phi[3][1] - A_theta[2][1] + A_theta[4][1]
+                    A_phi[3][2] = A_phi[3][2] - A_theta[2][2] + A_theta[4][2]
+                    A_phi[3][3] = A_phi[3][3] - A_theta[2][3] + A_theta[4][3]
+                    
+                    
+                    # ROW 5
+                    A_phi[4][0] = A_phi[4][0] 
+                    A_phi[4][1] = A_phi[4][1] - A_theta[3][0] + A_theta[5][0]
+                    A_phi[4][2] = A_phi[4][2] - A_theta[3][1] + A_theta[5][1]
+                    A_phi[4][3] = A_phi[4][3] - A_theta[3][2] + A_theta[5][2]
+                    
+                    
+                    # ROW 6
+                    A_phi[5][0] = A_phi[5][0] - A_theta[4][0] + A_theta[6][0]
+                    A_phi[5][1] = A_phi[5][1] - A_theta[4][1] + A_theta[6][1]
+                    A_phi[5][2] = A_phi[5][2] - A_theta[4][2] + A_theta[6][2]
+                    A_phi[5][3] = A_phi[5][3] - A_theta[4][3] + A_theta[6][3]
+                    
+                    
+                    # ROW 7
+                    A_phi[6][0] = A_phi[6][0] 
+                    A_phi[6][1] = A_phi[6][1] - A_theta[5][0] - np.pi / 2
+                    A_phi[6][2] = A_phi[6][2] - A_theta[5][1] - np.pi / 2
+                    A_phi[6][3] = A_phi[6][3] - A_theta[5][2] - np.pi / 2
+                    '''
+                    
+                    #A_phi += np.pi
                     A_phi = A_phi % (2*np.pi)
                     A_phi /= np.pi
                     

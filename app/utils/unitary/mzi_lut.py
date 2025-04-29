@@ -128,10 +128,11 @@ def map_pnn(n, A_theta, A_phi):
     for i in range(N_length):
         if label_idx >= len(flat_labels):
             break  # Prevent index errors for large N
-
-        if i == 2:
-            A_phi[i] = 0 
-
+        
+        if i in [7, 11, 2, 10]:
+            A_phi[i] += 1.0
+            A_phi[i] = A_phi[i] % 2
+        
         label = flat_labels[label_idx]
         mapping[label] = (A_theta[i], A_phi[i])
         label_idx += 1
