@@ -221,6 +221,26 @@ class Window1Content(ctk.CTkFrame):
                                           placeholder_text="Samples")
         self.samples_entry.pack(side="left", padx=5, pady=5)
 
+        # --- Add input for path sequence, delay, and run button ---
+        self.path_sequence_entry = ctk.CTkEntry(row1_frame,
+                                                width=180,
+                                                placeholder_text="Paste JSON lines here")
+        self.path_sequence_entry.pack(side="left", padx=5, pady=5)
+
+        self.delay_entry = ctk.CTkEntry(row1_frame,
+                                        width=60,
+                                        placeholder_text="Delay (s)")
+        self.delay_entry.insert(0, "0.5")
+        self.delay_entry.pack(side="left", padx=5, pady=5)
+
+        self.run_path_sequence_button = ctk.CTkButton(
+            row1_frame,
+            text="Run Path Sequence",
+            command=self._on_run_path_sequence
+        )
+        self.run_path_sequence_button.pack(side="left", padx=5, pady=5)
+        # --------------------------------------------------
+
         # Compact error display in inner_frame
         self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
         self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
@@ -636,7 +656,7 @@ class Window1Content(ctk.CTkFrame):
                     entry.bind("<KeyRelease>", lambda e: self._update_device())
 
 ## config has the current values so the apply phase has to read from default_json_grid which return values in 3.14 which means 1 pi and calculate the phases for the entire grid one by one
-#  and then export the calculated values in the same format as custom_grid.export_paths_json()
+## and then export the calculated values in the same format as custom_grid.export_paths_json()
 ## calculated values 
 ## to config 
 
@@ -731,6 +751,15 @@ class Window1Content(ctk.CTkFrame):
             # Reset cross_selected_count.
             self.custom_grid.cross_selected_count.clear()
 
+            # Reset selected_labels in AppData
+            AppData.selected_labels.clear()
+
+            # Reset all label colors to white
+            for label_id in self.custom_grid.cross_labels.values():
+                if label_id is not None:
+                    self.custom_grid.canvas.itemconfig(label_id, fill="white")
+
+
             # Reset last selection.
             self.custom_grid.last_selection = {"cross": None, "arm": None}
             AppData.update_last_selection(None, None)
@@ -800,6 +829,9 @@ class Window1Content(ctk.CTkFrame):
             # Track successful and failed applications
             applied_channels = []
             failed_channels = []
+
+            print("caliparamlist_lincub_cross:", getattr(self.app, "caliparamlist_lincub_cross", None))
+            print("caliparamlist_lincub_bar:", getattr(self.app, "caliparamlist_lincub_bar", None))
             
             # Process each cross in the grid
             for cross_label, data in grid_config.items():
@@ -1454,6 +1486,31 @@ class Window1Content(ctk.CTkFrame):
         # Keep reference to prevent garbage collection
         self._current_measure_image = ctk_image
 
+    def run_path_sequence(self, path_list, delay=0.5):
+        """
+        Run each path (JSON dict) in path_list with a delay between each.
+        Updates AppData.default_json_grid and applies phase logic for each step.
+        """
+        def run_next(index):
+            if index >= len(path_list):
+                print("All paths applied.")
+                return
+            # Update the global grid config
+            AppData.default_json_grid = path_list[index]
+            print(f"Applying path {index+1}/{len(path_list)}: {AppData.default_json_grid}")
+            # Optionally update the grid UI
+            self.custom_grid.import_paths_json(json.dumps(AppData.default_json_grid))
+            # Run your phase application logic
+            self.apply_phase_new()
+            # Schedule the next path after the delay
+            self.after(int(delay * 1000), lambda: run_next(index + 1))
+
+        run_next(0)
+
+    # Example usage:
+    # path_list = [dict1, dict2, dict3, ...]  # Each dict is a parsed JSON config
+    # self.run_path_sequence(path_list, delay=0.5)
+
     # def apply_phase_sweep(self):
     #     """
     #     Apply phase settings to the entire grid based on phase calibration data.
@@ -1544,3 +1601,30 @@ class Window1Content(ctk.CTkFrame):
     #         import traceback
     #         traceback.print_exc()
     #         return None
+
+    def _on_run_path_sequence(self):
+        """
+        Handler for the Run Path Sequence button.
+        Expects multiple JSON lines in the entry, one per line.
+        """
+        import json
+        raw = self.path_sequence_entry.get()
+        delay_raw = self.delay_entry.get()
+        if not raw.strip():
+            self._show_error("Please paste JSON lines for the path sequence.")
+            return
+        try:
+            delay = float(delay_raw)
+            if delay < 0:
+                raise ValueError("Delay must be non-negative.")
+        except Exception as e:
+            self._show_error(f"Invalid delay value: {e}")
+            return
+        try:
+            # Support multi-line input: each line is a JSON dict
+            lines = [line for line in raw.strip().splitlines() if line.strip()]
+            path_list = [json.loads(line) for line in lines]
+        except Exception as e:
+            self._show_error(f"Invalid JSON input: {e}")
+            return
+        self.run_path_sequence(path_list, delay=delay)

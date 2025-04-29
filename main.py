@@ -1,6 +1,5 @@
 # main.py
 from app.imports import *
-from app.utils.utils import import_pickle
 import ctypes
 from nidaqmx.errors import DaqNotFoundError 
 
@@ -33,7 +32,18 @@ def main():
     qontrol = QontrolDevice(config=config)
     # Connect to Qontrol device
     qontrol.connect()
-    import_pickle(config)
+    # import_pickle(config)
+    # apply_imported_config(config)   
+    # appdata = AppData(n_channels=0)
+
+    # # Usage example (in your app initialization code):
+
+    # imported = import_pickle(config)
+    # if imported:
+    #     apply_imported_config(appdata, imported)
+    # else:
+    #     print("No config loaded.")
+
 
     # Connect to multiple Thorlabs devices if available 
     thorlabs_devices = []

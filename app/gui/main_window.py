@@ -5,6 +5,7 @@ import tkinter.messagebox as messagebox
 import app.gui.widgets as widgets
 import app.gui.window1 as window1
 from app.gui.widgets import PhaseShifterSelectionWidget
+from app.utils.utils import import_pickle, apply_imported_config
 
 from app.gui.window1 import Window1Content  # Import the Window1Content widget
 from app.gui.window2 import Window2Content  # Import the Window2Content widget
@@ -30,6 +31,22 @@ class MainWindow(ctk.CTk):
 
         # Create an AppData instance with the desired number of channels.
         self.appdata = AppData(n_channels=0)
+
+        # --- AUTO-IMPORT CALIBRATION DATA HERE ---
+        try:
+            default_config_path = self.config.get("default_config")
+            if default_config_path:
+                imported = import_pickle(default_config_path)
+                if imported:
+                    apply_imported_config(self.appdata, imported)
+                    print("[INFO] Calibration auto-imported into appdata.")
+                else:
+                    print("[INFO] No calibration config loaded.")
+            else:
+                print("[INFO] No default_config path in settings.")
+        except Exception as e:
+            print(f"[ERROR] Failed to auto-import calibration: {e}")
+
 
         # Main frame with left and right panels.
         self.main_frame = ctk.CTkFrame(self)
@@ -79,6 +96,7 @@ class MainWindow(ctk.CTk):
         
         # Initially, load the content for Window 1.
         self.load_window_content("Window 1")
+        
         
         # Connect devices after widgets are built.
         self.after(200, self.connect_devices)

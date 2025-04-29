@@ -296,11 +296,15 @@ class Example(Frame):
     def create_x_shape(self, center_name, x, y, arm_length, label):
         """Creates an X shape with label."""
         self.nodes[center_name] = Node(center_name, x, y)
-        self.cross_labels[center_name] = self.canvas.create_text(
+        self.cross_labels[center_name] = None  # Initialize label ID
+        label_id = self.canvas.create_text(
             x + arm_length - 20, y,
             text=label,
             anchor='w', font=("Arial", 12), fill="white"
         )
+        self.cross_labels[center_name] = label_id
+        self.canvas.tag_bind(label_id, "<Button-1>", lambda event, lbl=label: self.on_label_click(lbl, label_id))
+
 
         # # Create top-left dot (added feature)
         # tl_x = x - arm_length
@@ -322,6 +326,20 @@ class Example(Frame):
             arm_name = f"{center_name}_{suffix}"
             self.nodes[arm_name] = Node(arm_name, x + dx, y + dy)
             self.create_path(self.nodes[center_name], self.nodes[arm_name])
+
+    def on_label_click(self, label, label_id):
+        """Handles label selection and stores selected labels in AppData."""
+        if not hasattr(AppData, "selected_labels"):
+            AppData.selected_labels = set()
+        if label in AppData.selected_labels:
+            AppData.selected_labels.remove(label)
+            self.canvas.itemconfig(label_id, fill="white")
+        else:
+            AppData.selected_labels.add(label)
+            self.canvas.itemconfig(label_id, fill="red")
+        print("Selected labels:", AppData.selected_labels)
+
+
 
     def get_cross_modes(self):
         """Returns a dict mapping cross labels to their selection type (bar/cross/split)."""

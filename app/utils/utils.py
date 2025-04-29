@@ -34,6 +34,44 @@ def import_pickle(config):
     print(f"[INFO] Successfully imported {import_file}")
     return imported_data  # Return the loaded data
 
+def apply_imported_config(obj, imported):
+    """Apply imported pickle data to the given object, just like importfunc does."""
+    # Reassign the fitfunc back from the reference string.
+    for key in ['caliparamlist_lin_cross', 'caliparamlist_lin_bar',
+                'caliparamlist_lincub_cross', 'caliparamlist_lincub_bar']:
+        if hasattr(obj, key) and key in imported:
+            matrix = imported[key]
+            for i, data in enumerate(matrix):
+                if isinstance(data, dict) and 'fitfunc' in data:
+                    if data['fitfunc'] == 'fit_cos_func':
+                        data['fitfunc'] = obj.fit_cos
+                    matrix[i] = data
+            setattr(obj, key, matrix)
+
+    # Import standard matrices.
+    standard_matrices = imported.get("standard_matrices", {})
+    for attr_name, matrix in standard_matrices.items():
+        if hasattr(obj, attr_name):
+            setattr(obj, attr_name, matrix)
+
+    # Import BytesIO matrices from images.
+    import_dir = imported.get("import_dir", None)
+    if not import_dir:
+        import_dir = os.getcwd()
+    image_map = imported.get("image_map", {})
+    for matrix_name, image_filenames in image_map.items():
+        if hasattr(obj, matrix_name):
+            matrix = getattr(obj, matrix_name)
+            if isinstance(matrix, list):
+                for i, filename in enumerate(image_filenames):
+                    image_path = os.path.join(import_dir, filename)
+                    if os.path.exists(image_path):
+                        with open(image_path, "rb") as img_file:
+                            buf = BytesIO(img_file.read())
+                            buf.seek(0)
+                            if i >= len(matrix):
+                                matrix.extend([None] * (i + 1 - len(matrix)))
+                            matrix[i] = buf
 
 
 def importfunc(obj):

@@ -13,6 +13,15 @@ class AppData:
     saved_unitary_U2 = None     
     saved_unitary_U3 = None    
 
+    selected_labels = set()
+    selected_output_pins = set()
+    io_config = None
+    last_selection = {"cross": None, "arm": None}
+
+    # @classmethod
+    # def update_last_selection(cls, cross, arm):
+    #     cls.last_selection = {"cross": cross, "arm": arm}
+
     # @classmethod
     # def update_last_selection(cls, cross, arm):
     #     cls.last_selected["cross"] = cross.split('-')[0]  # Handle composite labels
