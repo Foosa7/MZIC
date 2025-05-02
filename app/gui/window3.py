@@ -9,8 +9,6 @@ from app.utils.unitary import mzi_lut
 from app.utils.unitary import mzi_convention
 from app.utils.appdata import AppData
 from datetime import datetime
-import re
-from pnn.methods import decompose_clements, reconstruct_clements
 
 class Window3Content(ctk.CTkFrame):
     
@@ -403,7 +401,7 @@ class Window3Content(ctk.CTkFrame):
 
             # Prepare results storage
             results = []
-            headers = ["timestamp", "step", "site1", "site2", "site3"]
+            headers = ["timestamp", "step", "site1", "site2", "site3", "site4"]
 
             # Process each unitary file
             for step_idx, npy_file in enumerate(npy_files, start=1):
@@ -427,27 +425,14 @@ class Window3Content(ctk.CTkFrame):
                 except Exception as e:
                     print(f"Error in decomposition: {e}")
                     continue
-                
-
-                '''
-                try:
-                    [A_phi, A_theta, *_] = decompose_clements(U_step, block='mzi')
-                    A_theta *= 2/np.pi
-                    A_phi += np.pi
-                    A_phi = A_phi % (2*np.pi)
-                    A_phi /= np.pi
-                    setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, A_theta, A_phi))
-
-                except Exception as e:
-                    print('Error in decomposition:', e)
-                '''
+            
                 # Apply phases
                 self.apply_phase_new()
 
                 # DAQ measurements with continuous sampling during dwell time
                 daq_values = [0.0, 0.0, 0.0, 0.0]
                 if self.daq and self.daq.list_ai_channels():
-                    channels = ["Dev1/ai0", "Dev1/ai1", "Dev1/ai2", "Dev1/ai3"]
+                    channels = ["Dev1/ai0", "Dev1/ai1", "Dev1/ai2", "Dev1/ai3", "Dev1/ai4"]
                     try:
                         # Read power continuously during dwell time
                         daq_vals = self.daq.read_power(
@@ -503,101 +488,6 @@ class Window3Content(ctk.CTkFrame):
             print(f"Experiment failed: {e}")
             import traceback
             traceback.print_exc()
-
-
-    # def run_nh_experiment_from_folder(self):
-    #     """
-    #     1) Prompts the user to select a folder containing .npy files.
-    #     2) Loads each .npy file in sequence, assigns it to U_step, and processes it.
-    #     3) Applies phases, measures output power, and saves results to a CSV file.
-    #     """
-    #     try:
-    #         # Get dwell time
-    #         dwell = float(self.dwell_entry.get())
-    #     except ValueError as e:
-    #         print(f"Error reading NH inputs: {e}")
-    #         return
-
-    #     # Prompt the user to select a folder
-    #     folder_path = filedialog.askdirectory(title="Select Folder Containing .npy Files")
-    #     if not folder_path:
-    #         print("No folder selected. Aborting.")
-    #         return
-
-    #     # # Get all .npy files in the folder, sorted by step number
-    #     # npy_files = sorted(
-    #     #     [f for f in os.listdir(folder_path) if f.endswith(".npy")],
-    #     #     key=lambda x: int(x.split("_")[1].split(".")[0])  # Extract step number from filename
-    #     # )
-
-    #     # Get all .npy files in the folder, sorted by step number
-    #     npy_files = sorted(
-    #         [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("unitary_step_")],
-    #         key=lambda x: int(x.split("_")[2].split(".")[0])  # Extract number from 'unitary_step_001.npy'
-    #     )
-
-    #     if not npy_files:
-    #         print("No .npy files found in the selected folder.")
-    #         return
-
-    #     # Prepare to store data: e.g., a list of [step_idx, power_ch0, power_ch1]
-    #     results = []
-    #     # headers = ["step", "site1", "site2"]
-    #     headers = ["timestamp", "step", "site1", "site2"] # Updated headers
-
-    #     for step_idx, npy_file in enumerate(npy_files, start=1):
-    #         file_path = os.path.join(folder_path, npy_file)
-
-    #         # Load the .npy file as U_step
-    #         try:
-    #             U_step = np.load(file_path)
-    #             print(f"Loaded {npy_file}")
-    #         except Exception as e:
-    #             print(f"Error loading {npy_file}: {e}")
-    #             continue
-
-    #         # Decompose the unitary
-    #         try:
-    #             I = itf.square_decomposition(U_step)
-    #             bs_list = I.BS_list
-    #             print(bs_list)
-    #             mzi_convention.clements_to_chip(bs_list)
-
-    #             # Store the decomposition result in AppData
-    #             setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
-    #         except Exception as e:
-    #             print(f"Error in decomposition for {npy_file}: {e}")
-    #             continue
-
-    #         # Apply the phase
-    #         self.apply_phase_new()
-
-    #         # Settle time for the system to reach steady state
-    #         time.sleep(dwell)
-
-    #         # ---- DAQ measurements (ai0, ai1 => site1, site2) ----
-    #         daq_values = [0.0, 0.0]
-    #         if self.daq and self.daq.list_ai_channels():
-    #             channels = ["Dev1/ai0", "Dev1/ai1"]
-    #             daq_vals = self.daq.read_power(channels=channels, samples_per_channel=1, unit='uW')
-    #             if isinstance(daq_vals, list) and len(daq_vals) >= 2:  # If daq_vals has 2 values, store them
-    #                 daq_values = [daq_vals[0], daq_vals[1]]
-            
-    #         current_timestamp = datetime.now().strftime("%H:%M:%S")
-    #         # Build one row => [step_idx, site1_daq, site2_daq]
-    #         row = [current_timestamp, step_idx, daq_values[0], daq_values[1]]
-    #         results.append(row)
-
-
-    #     # Export the results to CSV
-    #     self._export_results_to_csv(results, headers)
-    #     print("NH complete!")      
-    #             # Create a zero-value configuration for all crosspoints.
-    #     zero_config = self._create_zero_config()
-
-    #     # Apply the zero configuration to the device.
-    #     apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
-    #     print("All values set to zero")
 
     def _build_unitary_at_timestep(self, current_time, H1, H2, H3, T_period, direction):
         """
@@ -971,16 +861,6 @@ class Window3Content(ctk.CTkFrame):
             setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
             print(AppData.default_json_grid)
 
-            '''
-            [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
-            A_theta *= 2/np.pi
-            A_phi += np.pi
-            A_phi = A_phi % (2*np.pi)
-            A_phi /= np.pi
-            
-
-            setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, A_theta, A_phi))
-            '''
         except Exception as e:
             print('Error in decomposition:', e)
 
