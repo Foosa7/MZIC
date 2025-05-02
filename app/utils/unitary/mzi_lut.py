@@ -4,7 +4,7 @@ import math
 from app.imports import *
 #import numpy as np
 #from pnn.methods import decompose_clements, reconstruct_clements
-
+from app.utils.unitary import mzi_shift
 
 # Label sequence matching the physical layout
 LABEL_SEQUENCE_4x4 = [
@@ -129,10 +129,11 @@ def map_pnn(n, A_theta, A_phi):
         if label_idx >= len(flat_labels):
             break  # Prevent index errors for large N
         
+        '''
         if i in [7, 11, 2, 10]:
             A_phi[i] += 1.0
             A_phi[i] = A_phi[i] % 2
-        
+        '''
         label = flat_labels[label_idx]
         mapping[label] = (A_theta[i], A_phi[i])
         label_idx += 1
@@ -169,6 +170,15 @@ def get_json_output(n, A_theta, A_phi):
     
     for label, (theta, phi) in mapping.items():
         
+        if label in ["E1", "E2", "H1", "G2"]:
+            phi = phi + 1.0
+        
+        if label in ["E1", "E2", "F1", "G1", "G2", "H1"]:
+            theta = theta + mzi_shift.ps_pi(label, theta)
+            
+        theta = theta % 2
+        phi = phi % 2
+
         output[label] = {
             "arms": ['TL', 'TR', 'BL', 'BR'],	
             "theta": str(theta),

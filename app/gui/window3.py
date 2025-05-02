@@ -430,8 +430,7 @@ class Window3Content(ctk.CTkFrame):
                     '''
 
                     [A_phi, A_theta, *_] = decompose_clements(U_step, block='mzi')
-                    A_theta *= 2/np.pi
-                    '''
+                    
                     # COMMON MODE PHASE
     
                     # ROW 1
@@ -481,8 +480,9 @@ class Window3Content(ctk.CTkFrame):
                     A_phi[6][1] = A_phi[6][1] - A_theta[5][0] - np.pi / 2
                     A_phi[6][2] = A_phi[6][2] - A_theta[5][1] - np.pi / 2
                     A_phi[6][3] = A_phi[6][3] - A_theta[5][2] - np.pi / 2
-                    '''
                     
+                    A_theta *= 2/np.pi
+
                     #A_phi += np.pi
                     A_phi = A_phi % (2*np.pi)
                     A_phi /= np.pi
