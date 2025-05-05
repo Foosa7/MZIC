@@ -172,13 +172,15 @@ def get_json_output(n, A_theta, A_phi):
         
         if label in ["E1", "E2", "H1", "G2"]:
             phi = phi + 1.0
-        
+        """
         if label in ["E1", "E2", "F1", "G1", "G2", "H1"]:
             theta = theta + mzi_shift.ps_pi(label, theta)
             
         theta = theta % 2
+        """
         phi = phi % 2
-
+        
+    
         output[label] = {
             "arms": ['TL', 'TR', 'BL', 'BR'],	
             "theta": str(theta),

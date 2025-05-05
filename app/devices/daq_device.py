@@ -110,30 +110,85 @@ class DAQ:
                 return [chan.name for chan in dev.ai_physical_chans]
         return []
 
-    def read_voltage(self, channels=None, samples_per_channel=10, min_val=-10.0, max_val=10.0):
+    def read_voltage(self, channels=None, samples_per_channel=10, sample_rate=1000, min_val=-10.0, max_val=10.0, unit="uV"):
         """
-        Read multiple samples (software-timed) from specified channels.
+        Read multiple samples (hardware-timed) from specified channels.
         
         :param channels: A list of channel names, e.g. ['Dev1/ai0', 'Dev1/ai2'].
-                         If None, read from all available AI channels on the device.
+                        If None, read from all available AI channels on the device.
         :param samples_per_channel: Number of samples to read for each channel.
-        :param min_val: Minimum expected voltage
-        :param max_val: Maximum expected voltage
-        :return: A list of lists if multiple channels, or just a list if one channel.
+        :param sample_rate: Sampling rate in Hz.
+        :param min_val: Minimum expected voltage.
+        :param max_val: Maximum expected voltage.
+        :param unit: Desired output unit: 'V', 'mV', or 'uV'.
+        :return: Averaged voltage(s) in the specified unit.
         """
         if not self._is_connected:
             print("[INFO][DAQ] Device not connected.")
             return None
-        
-        # If no channels specified, read from all
+
         if channels is None:
             channels = self.list_ai_channels()
-        
+
         if not channels:
             print("[INFO][DAQ] No channels to read from.")
             return None
 
-        data = None
+        with nidaqmx.Task() as task:
+            # Add analog input channels
+            for ch in channels:
+                task.ai_channels.add_ai_voltage_chan(
+                    physical_channel=ch,
+                    min_val=min_val,
+                    max_val=max_val
+                )
+
+            # Configure sample clock timing
+            task.timing.cfg_samp_clk_timing(
+                rate=sample_rate,
+                sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+                samps_per_chan=samples_per_channel
+            )
+
+            # Read voltage samples
+            data = task.read(number_of_samples_per_channel=samples_per_channel)
+
+        # Process data
+        arr = np.array(data)
+        if arr.ndim == 2:
+            averaged_data = arr.mean(axis=1).tolist()
+        elif arr.ndim == 1:
+            averaged_data = float(arr.mean())
+        else:
+            raise ValueError("[ERROR][DAQ] Unexpected data dimensions.")
+
+        # Unit conversion
+        if unit == "mV":
+            return np.array(averaged_data) * 1e3
+        elif unit == "uV":
+            return np.array(averaged_data) * 1e6
+        elif unit == "V":
+            return averaged_data
+        else:
+            raise ValueError(f"[ERROR][DAQ] Unsupported unit: {unit}. Use 'mV', 'uV', or 'V'.")
+
+
+    """
+    def read_power(self, channels=None, samples_per_channel=10, sample_rate=1000, min_val=-10.0, max_val=10.0, unit="uW"):
+        
+        Read voltage from specified channels and convert to power in the specified unit.
+        
+        Args:
+            channels (list): List of channel names to read from
+            samples_per_channel (int): Number of samples to take per channel
+            sample_rate (float): Sampling rate in Hz
+            min_val (float): Minimum voltage value
+            max_val (float): Maximum voltage value
+            unit (str): Power unit ('mW', 'uW', or 'W')
+        
+        Returns:
+            list: Power readings in specified unit
+        
         with nidaqmx.Task() as task:
             # Add channels to the task
             for ch in channels:
@@ -142,31 +197,65 @@ class DAQ:
                     min_val=min_val,
                     max_val=max_val
                 )
-            # Gather raw data
-            data = task.read(number_of_samples_per_channel=samples_per_channel)
-
-        # Average raw data
-        if isinstance(data, list):
-            arr = np.array(data)
-            if arr.ndim == 2:
-                # Multiple channels
-                return arr.mean(axis=1).tolist()
-            elif arr.ndim == 1:
-                # Single channel
-                return float(arr.mean())
-        
-        # Average raw data
-        if isinstance(data, list):
-            arr = np.array(data)
-            if arr.ndim == 2:
-                # Multiple channels
-                return arr.mean(axis=1).tolist()
-            elif arr.ndim == 1:
-                # Single channel
-                return float(arr.mean())
-
-        return data
             
+            # Configure timing
+            task.timing.cfg_samp_clk_timing(
+                rate=sample_rate,
+                sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+                samps_per_chan=samples_per_channel
+            )
+            
+            # Read voltage data
+            voltages = task.read(number_of_samples_per_channel=samples_per_channel)
+            
+            # Convert to numpy array for easier processing
+            voltages = np.array(voltages)
+            
+            # Average the samples for each channel
+            if voltages.ndim == 2:
+                voltages = np.mean(voltages, axis=1)
+            else:
+                voltages = [np.mean(voltages)]
+
+        # Convert voltage to power using photodiode-specific calibration
+        power_in_watts = []
+        for i, ch in enumerate(channels):
+            V = voltages[i]
+            if "ai0" in ch.lower():  
+                power = 3.8934e-04 * V #- 1.3769e-6  # PD1
+            elif "ai1" in ch.lower():  
+                power = 3.8853e-04 * V  #- 7.2653e-6 # PD2
+            elif "ai2" in ch.lower(): 
+                power = 3.7686e-04 * V  #- 4.1698e-5 # PD3
+            elif "ai3" in ch.lower():  
+                power = 4.0387e-04 * V  #+ 3.57e-7# PD4
+            elif "ai4" in ch.lower():  
+                power = 3.6247e-04 * V  #-2.37e-5# PD5
+            elif "ai5" in ch.lower(): 
+                power = 3.6618e-04 * V  #-3.57e-5# PD6
+            elif "ai6" in ch.lower():  
+                power = 3.7097e-04 * V  #-2.139e-5# PD7
+            elif "ai7" in ch.lower():  
+                power = 4.0287e-04 * V  #-2.216e-6# PD8
+
+            else:
+                # Fallback to default conversion
+                power = V / (self.config.get('load_resistor', 4700) * 
+                            self.config.get('responsivity', 1.07))
+            power_in_watts.append(power)
+
+        # Convert to the desired unit
+        if unit == "mW":
+            return [p * 1e3 for p in power_in_watts]
+        elif unit == "uW":
+            return [p * 1e6 for p in power_in_watts]
+        elif unit == "W":
+            return power_in_watts
+        else:
+            raise ValueError(f"[ERROR][DAQ] Unsupported unit: {unit}. Use 'mW', 'uW', or 'W'.")
+    """
+
+    
     def read_power(self, channels=None, samples_per_channel=10, sample_rate=1000, min_val=-10.0, max_val=10.0, unit="uW"):
         """
         Read voltage from specified channels and convert to power in the specified unit.

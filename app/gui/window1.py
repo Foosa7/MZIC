@@ -57,7 +57,7 @@ class Window1Content(ctk.CTkFrame):
         # self._update_selection_display()
         self._setup_event_bindings()
 
-        self.selected_unit = "uW"  # Default unit for power measurement
+        self.selected_unit = "mV"  # Default unit for power measurement
 
         self._initialize_live_graph() # Initialize the live graph
 
@@ -211,10 +211,10 @@ class Window1Content(ctk.CTkFrame):
         unit_label = ctk.CTkLabel(row1_frame, text="Units:", anchor="w")
         unit_label.pack(side="left", padx=5, pady=5)
         self.unit_selector = ctk.CTkOptionMenu(row1_frame,
-                                               values=["uW", "mW", "W"],
+                                               values=["uV", "mV", "V"],
                                                command=self._update_selected_unit,
                                                width=30)
-        self.unit_selector.set("uW")
+        self.unit_selector.set("mV")
         self.unit_selector.pack(side="left", padx=5, pady=5)
         self.samples_entry = ctk.CTkEntry(row1_frame,
                                           width=65,
@@ -478,7 +478,7 @@ class Window1Content(ctk.CTkFrame):
             self.samples_entry.delete(0, "end")
             self.samples_entry.insert(0, str(num_samples))
 
-        readings = self.daq.read_power(channels=channels, samples_per_channel=num_samples, unit=self.selected_unit)
+        readings = self.daq.read_voltage(channels=channels, samples_per_channel=num_samples, unit=self.selected_unit)
         if readings is None:
             lines.append("Failed to read from DAQ or DAQ not connected.")
             self._daq_last_result = "\n".join(lines)
@@ -518,18 +518,17 @@ class Window1Content(ctk.CTkFrame):
         """Update the selected unit for power measurement and refresh the live graph."""
         self.selected_unit = selected_unit  # Update the selected unit
 
-        # Define conversion factors
         conversion_factors = {
-            "uW": 1,          # MicroWatts (default)
-            "mW": 1e-3,       # MilliWatts
-            "W": 1e-6         # Watts
+            "uV": 1e3,   # µV = mV * 1000
+            "mV": 1,     # mV (default)
+            "V": 1e-3    # V = mV / 1000
         }
 
         # Get the conversion factor for the selected unit
         conversion_factor = conversion_factors.get(self.selected_unit, 1)
 
         # Update the Y-axis label to reflect the new unit
-        self.ax.set_ylabel(f"Power ({self.selected_unit})", color='white', fontsize=10)
+        self.ax.set_ylabel(f"Voltage ({self.selected_unit})", color='white', fontsize=10)
 
         # Convert the data to the new unit
         for channel in self.channel_data:

@@ -189,7 +189,7 @@ class Window3Content(ctk.CTkFrame):
             self.samples_entry.delete(0, "end")
             self.samples_entry.insert(0, str(num_samples))
 
-        readings = self.daq.read_power(channels=channels, samples_per_channel=num_samples, unit=self.selected_unit)
+        readings = self.daq.read_voltage(channels=channels, samples_per_channel=num_samples, unit=self.selected_unit)
         if readings is None:
             lines.append("Failed to read from DAQ or DAQ not connected.")
             self._daq_last_result = "\n".join(lines)
@@ -432,7 +432,7 @@ class Window3Content(ctk.CTkFrame):
                     [A_phi, A_theta, *_] = decompose_clements(U_step, block='mzi')
                     
                     # COMMON MODE PHASE
-    
+                    """
                     # ROW 1
                     A_phi[0][0] = A_phi[0][0] 
                     A_phi[0][1] = A_phi[0][1] + A_theta[1][0] + np.pi / 2
@@ -480,11 +480,10 @@ class Window3Content(ctk.CTkFrame):
                     A_phi[6][1] = A_phi[6][1] - A_theta[5][0] - np.pi / 2
                     A_phi[6][2] = A_phi[6][2] - A_theta[5][1] - np.pi / 2
                     A_phi[6][3] = A_phi[6][3] - A_theta[5][2] - np.pi / 2
-                    
+                    """
                     A_theta *= 2/np.pi
 
                     #A_phi += np.pi
-                    A_phi = A_phi % (2*np.pi)
                     A_phi /= np.pi
                     
                     setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, A_theta, A_phi))
@@ -501,26 +500,18 @@ class Window3Content(ctk.CTkFrame):
                 if self.daq and self.daq.list_ai_channels():
                     channels = ["Dev1/ai0", "Dev1/ai1", "Dev1/ai2", "Dev1/ai3"]
                     try:
-                        # Read power continuously during dwell time
-                        daq_vals = self.daq.read_power(
+                        daq_vals = self.daq.read_voltage(
                             channels=channels,
                             samples_per_channel=samples_per_channel,
                             sample_rate=sample_rate,
-                            unit='uW'
+                            unit='mV'
                         )
 
-                        # Process and average the readings
-                        if isinstance(daq_vals, list) and len(daq_vals) >= 2:
-                            if isinstance(daq_vals[0], list):  # Multiple samples per channel
-                                # Calculate mean for each channel
-                                daq_values = [
-                                    sum(ch_samples)/len(ch_samples) 
-                                    for ch_samples in daq_vals
-                                ]
-                            else:  # Single sample per channel
-                                daq_values = daq_vals
+                        if isinstance(daq_vals, list):
+                            daq_values = daq_vals[:4]  # Truncate to 4 if needed
+                        else:
+                            daq_values = [daq_vals] * 4  # Fallback
 
-                        # Clear DAQ task
                         self.daq.clear_task()
 
                     except Exception as e:
@@ -534,10 +525,10 @@ class Window3Content(ctk.CTkFrame):
                 
                 # Print current values
                 print(f"Step {step_idx} measurements:")
-                print(f"  Site 1: {daq_values[0]:.3f} µW")
-                print(f"  Site 2: {daq_values[1]:.3f} µW")
-                print(f"  Site 3: {daq_values[2]:.3f} µW")
-                print(f"  Site 4: {daq_values[3]:.3f} µW")
+                print(f"  Site 1: {float(daq_values[0]):.3f} mV")
+                print(f"  Site 2: {float(daq_values[1]):.3f} mV")
+                print(f"  Site 3: {float(daq_values[2]):.3f} mV")
+                print(f"  Site 4: {float(daq_values[3]):.3f} mV")
 
             # Export results
             if results:
