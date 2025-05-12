@@ -99,6 +99,10 @@ def importfunc(obj):
                                 matrix.extend([None] * (i + 1 - len(matrix)))
                             matrix[i] = buf
 
+
+
+
+
 def create_zero_config(grid_size):
     """Create a configuration with all theta and phi values set to zero"""
     n = int(grid_size.split('x')[0])
@@ -126,5 +130,67 @@ def calculate_current_for_phase(channel, phase_value, app_data, *io_configs):
             params = app_data.caliparamlist_lincub_bar[channel]
             return calculate_current_from_params(channel, phase_value, params, app_data)
     return None
+
+
+def calculate_current_from_params(self, channel, phase_value, params):
+    """Calculate current from phase parameters"""
+    # Extract calibration parameters     
+    A = params['amp']
+    b = params['omega']
+    c = params['phase']     # offset phase in radians
+    d = params['offset']
+    
+    '''
+    # Find the positive phase the heater must add 
+    delta_phase = (phase_value % 2) * np.pi
+
+    # Calculate the heating power for this phase shift
+    P = delta_phase / b
+    '''
+    
+    # Check if phase is within valid range
+    if phase_value < c/np.pi:
+        print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
+        # Multiply phase_value by 2 and continue with calculation
+        phase_value = phase_value + 2
+        print(f"Using adjusted phase value: {phase_value}π")
+
+    # Calculate heating power for this phase shift
+    P = abs((phase_value*np.pi - c) / b)
+
+    # Get resistance parameters
+    if channel < len(self.app.resistance_parameter_list):
+        r_params = self.app.resistance_parameter_list[channel]
+        
+        # Use cubic+linear model if available
+        if len(r_params) >= 2:
+            # Define symbols for solving equation
+            I = sp.symbols('I')
+            P_watts = P/1000  # Convert to watts
+            R0 = r_params[1]  # Linear resistance term (c)
+            alpha = r_params[0]/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
+            
+            # Define equation: P/R0 = I^2 + alpha*I^4
+            eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
+            
+            # Solve the equation
+            solutions = sp.solve(eq, I)
+            
+            # Filter and choose the real, positive solution
+            positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+            if positive_solutions:
+                return float(1000 * positive_solutions[0])  # Convert to mA 
+            else:
+                # Fallback to linear model
+                R0 = r_params[1]
+                return float(round(1000 * np.sqrt(P/(R0*1000)), 2))
+        else:
+            # Use linear model
+            R = self.app.linear_resistance_list[channel] if channel < len(self.app.linear_resistance_list) else 50.0
+            return float(round(1000 * np.sqrt(P/(R*1000)), 2))
+    else:
+        # No resistance parameters, use default
+        return float(round(1000 * np.sqrt(P/(50.0*1000)), 2))
+
 
 

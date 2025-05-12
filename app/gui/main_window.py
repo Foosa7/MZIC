@@ -255,7 +255,7 @@ class MainWindow(ctk.CTk):
         # Call the import function to update the appdata.
         importfunc(self.appdata)
         # For demonstration, print one of the imported matrices.
-        print("[INFO] Updated with Pickle file:", self.appdata.caliparamlist_lincub_cross[1])
+        print("[INFO] Updated with Pickle file:", self.appdata.caliparamlist_lincub_cross)
         # messagebox.showinfo("Import", "Data imported successfully!")
 
     def export_data(self):

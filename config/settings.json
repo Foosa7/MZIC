@@ -6,6 +6,6 @@
     "heaterid8x8": [0, 1, 2, 3, 4, 5, 6, 7],
     "default_mesh": "8x8",
     "options": ["4x4", "6x6", "8x8", "12x12"],
-    "default_config": "C:\\Users\\andrea\\Documents\\Git\\MZI-Controller-main\\8_modechip_20250116_25deg_25mWinput_1550nm.pkl"
+    "default_config": "C:\\Users\\hp-ma\\Documents\\GitHub\\Photonic IC\\MZIC\\config\\Govind_calibration_file_left_chip.pkl"
   }
   

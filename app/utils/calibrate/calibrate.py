@@ -1,8 +1,11 @@
+# app/utils/calibrate/calibrate.py
+
 import numpy as np
 from scipy import optimize
 import matplotlib.pyplot as plt
 from datetime import datetime
 import time
+import json
 
 class CalibrationUtils:
     def characterize_resistance(self, qontrol, channel, delay=0.5):
@@ -132,3 +135,112 @@ class CalibrationUtils:
             'maxcov': np.max(pcov),
             'rawres': (guess, popt, pcov)
         }
+
+    def export_calibration(self, resistance_params, phase_params, filepath=None):
+        """Export calibration data to JSON format"""
+        if filepath is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filepath = f"calibration_data_{timestamp}.json"
+        
+        # Prepare resistance data
+        resistance_data = {}
+        for channel, params in resistance_params.items():
+            resistance_data[str(channel)] = {
+                "resistance_params": {
+                    "a": float(params['a']),
+                    "c": float(params['c']),
+                    "d": float(params['d']),
+                    "rmin": float(params['rmin']),
+                    "rmax": float(params['rmax']),
+                    "alpha": float(params['alpha'])
+                },
+                "measurement_data": {
+                    "currents": params['currents'],
+                    "voltages": params['voltages'],
+                    "max_current": float(params['max_current'])
+                }
+            }
+
+        # Prepare phase data
+        phase_data = {}
+        for channel, params in phase_params.items():
+            phase_data[str(channel)] = {
+                "phase_params": {
+                    "io_config": params['io_config'],
+                    "amplitude": float(params['amp']),
+                    "frequency": float(params['omega']/(2*np.pi)),
+                    "phase": float(params['phase']),
+                    "offset": float(params['offset'])
+                },
+                "measurement_data": {
+                    "currents": params['currents'],
+                    "optical_powers": params['optical_powers']
+                }
+            }
+
+        # Combine all calibration data
+        calibration_data = {
+            "metadata": {
+                "timestamp": datetime.now().isoformat(),
+                "version": "1.0"
+            },
+            "resistance_calibration": resistance_data,
+            "phase_calibration": phase_data
+        }
+
+        # Save to file
+        with open(filepath, 'w') as f:
+            json.dump(calibration_data, f, indent=4)
+        
+        return filepath
+
+    def import_calibration(self, filepath):
+        """Import calibration data from JSON format"""
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        
+        resistance_params = {}
+        phase_params = {}
+        
+        # Import resistance calibration data
+        for channel, params in data['resistance_calibration'].items():
+            channel_num = int(channel)
+            resistance_params[channel_num] = {
+                'a': params['resistance_params']['a'],
+                'c': params['resistance_params']['c'],
+                'd': params['resistance_params']['d'],
+                'rmin': params['resistance_params']['rmin'],
+                'rmax': params['resistance_params']['rmax'],
+                'alpha': params['resistance_params']['alpha'],
+                'currents': params['measurement_data']['currents'],
+                'voltages': params['measurement_data']['voltages'],
+                'max_current': params['measurement_data']['max_current'],
+                'resistance_parameters': [
+                    params['resistance_params']['a'],
+                    params['resistance_params']['c'],
+                    params['resistance_params']['d']
+                ]
+            }
+        
+        # Import phase calibration data
+        for channel, params in data['phase_calibration'].items():
+            channel_num = int(channel)
+            
+            # Recreate fit function based on io_config
+            if params['phase_params']['io_config'] == 'cross':
+                fit_func = self.fit_cos
+            else:
+                fit_func = self.fit_cos_negative
+                
+            phase_params[channel_num] = {
+                'io_config': params['phase_params']['io_config'],
+                'amp': params['phase_params']['amplitude'],
+                'omega': params['phase_params']['frequency'] * 2 * np.pi,
+                'phase': params['phase_params']['phase'],
+                'offset': params['phase_params']['offset'],
+                'currents': params['measurement_data']['currents'],
+                'optical_powers': params['measurement_data']['optical_powers'],
+                'fitfunc': fit_func
+            }
+        
+        return resistance_params, phase_params

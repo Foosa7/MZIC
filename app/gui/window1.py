@@ -9,13 +9,13 @@ import io
 from contextlib import redirect_stdout
 from app.gui.widgets import PhaseShifterSelectionWidget
 import customtkinter as ctk
-from app.utils import grid
+from app.utils.gui import grid
 from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
 from collections import defaultdict
 from typing import Dict, Any
 from scipy import optimize
 from app.utils.calibrate.calibrate import CalibrationUtils
-from app.utils.plot_utils import PlotUtils
+from app.utils.gui.plot_utils import PlotUtils
 from app.utils.utils import create_zero_config, calculate_current_for_phase
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -97,10 +97,12 @@ class Window1Content(ctk.CTkFrame):
             ("Clear", self._clear_grid),
             ("R", self.characterize_resistance),
             ("P", self.characterize_phase),
-            ("Phase", self.apply_phase_new)
+            ("Phase", self.apply_phase_new),
+            ("Save Cal", self.export_calibration_data),  # Add these two buttons
+            ("Load Cal", self.import_calibration_data)
         ]
 
-        for col in range(7):
+        for col in range(9):
             btn_frame.grid_columnconfigure(col, weight=1)
 
         # Create buttons with adjusted styling
@@ -414,7 +416,7 @@ class Window1Content(ctk.CTkFrame):
             grid_n=n,
             scale=0.8 if n >= 12 else 1.0
         )
-        self.custom_grid.pack(fill="both", expand=True)
+        self.custom_grid.pack(fill="both", expand=True) #
         self._attach_grid_listeners()
         
         default_json = json.dumps(AppData.default_json_grid)
@@ -798,3 +800,36 @@ class Window1Content(ctk.CTkFrame):
             self._show_error(f"Phase characterization failed: {str(e)}")
             import traceback
             traceback.print_exc()
+
+    def export_calibration_data(self):
+        """Export calibration data to JSON file"""
+        try:
+            file_path = filedialog.asksaveasfilename(
+                title="Export Calibration Data",
+                defaultextension=".json",
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+            )
+            if file_path:
+                saved_path = self.calibration_utils.export_calibration(
+                    self.resistance_params,
+                    self.phase_params,
+                    file_path
+                )
+                print(f"Calibration data exported to {saved_path}")
+        except Exception as e:
+            self._show_error(f"Failed to export calibration data: {str(e)}")
+
+    def import_calibration_data(self):
+        """Import calibration data from JSON file"""
+        try:
+            file_path = filedialog.askopenfilename(
+                title="Import Calibration Data",
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+            )
+            if file_path:
+                resistance_params, phase_params = self.calibration_utils.import_calibration(file_path)
+                self.resistance_params = resistance_params
+                self.phase_params = phase_params
+                print(f"Calibration data imported from {file_path}")
+        except Exception as e:
+            self._show_error(f"Failed to import calibration data: {str(e)}")
