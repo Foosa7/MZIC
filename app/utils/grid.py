@@ -296,11 +296,15 @@ class Example(Frame):
     def create_x_shape(self, center_name, x, y, arm_length, label):
         """Creates an X shape with label."""
         self.nodes[center_name] = Node(center_name, x, y)
-        self.cross_labels[center_name] = self.canvas.create_text(
+        self.cross_labels[center_name] = None  # Initialize label ID
+        label_id = self.canvas.create_text(
             x + arm_length - 20, y,
             text=label,
             anchor='w', font=("Arial", 12), fill="white"
         )
+        self.cross_labels[center_name] = label_id
+        self.canvas.tag_bind(label_id, "<Button-1>", lambda event, lbl=label: self.on_label_click(lbl, label_id))
+
 
         # # Create top-left dot (added feature)
         # tl_x = x - arm_length
@@ -322,6 +326,20 @@ class Example(Frame):
             arm_name = f"{center_name}_{suffix}"
             self.nodes[arm_name] = Node(arm_name, x + dx, y + dy)
             self.create_path(self.nodes[center_name], self.nodes[arm_name])
+
+    def on_label_click(self, label, label_id):
+        """Handles label selection and stores selected labels in AppData."""
+        if not hasattr(AppData, "selected_labels"):
+            AppData.selected_labels = set()
+        if label in AppData.selected_labels:
+            AppData.selected_labels.remove(label)
+            self.canvas.itemconfig(label_id, fill="white")
+        else:
+            AppData.selected_labels.add(label)
+            self.canvas.itemconfig(label_id, fill="red")
+        print("Selected labels:", AppData.selected_labels)
+
+
 
     def get_cross_modes(self):
         """Returns a dict mapping cross labels to their selection type (bar/cross/split)."""
@@ -436,16 +454,38 @@ class Example(Frame):
             self.canvas.itemconfig(path.line_id, fill="white")
             self.selected_paths.remove(path.line_id)
         
-        # Get center and arm
-        center, arm = self._parse_path_components(path)
-        
-        if adding and center and arm:
-            self.last_selection = {"cross": center, "arm": arm}
-            AppData.update_last_selection(center, arm)
-            # Update IO config in AppData
-            AppData.update_io_config(center, arm)
-            self.event_generate("<<SelectionUpdated>>")
-            self.update_selection()
+        affected_crosses = set()
+        for node in [path.node1, path.node2]:
+            cross_label = self.get_cross_label_from_node(node)
+            if cross_label:
+                affected_crosses.add(cross_label)
+
+        for cross_label in affected_crosses:
+            if adding:
+                self.cross_selected_count[cross_label] += 1
+                if self.cross_selected_count[cross_label] == 1:
+                    self.create_input_boxes(cross_label)
+                else:
+                    # Update the input box now that a new arm was added.
+                    self.update_input_box_mode(cross_label)
+            else:
+                self.cross_selected_count[cross_label] -= 1
+                if self.cross_selected_count[cross_label] == 0:
+                    self.delete_input_boxes(cross_label)
+                else:
+                    self.update_input_box_mode(cross_label)
+
+        if adding:
+            center, arm = self._parse_path_components(path)
+            if center and arm:
+                self.last_selection = {"cross": center, "arm": arm}
+                AppData.update_last_selection(center, arm)  # Keep synced with AppData
+                modes = self.get_cross_modes()
+                AppData.io_config = modes
+                self.event_generate("<<SelectionUpdated>>")  # Trigger update event
+                self.update_selection()
+
+
 
     def update_input_box_mode(self, visible_label):
         """Updates the theta input box for the given cross (by visible label) with the default value.
