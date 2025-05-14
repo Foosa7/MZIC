@@ -37,14 +37,12 @@ class Window3Content(ctk.CTkFrame):
         self.tabview.grid(row=0, column=0, sticky='nsew', padx=10, pady=10)
 
         # Add a tab for each unitary 
-        self.tabview.add('U1')
-        self.tabview.add('U2')
-        self.tabview.add('U3')
+        self.tabview.add('Unitary')
+        #self.tabview.add('U2')
+        #self.tabview.add('U3')
 
         # For each tab, build a separate NxN of CTkEntries.
-        self.unitary_entries_U1 = self.create_nxn_entries(self.tabview.tab('U1'))
-        self.unitary_entries_U2 = self.create_nxn_entries(self.tabview.tab('U2'))
-        self.unitary_entries_U3 = self.create_nxn_entries(self.tabview.tab('U3'))
+        self.unitary_entries = self.create_nxn_entries(self.tabview.tab('Unitary'))
 
         # Bottom buttons
         self.bottom_buttons_frame = ctk.CTkFrame(self.right_frame, fg_color='transparent')
@@ -70,18 +68,25 @@ class Window3Content(ctk.CTkFrame):
 
         # Create button frame using pack
         button_frame = ctk.CTkFrame(self.bottom_buttons_frame, fg_color='transparent')
-        button_frame.pack(anchor='center', pady=(5,5))
+        button_frame.pack(anchor='center', pady=(5, 5))
 
-        # Add the NH Experiment button using pack
+        # Cycle unitaries button
         self.nh_button = ctk.CTkButton(
             button_frame,
-            text="Run NH Experiment",
-            command=self.run_nh_experiment_from_folder,
+            text="Cycle Unitaries",
+            command=self.cycle_unitaries,
             width=120,
             height=30
         )
         self.nh_button.pack(side='left', padx=5, pady=5)
 
+        # Dwell time for unitary cycle
+        self.dwell_label = ctk.CTkLabel(button_frame, text="Dwell Time (s):")
+        self.dwell_label.pack(side='left', padx=5)
+
+        self.dwell_entry = ctk.CTkEntry(button_frame, width=100)
+        self.dwell_entry.insert(0, "0.5")  # default value
+        self.dwell_entry.pack(side='left', padx=5)
 
         # Common unitaries
         self.common_unitaries_frame = ctk.CTkFrame(self.bottom_buttons_frame, fg_color='transparent')
@@ -102,68 +107,9 @@ class Window3Content(ctk.CTkFrame):
         # Load any saved unitary from AppData for each tab
         self.handle_all_tabs()
 
-        ### Artificial Magnetic Field Controls ###
-        self.amf_frame = ctk.CTkFrame(self.content_frame)
-        self.amf_frame.grid(row=0, column=1, sticky='nsew', padx=20, pady=10)  # Place to the right side
-
-        self.amf_label = ctk.CTkLabel(self.amf_frame, text="Artificial Magnetic Field") # Title
-        self.amf_label.pack(pady=(0,10))
-
-        # c (hopping amplitude)
-        self.c_label = ctk.CTkLabel(self.amf_frame, text="Hopping (c):")
-        self.c_label.pack()
-        self.c_entry = ctk.CTkEntry(self.amf_frame, width=100)
-        self.c_entry.insert(0, "1.0")  # default
-        self.c_entry.pack(pady=(0,10))
-
-        # Rabi cycles
-        self.rabi_label = ctk.CTkLabel(self.amf_frame, text="Rabi Half-Cycles:")
-        self.rabi_label.pack()
-        self.rabi_entry = ctk.CTkEntry(self.amf_frame, width=100)
-        self.rabi_entry.insert(0, "1")  # default
-        self.rabi_entry.pack(pady=(0,10))
-
-        # Total time entry (only used in "total" mode)
-        self.time_label = ctk.CTkLabel(self.amf_frame, text="Total Time (s):")
-        self.time_label.pack()
-        self.time_entry = ctk.CTkEntry(self.amf_frame, width=100)
-        self.time_entry.insert(0, "1.0")
-        self.time_entry.pack(pady=(0, 10))
-
-        # N (Time steps)
-        self.N_label = ctk.CTkLabel(self.amf_frame, text="Time Steps (N):")
-        self.N_label.pack()
-        self.N_entry = ctk.CTkEntry(self.amf_frame, width=100)
-        self.N_entry.insert(0, "5")  # default
-        self.N_entry.pack(pady=(0,10))
-
-        # Direction (CW or CCW)
-        self.direction_var = ctk.StringVar(value="CW")
-        self.cw_radio = ctk.CTkRadioButton(self.amf_frame, text="CW", variable=self.direction_var, value="CW")
-        self.ccw_radio = ctk.CTkRadioButton(self.amf_frame, text="CCW", variable=self.direction_var, value="CCW")
-        self.cw_radio.pack(pady=(0,5))
-        self.ccw_radio.pack(pady=(0,10))
-
-        # Dwell time between steps
-        self.dwell_label = ctk.CTkLabel(self.amf_frame, text="Dwell Time (s):")
-        self.dwell_label.pack()
-        self.dwell_entry = ctk.CTkEntry(self.amf_frame, width=100)
-        self.dwell_entry.insert(0, "1e-3")  # default 
-        self.dwell_entry.pack(pady=(0,10))
-
-        # Button to start the “experiment”
-        self.run_button = ctk.CTkButton(
-            self.amf_frame, text="Run AMF Experiment",
-            command=self.run_amf_experiment
-        )
-        self.run_button.pack(pady=(10,0))
-
+    """
     def run_amf_experiment(self):
-        """
-        1) Reads user parameters c, T, N, direction, dwell time.
-        2) For each time step, constructs a unitary, decomposes, applies phases, measures output power.
-        3) Exports the results (time step vs. measured power on all outputs) to CSV.
-        """
+
         try:
             c_val = float(self.c_entry.get())
             N_val = int(self.N_entry.get())
@@ -267,8 +213,9 @@ class Window3Content(ctk.CTkFrame):
         self._export_results_to_csv(results, headers)
         print("AMF experiment complete!")
         # Create a zero-value configuration for all crosspoints.
+    """
 
-    def run_nh_experiment_from_folder(self):
+    def cycle_unitaries(self):
         """
         1) Prompts the user to select a folder containing .npy files.
         2) Loads each .npy file in sequence, assigns it to U_step, and processes it.
@@ -278,7 +225,7 @@ class Window3Content(ctk.CTkFrame):
             # Get dwell time
             dwell = float(self.dwell_entry.get())
         except ValueError as e:
-            print(f"Error reading AMF inputs: {e}")
+            print(f"Error reading inputs: {e}")
             return
 
         # Prompt the user to select a folder
@@ -345,7 +292,7 @@ class Window3Content(ctk.CTkFrame):
 
         # Export the results to CSV
         self._export_results_to_csv(results, headers)
-        print("NH complete!")      
+        print("Unitary cycling complete!")      
 
     def _build_unitary_at_timestep(self, current_time, H1, H2, H3, T_period, direction):
         """
@@ -601,9 +548,7 @@ class Window3Content(ctk.CTkFrame):
     def get_unitary_mapping(self):
         '''Returns a dictionary mapping tab names to their corresponding entry grids and AppData variables.'''
         return {
-            'U1': (self.unitary_entries_U1, 'saved_unitary_U1'),
-            'U2': (self.unitary_entries_U2, 'saved_unitary_U2'),
-            'U3': (self.unitary_entries_U3, 'saved_unitary_U3'),
+            'Unitary': (self.unitary_entries, 'saved_unitary'),
             }
 
     def get_active_tab(self):
@@ -794,7 +739,7 @@ class Window3Content(ctk.CTkFrame):
     
             # Recreate the grid and update reference
             new_entries = self.create_nxn_entries(container)
-            setattr(self, f'unitary_entries_{tab_name}', new_entries)
+            setattr(self, f'unitary_entries', new_entries)
     
             # Restore saved matrix or default to identity
             unitary_matrix = getattr(AppData, appdata_var, None)

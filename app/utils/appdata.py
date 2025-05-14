@@ -9,9 +9,7 @@ class AppData:
 
     selected_output_pins = set() # store which pin is selected
 
-    saved_unitary_U1 = None     
-    saved_unitary_U2 = None     
-    saved_unitary_U3 = None    
+    saved_unitary = None     
 
     @classmethod
     def update_last_selection(cls, cross, arm):
