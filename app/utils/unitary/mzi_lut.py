@@ -88,8 +88,8 @@ def get_json_output(n, bs_list):
     for label, (theta, phi) in mapping.items():
 
         if label == "B1": #must account for the bar/cross problem for this MZI
-            phi = phi + np.pi 
-            phi = phi % (2*np.pi)
+            theta = theta + np.pi 
+            theta = theta % (2*np.pi)
 
         theta = format(theta/np.pi,'.10f')
         phi = format(phi/np.pi,'.10f')

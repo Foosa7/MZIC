@@ -37,15 +37,11 @@ class Window3Content(ctk.CTkFrame):
         self.tabview = ctk.CTkTabview(self.right_frame, width=600, height=300)
         self.tabview.grid(row=0, column=0, sticky='nsew', padx=10, pady=10)
 
-        # Add a tab for each unitary 
-        self.tabview.add('U1')
-        self.tabview.add('U2')
-        self.tabview.add('U3')
+        # Add a tab for a unitary matrix
+        self.tabview.add('Unitary')
 
         # For each tab, build a separate NxN of CTkEntries.
-        self.unitary_entries_U1 = self.create_nxn_entries(self.tabview.tab('U1'))
-        self.unitary_entries_U2 = self.create_nxn_entries(self.tabview.tab('U2'))
-        self.unitary_entries_U3 = self.create_nxn_entries(self.tabview.tab('U3'))
+        self.unitary_entries = self.create_nxn_entries(self.tabview.tab('Unitary'))
 
         # Bottom buttons
         self.bottom_buttons_frame = ctk.CTkFrame(self.right_frame, fg_color='transparent')
@@ -71,18 +67,25 @@ class Window3Content(ctk.CTkFrame):
 
         # Create button frame using pack
         button_frame = ctk.CTkFrame(self.bottom_buttons_frame, fg_color='transparent')
-        button_frame.pack(anchor='center', pady=(5,5))
+        button_frame.pack(anchor='center', pady=(5, 5))
 
-        # Add the NH Experiment button using pack
-        self.nh_button = ctk.CTkButton(
+        # Add the cycle unitary button
+        self.cycle_unitaries_button = ctk.CTkButton(
             button_frame,
-            text="Run NH Experiment",
-            command=self.run_nh_experiment_from_folder,
+            text="Cycle Unitaries",
+            command=self.cycle_unitaries,
             width=120,
             height=30
         )
-        self.nh_button.pack(side='left', padx=5, pady=5)
+        self.cycle_unitaries_button.pack(side='left', padx=5, pady=5)
 
+        # Add the dwell time label and entry next to the button
+        self.dwell_label = ctk.CTkLabel(button_frame, text="Dwell Time (s):")
+        self.dwell_label.pack(side='left', padx=5)
+
+        self.dwell_entry = ctk.CTkEntry(button_frame, width=100)
+        self.dwell_entry.insert(0, "0.5")  # default
+        self.dwell_entry.pack(side='left', padx=5)
 
         # Common unitaries
         self.common_unitaries_frame = ctk.CTkFrame(self.bottom_buttons_frame, fg_color='transparent')
@@ -102,62 +105,6 @@ class Window3Content(ctk.CTkFrame):
 
         # Load any saved unitary from AppData for each tab
         self.handle_all_tabs()
-
-        ### Artificial Magnetic Field Controls ###
-        self.amf_frame = ctk.CTkFrame(self.content_frame)
-        self.amf_frame.grid(row=0, column=1, sticky='nsew', padx=20, pady=10)  # Place to the right side
-
-        self.amf_label = ctk.CTkLabel(self.amf_frame, text="Artificial Magnetic Field") # Title
-        self.amf_label.pack(pady=(0,10))
-
-        # c (hopping amplitude)
-        self.c_label = ctk.CTkLabel(self.amf_frame, text="Hopping (c):")
-        self.c_label.pack()
-        self.c_entry = ctk.CTkEntry(self.amf_frame, width=100)
-        self.c_entry.insert(0, "1.0")  # default
-        self.c_entry.pack(pady=(0,10))
-
-        # Rabi cycles
-        self.rabi_label = ctk.CTkLabel(self.amf_frame, text="Rabi Half-Cycles:")
-        self.rabi_label.pack()
-        self.rabi_entry = ctk.CTkEntry(self.amf_frame, width=100)
-        self.rabi_entry.insert(0, "1")  # default
-        self.rabi_entry.pack(pady=(0,10))
-
-        # Total time entry (only used in "total" mode)
-        self.time_label = ctk.CTkLabel(self.amf_frame, text="Total Time (s):")
-        self.time_label.pack()
-        self.time_entry = ctk.CTkEntry(self.amf_frame, width=100)
-        self.time_entry.insert(0, "1.0")
-        self.time_entry.pack(pady=(0, 10))
-
-        # N (Time steps)
-        self.N_label = ctk.CTkLabel(self.amf_frame, text="Time Steps (N):")
-        self.N_label.pack()
-        self.N_entry = ctk.CTkEntry(self.amf_frame, width=100)
-        self.N_entry.insert(0, "5")  # default
-        self.N_entry.pack(pady=(0,10))
-
-        # Direction (CW or CCW)
-        self.direction_var = ctk.StringVar(value="CW")
-        self.cw_radio = ctk.CTkRadioButton(self.amf_frame, text="CW", variable=self.direction_var, value="CW")
-        self.ccw_radio = ctk.CTkRadioButton(self.amf_frame, text="CCW", variable=self.direction_var, value="CCW")
-        self.cw_radio.pack(pady=(0,5))
-        self.ccw_radio.pack(pady=(0,10))
-
-        # Dwell time between steps
-        self.dwell_label = ctk.CTkLabel(self.amf_frame, text="Dwell Time (s):")
-        self.dwell_label.pack()
-        self.dwell_entry = ctk.CTkEntry(self.amf_frame, width=100)
-        self.dwell_entry.insert(0, "1e-3")  # default 
-        self.dwell_entry.pack(pady=(0,10))
-
-        # Button to start the “experiment”
-        self.run_button = ctk.CTkButton(
-            self.amf_frame, text="Run AMF Experiment",
-            command=self.run_amf_experiment
-        )
-        self.run_button.pack(pady=(10,0))
 
     def _read_all_daq_channels(self):
         """
@@ -205,120 +152,7 @@ class Window3Content(ctk.CTkFrame):
         # Save this part to combine with Thorlabs 
         self._daq_last_result = "\n".join(lines)    
 
-
-    def run_amf_experiment(self):
-        """
-        1) Reads user parameters c, T, N, direction, dwell time.
-        2) For each time step, constructs a unitary, decomposes, applies phases, measures output power.
-        3) Exports the results (time step vs. measured power on all outputs) to CSV.
-        """
-        try:
-            c_val = float(self.c_entry.get())
-            N_val = int(self.N_entry.get())
-            dwell = float(self.dwell_entry.get())
-            direction = self.direction_var.get()  
-
-            rabi_cycles = float(self.rabi_entry.get())
-            T_period = rabi_cycles * (math.pi / (2 * c_val))
-            T_total = float(self.time_entry.get())  
-
-        except ValueError as e:
-            print(f"Error reading AMF inputs: {e}")
-            return
-
-        # Hamiltonians, 3x3
-        H1 = np.array([[0,     c_val, 0    ],
-                       [c_val, 0,     0    ],
-                       [0,     0,     0    ]], dtype=float)
-        H2 = np.array([[0,     0,     0    ],
-                       [0,     0,     c_val],
-                       [0,     c_val, 0    ]], dtype=float)
-        H3 = np.array([[0,     0,     c_val],
-                       [0,     0,     0    ],
-                       [c_val, 0,     0    ]], dtype=float)
-
-        # Initial conditions
-        a = np.zeros(3)
-        a[0] = 1 # first input
-        a = a/np.linalg.norm(a)
-
-        # Build a time array
-        T_list = np.linspace(0, T_total, N_val)
-
-        # Prepare to store data: e.g., a list of [t_step, power_ch0, power_ch1, ...]
-        results = []
-
-        # headers = ["time_step", "site1", "site2", "site3"]
-        headers = ["timestamp", "time_step", "site1", "site2", "site3"] # Updated headers
-
-
-        for step_idx in range(N_val):
-            current_time = T_list[step_idx]
-
-            # Build the time-evolving unitary for this step
-            U_step = self._build_unitary_at_timestep(
-                current_time=current_time,
-                H1=H1, H2=H2, H3=H3, 
-                T_period=T_period,  
-                direction=direction
-            )
-            
-            '''
-            # Save unitary at each timestep
-            unitary_dir = "unitary_history"
-            os.makedirs(unitary_dir, exist_ok=True)
-            unitary_path = os.path.join(unitary_dir, f"unitary_step_{step_idx+1:03d}.npy")
-            np.save(unitary_path, U_step)
-            '''
-
-            #Decompose the unitary:
-            try:
-                # Perform decomposition
-                I = itf.square_decomposition(U_step)
-                bs_list = I.BS_list
-                print(bs_list)
-                mzi_convention.clements_to_chip(bs_list)
-        
-                # Store the decomposition result in AppData
-                setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
-        
-            except Exception as e:
-                print('Error in decomposition:', e)
-
-            #Apply the phase:
-            self.apply_phase_new()
-
-            # Settle time for the system to reach steady state
-            time.sleep(dwell)
-
-            # Read DAQ channels and get values
-            daq_values = [0.0, 0.0, 0.0]  # Default values
-            if self.daq and self.daq.list_ai_channels():
-                channels = ["Dev1/ai0", "Dev1/ai1"]
-                try:
-                    self._read_all_daq_channels()
-                    # Get the values from the last reading
-                    if hasattr(self, '_daq_last_result'):
-                        lines = self._daq_last_result.split('\n')
-                        # Parse the power values from each line
-                        # Format is like "Dev1/ai0 -> X.XXX uW"
-                        daq_values = []
-                        for line in lines:
-                            if '->' in line:
-                                value = float(line.split('->')[1].split()[0])
-                                daq_values.append(value)
-                    
-                    # Ensure we have at least 3 values (pad with 0 if needed)
-                    while len(daq_values) < 3:
-                        daq_values.append(0.0)
-                        
-                    # Clear DAQ task after reading
-                    self.daq.clear_task()
-                except Exception as e:
-                    print(f"Error reading DAQ: {e}")
-                    daq_values = [0.0, 0.0, 0.0]
-
-            '''
+        '''
             # ---- Thorlabs measurements => site3
             thorlabs_vals = 0.0
             if self.thorlabs:
@@ -331,29 +165,9 @@ class Window3Content(ctk.CTkFrame):
                     thorlabs_vals = device.read_power(unit="uW")
                 except Exception as e:
                     print(f"Thorlabs read error: {e}")
-            '''
-            
-            current_timestamp = datetime.now().strftime("%H:%M:%S")
-            # Build one row => [step_idx+1, site1, site2, site3]
-            row = [current_timestamp, step_idx + 1, daq_values[0], daq_values[1], daq_values[2]]
-            results.append(row)
+        '''
 
-            # # Create a zero-value configuration for all crosspoints.
-            # zero_config = self._create_zero_config()
-            
-            # # Apply the zero configuration to the device.
-            # apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
-            # print("All values set to zero")
-            # time.sleep(dwell/2)
-
-            print('Step: ', step_idx + 1)
-
-        self._export_results_to_csv(results, headers)
-        print("AMF experiment complete!")
-        # Create a zero-value configuration for all crosspoints.
-
-
-    def run_nh_experiment_from_folder(self):
+    def cycle_unitaries(self):
         """
         1) Prompts user to select folder containing .npy files
         2) Loads each .npy file in sequence, assigns to U_step, processes it
@@ -370,26 +184,6 @@ class Window3Content(ctk.CTkFrame):
             if not folder_path:
                 print("No folder selected. Aborting.")
                 return
-
-            # Get .npy files with expected naming pattern
-            # npy_files = sorted(
-            #     # [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("unitary_step_")],
-            #     [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("step_")],                
-            #     key=lambda x: int(x.split("_")[2].split(".")[0])  # Extract number from 'unitary_step_001.npy'
-            # )
-            # Get .npy files with expected naming pattern
-            
-            
-            '''
-            npy_files = sorted(
-                [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("step_")],
-                key=lambda x: int(x.split("_")[0].split(".")[0])  # Extract number from 'step_1.npy'
-            )
-            if not npy_files:
-                print("No unitary step files found in selected folder.")
-                return
-
-            '''
 
             npy_files = sorted(
                 [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("step_")],
@@ -475,7 +269,7 @@ class Window3Content(ctk.CTkFrame):
             # Export results
             if results:
                 self._export_results_to_csv(results, headers)
-                print("\nNH experiment complete!")
+                print("\nFinished cycling unitaries!")
                 
                 # Reset phases to zero
                 zero_config = self._create_zero_config()
@@ -488,51 +282,6 @@ class Window3Content(ctk.CTkFrame):
             print(f"Experiment failed: {e}")
             import traceback
             traceback.print_exc()
-
-    def _build_unitary_at_timestep(self, current_time, H1, H2, H3, T_period, direction):
-        """
-        Builds the time-evolving unitary at 'current_time' in [0..T_val], 
-        using H1, H2, H3. Splits the total evolution into 3 segments: 
-        H1->H2->H3 for CW or reversed for CCW.
-        Then 3×3 is placed in top-left of NxN identity matrix.
-        """
-
-        def mod_with_quotient(x, mod):
-            quotient = int(x // mod)
-            remainder = x % mod
-            return quotient, remainder
-
-        q, r = mod_with_quotient(current_time, T_period)
-        T_seg = T_period /3
-        
-        # Segment order
-        if direction == "CW":
-            H_seq = [H1, H2, H3]
-        else:  # CCW
-            H_seq = [H3, H2, H1]
-
-        # Build full-cycle unitary
-        U_cycle = expm(-1j * T_seg * H_seq[2]) @ expm(-1j * T_seg * H_seq[1]) @ expm(-1j * T_seg * H_seq[0])
-
-        # Compute full cycle evolution [U_cycle]^q
-        U = np.linalg.matrix_power(U_cycle, q)
-
-        # Apply the remainder (partial segment)
-        if r > 0:
-            rem_U = np.eye(3, dtype=complex)
-            for i in range(3):
-                if r >= T_seg:
-                    rem_U = expm(-1j * T_seg * H_seq[i]) @ rem_U
-                    r -= T_seg
-                elif r > 0:
-                    rem_U = expm(-1j * r * H_seq[i]) @ rem_U
-                    break
-            U = rem_U @ U
-
-        # Pad to NxN
-        U_full = np.eye(self.n, dtype=complex)
-        U_full[:3, :3] = U
-        return U_full
 
     def _create_zero_config(self):
         """Create a configuration with all theta and phi values set to zero"""
@@ -725,47 +474,16 @@ class Window3Content(ctk.CTkFrame):
             # No resistance parameters, use default
             return float(round(1000 * np.sqrt(P/(50.0*1000)), 2))
 
-    def _export_results_to_csv(self, results, headers):
-        """Export step data with custom headers (includes DAQ + Thorlabs)."""
-        if not results:
-            print("No results to save.")
-            return
-
-        path = filedialog.asksaveasfilename(
-            title='Save AMF Results',
-            defaultextension='.csv',
-            filetypes=[('CSV files', '*.csv')]
-        )
-        if not path:
-            return
-
-        try:
-            with open(path, 'w', encoding='utf-8') as f:
-                # Write header
-                f.write(",".join(headers) + "\n")
-                # Write rows
-                for row in results:
-                    line_str = ",".join(str(x) for x in row)
-                    f.write(line_str + "\n")
-
-            print(f"Results saved to {path}")
-        except Exception as e:
-            print(f"Failed to save results: {e}")
-
     def get_unitary_mapping(self):
-        '''Returns a dictionary mapping tab names to their corresponding entry grids and AppData variables.'''
-        return {
-            'U1': (self.unitary_entries_U1, 'saved_unitary_U1'),
-            'U2': (self.unitary_entries_U2, 'saved_unitary_U2'),
-            'U3': (self.unitary_entries_U3, 'saved_unitary_U3'),
-            }
+        '''Returns the entry grid and AppData variable for the unitary tab.'''
+        return self.unitary_entries, 'saved_unitary'
 
     def get_active_tab(self):
         '''
         Returns the unitary entry grid (2D list) and corresponding AppData variable
         for the currently selected tab.
         '''
-        return self.get_unitary_mapping().get(self.tabview.get(), (None, None))
+        return self.get_unitary_mapping()  
         
     def get_unitary_by_tab(self, tab_name):
         '''
@@ -775,23 +493,23 @@ class Window3Content(ctk.CTkFrame):
         return self.get_unitary_mapping().get(tab_name, (None, None))
      
     def handle_all_tabs(self, operation='load'):
-        '''Handles loading or saving of unitary matrices for all tabs based on the operation.'''
-        for tab_name, (entries, appdata_var) in self.get_unitary_mapping().items():
-            if entries is None or appdata_var is None:
-                continue  # Skip invalid entries
-            try:
-                if operation == 'load':
-                    unitary_matrix = getattr(AppData, appdata_var, None)
-                    if unitary_matrix is None or not isinstance(unitary_matrix, np.ndarray):
-                        unitary_matrix = np.eye(self.n, dtype=complex)  # Default to identity
-                    self.fill_tab_entries(entries, unitary_matrix)
-                
-                elif operation == 'save':
-                    unitary_matrix = self.read_tab_entries(entries)
-                    if unitary_matrix is not None:
-                        setattr(AppData, appdata_var, unitary_matrix)
-            except Exception as e:
-                print(f'Error in {operation} operation for {tab_name}: {e}')  # Log error 
+        '''Handles loading or saving of the unitary matrix.'''
+        entries, appdata_var = self.get_unitary_mapping()  # Directly unpack the tuple
+        if entries is None or appdata_var is None:
+            return  # Skip if invalid
+
+        try:
+            if operation == 'load':
+                unitary_matrix = getattr(AppData, appdata_var, None)
+                if unitary_matrix is None or not isinstance(unitary_matrix, np.ndarray):
+                    unitary_matrix = np.eye(self.n, dtype=complex)  # Default to identity
+                self.fill_tab_entries(entries, unitary_matrix)
+            elif operation == 'save':
+                unitary_matrix = self.read_tab_entries(entries)
+                if unitary_matrix is not None:
+                    setattr(AppData, appdata_var, unitary_matrix)
+        except Exception as e:
+            print(f'Error in {operation} operation: {e}')
 
     def create_nxn_entries(self, parent_frame):
         '''Creates an NxN grid of CTkEntry fields inside parent_frame and returns a 2D list.'''
@@ -950,7 +668,7 @@ class Window3Content(ctk.CTkFrame):
     
             # Recreate the grid and update reference
             new_entries = self.create_nxn_entries(container)
-            setattr(self, f'unitary_entries_{tab_name}', new_entries)
+            setattr(self, f'unitary_entries', new_entries)
     
             # Restore saved matrix or default to identity
             unitary_matrix = getattr(AppData, appdata_var, None)
