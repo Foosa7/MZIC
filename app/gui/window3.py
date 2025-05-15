@@ -2,7 +2,6 @@
 
 from app.imports import *
 import tkinter.filedialog as filedialog
-import math
 import copy
 from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
 from app.utils.unitary import mzi_lut
@@ -654,26 +653,27 @@ class Window3Content(ctk.CTkFrame):
     def update_grid(self, new_mesh_size):
         '''Refresh NxN grids when the user selects a new mesh size.'''
         self.n = int(new_mesh_size.split('x')[0])
-        
-        for tab_name, (entries, appdata_var) in self.get_unitary_mapping().items():
-            if entries is None or appdata_var is None:
-                continue
-    
-            # Determine parent frame
-            container = self.tabview.tab(tab_name)
-    
-            # Destroy old widgets and clear entries
-            for child in container.winfo_children():
-                child.destroy()
-    
-            # Recreate the grid and update reference
-            new_entries = self.create_nxn_entries(container)
-            setattr(self, f'unitary_entries', new_entries)
-    
-            # Restore saved matrix or default to identity
-            unitary_matrix = getattr(AppData, appdata_var, None)
-            if unitary_matrix is None or unitary_matrix.shape != (self.n, self.n):
-                unitary_matrix = np.eye(self.n, dtype=complex)
-    
-            self.fill_tab_entries(new_entries, unitary_matrix)
-            setattr(AppData, appdata_var, unitary_matrix)
+
+        # Get the single mapping
+        entries, appdata_var = self.get_unitary_mapping()
+        if entries is None or appdata_var is None:
+            return  # Skip if invalid
+
+        # Determine parent frame
+        container = self.tabview.tab('Unitary')
+
+        # Destroy old widgets and clear entries
+        for child in container.winfo_children():
+            child.destroy()
+
+        # Recreate the grid and update reference
+        new_entries = self.create_nxn_entries(container)
+        setattr(self, 'unitary_entries', new_entries)
+
+        # Restore saved matrix or default to identity
+        unitary_matrix = getattr(AppData, appdata_var, None)
+        if unitary_matrix is None or unitary_matrix.shape != (self.n, self.n):
+            unitary_matrix = np.eye(self.n, dtype=complex)
+
+        self.fill_tab_entries(new_entries, unitary_matrix)
+        setattr(AppData, appdata_var, unitary_matrix)
