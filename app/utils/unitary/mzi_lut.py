@@ -1,6 +1,5 @@
 # app/utils/mzi_lut.py
 from app.imports import *
-from app.utils.unitary import mzi_shift
 
 # Label sequence matching the physical layout
 LABEL_SEQUENCE_4x4 = [
