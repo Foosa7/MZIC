@@ -89,7 +89,7 @@ class Window3Content(ctk.CTkFrame):
 
 
         # ──────────────────────────────────────────────────────────────
-        # 2) EXPERIMENT CONTROLS  (DWELL-TIME NOW IN MILLISECONDS)
+        # 2) EXPERIMENT CONTROLS  
         # ──────────────────────────────────────────────────────────────
         self.cycle_frame = ctk.CTkFrame(
             self.right_frame, fg_color="#2B2B2B", corner_radius=8
@@ -202,14 +202,10 @@ class Window3Content(ctk.CTkFrame):
 
         self._update_cycle_button_state()
 
-
-
-
         # ──────────────────────────────────────────────────────────────
         # Load any saved unitary into the entry grid
         # ──────────────────────────────────────────────────────────────
         self.handle_all_tabs()
-
 
     def _read_all_daq_channels(self):
         """
@@ -274,119 +270,193 @@ class Window3Content(ctk.CTkFrame):
 
     def cycle_unitaries(self):
         """
-        1) Prompts user to select folder containing .npy files
-        2) Loads each .npy file in sequence, assigns to U_step, processes it
-        3) Applies phases, measures output power continuously during dwell time, saves averaged results
+        1) Ask for a folder with step_*.npy files.
+        2) For each file:
+            – decompose → apply phases
+            – wait/measure for <dwell> ms
+            – record power from the selected measurement source
+        3) Save a CSV with one column per *checked* site.
         """
         try:
-            # Get dwell time and setup sampling parameters
-            dwell = float(self.dwell_entry.get())
-            sample_rate = 1000  # Hz
-            samples_per_channel = int(dwell * sample_rate)  # Total samples to collect during dwell
+            # ───────────────────────────────────────────────────────
+            # 0.  Read user-selected parameters
+            # ───────────────────────────────────────────────────────
+            dwell_ms = float(self.dwell_entry.get())          # milliseconds
+            dwell_s  = dwell_ms / 1000.0
+            sample_rate          = 1_000                      # 1 kHz
+            samples_per_channel  = int(dwell_s*sample_rate)              # total samples to collect during dwell
 
-            # Prompt for folder selection
-            folder_path = filedialog.askdirectory(title="Select Folder Containing Unitary Step Files")
+            use_source = self.measurement_source.get()        # "DAQ" or "Thorlabs"
+
+            selected_sites = [i for i, var in enumerate(self.site_vars) if var.get()]
+            if not selected_sites:
+                print("No sites selected – aborting.")
+                return
+
+            # label for CSV columns → ["timestamp", "step", "site1", ...]
+            headers = ["timestamp", "step"] + [f"site{idx+1}" for idx in selected_sites]
+
+            # ───────────────────────────────────────────────────────
+            # 1.  Location for the .npy step files
+            # ───────────────────────────────────────────────────────
+            folder_path = filedialog.askdirectory(
+                title="Select Folder Containing Unitary Step Files"
+            )
             if not folder_path:
                 print("No folder selected. Aborting.")
                 return
 
             npy_files = sorted(
-                [f for f in os.listdir(folder_path) if f.endswith(".npy") and f.startswith("step_")],
-                key=lambda x: int(x.split("_")[1].split(".")[0])  # Extract number from 'step_1.npy'
+                [f for f in os.listdir(folder_path)
+                if f.startswith("step_") and f.endswith(".npy")],
+                key=lambda x: int(x.split("_")[1].split(".")[0])
             )
             if not npy_files:
                 print("No unitary step files found in selected folder.")
                 return
 
-            # Prepare results storage
-            results = []
-            headers = ["timestamp", "step", "site1", "site2", "site3", "site4"]
+            results = []   # rows for CSV
 
-            # Process each unitary file
+            # ───────────────────────────────────────────────────────
+            # 2.  Iterate through every step_*.npy
+            # ───────────────────────────────────────────────────────
             for step_idx, npy_file in enumerate(npy_files, start=1):
                 file_path = os.path.join(folder_path, npy_file)
-                print(f"\nProcessing step {step_idx}: {npy_file}")
+                print(f"\n► Processing step {step_idx}: {npy_file}")
 
-                # Load unitary
+                # a) load the unitary + decompose → set heaters
                 try:
                     U_step = np.load(file_path)
+                    I      = itf.square_decomposition(U_step)
+                    bs     = I.BS_list
+                    mzi_convention.clements_to_chip(bs)
+                    AppData.default_json_grid = mzi_lut.get_json_output(self.n, bs)
                 except Exception as e:
-                    print(f"Error loading {npy_file}: {e}")
+                    print(f"  ✖  Decomposition failed: {e}")
                     continue
 
-                # Decompose unitary
-                
-                try:
-                    I = itf.square_decomposition(U_step)
-                    bs_list = I.BS_list
-                    mzi_convention.clements_to_chip(bs_list)
-                    setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
-                except Exception as e:
-                    print(f"Error in decomposition: {e}")
-                    continue
-            
-                # Apply phases
+                # b) push phases to the chip
                 self.apply_phase_new()
 
-                # DAQ measurements with continuous sampling during dwell time
-                daq_values = [0.0, 0.0, 0.0, 0.0]
-                if self.daq and self.daq.list_ai_channels():
-                    channels = ["Dev1/ai0", "Dev1/ai1", "Dev1/ai2", "Dev1/ai3", "Dev1/ai4"]
-                    try:
-                        # Read power continuously during dwell time
-                        daq_vals = self.daq.read_power(
-                            channels=channels,
-                            samples_per_channel=samples_per_channel,
-                            sample_rate=sample_rate,
-                            unit='uW'
+                ### APPLY DWELL TIME 
+                time.sleep(dwell_s)
+
+                # c) measure power
+                site_values = [0.0] * len(selected_sites)
+
+                if use_source == "DAQ":
+                    if self.daq and self.daq.list_ai_channels():
+                        # map site index → DAQ channel; extend if you have more than 8
+                        daq_channels_map = [f"Dev1/ai{ch}" for ch in range(8)]
+                        channels = [daq_channels_map[idx] for idx in selected_sites]
+
+                        try:
+                            readings = self.daq.read_power(
+                                channels=channels,
+                                samples_per_channel=samples_per_channel,
+                                sample_rate=sample_rate,
+                                unit="uW",
+                            )
+                            # average samples if necessary
+                            if isinstance(readings[0], list):
+                                site_values = [sum(s)/len(s) for s in readings]
+                            else:
+                                site_values = readings
+                        except Exception as e:
+                            print(f"  ✖  DAQ read error: {e}")
+                        finally:
+                            try:
+                                self.daq.clear_task()
+                            except Exception:
+                                pass
+                    else:
+                        print("  ⚠  No DAQ connected.")
+                else:   # ───── Thorlabs ───────────────────────────
+                    if not self.thorlabs:
+                        print("  ⚠  No Thorlabs device connected.")
+                    else:
+                        device_list = (
+                            self.thorlabs if isinstance(self.thorlabs, list)
+                            else [self.thorlabs]
                         )
+                        for k, _ in enumerate(site_values):
+                            device = device_list[k] if k < len(device_list) else device_list[0]
+                            try:
+                                site_values[k] = device.read_power(unit="uW")
+                            except Exception as e:
+                                print(f"  ✖  Thorlabs read error (site {selected_sites[k]+1}): {e}")
 
-                        # Process and average the readings
-                        if isinstance(daq_vals, list) and len(daq_vals) >= 2:
-                            if isinstance(daq_vals[0], list):  # Multiple samples per channel
-                                # Calculate mean for each channel
-                                daq_values = [
-                                    sum(ch_samples)/len(ch_samples) 
-                                    for ch_samples in daq_vals
-                                ]
-                            else:  # Single sample per channel
-                                daq_values = daq_vals
-
-                        # Clear DAQ task
-                        self.daq.clear_task()
-
-                    except Exception as e:
-                        print(f"Error reading DAQ: {e}")
-                        daq_values = [0.0, 0.0, 0.0, 0.0]
-
-                # Record results with timestamp
-                current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                row = [current_timestamp, step_idx, daq_values[0], daq_values[1], daq_values[2], daq_values[3]]
+                # d) collect + show results
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                row       = [timestamp, step_idx] + site_values
                 results.append(row)
-                
-                # Print current values
-                print(f"Step {step_idx} measurements:")
-                print(f"  Site 1: {daq_values[0]:.3f} µW")
-                print(f"  Site 2: {daq_values[1]:.3f} µW")
-                print(f"  Site 3: {daq_values[2]:.3f} µW")
-                print(f"  Site 4: {daq_values[3]:.3f} µW")
 
-            # Export results
+                summary = "  ".join(
+                    f"Site {s+1}: {v:.3f} µW"
+                    for s, v in zip(selected_sites, site_values)
+                )
+                print("  " + summary)
+
+            # ───────────────────────────────────────────────────────
+            # 3.  Save CSV & reset chip
+            # ───────────────────────────────────────────────────────
             if results:
                 self._export_results_to_csv(results, headers)
-                print("\nFinished cycling unitaries!")
-                
-                # Reset phases to zero
-                zero_config = self._create_zero_config()
-                apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
-                print("All values reset to zero")
+                print("\n✔  Finished cycling unitaries.")
+
+                zero_cfg = self._create_zero_config()
+                apply_grid_mapping(self.qontrol, zero_cfg, self.grid_size)
+                print("✔  All heaters reset to zero.")
+
             else:
-                print("\nNo results collected during experiment")
+                print("\n⚠  No results collected.")
 
         except Exception as e:
             print(f"Experiment failed: {e}")
-            import traceback
-            traceback.print_exc()
+            import traceback; traceback.print_exc()
+
+    # ──────────────────────────────────────────────────────────────
+    # helper: save the results table to a CSV file
+    # ──────────────────────────────────────────────────────────────
+    def _export_results_to_csv(self, rows: list[list], headers: list[str]) -> None:
+        """
+        Ask the user where to save a CSV and write `headers` + `rows` to it.
+
+        Parameters
+        ----------
+        rows    : list of list
+            Each inner list is a row already in the desired order.
+        headers : list of str
+            Column names for the first row of the CSV.
+        """
+        if not rows:
+            print("Nothing to export – no rows provided.")
+            return
+
+        # default file name: cycle_results_YYYYmmdd_HHMMSS.csv
+        default_name = f"cycle_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+
+        path = filedialog.asksaveasfilename(
+            title="Save Results CSV",
+            defaultextension=".csv",
+            initialfile=default_name,
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        if not path:        # user pressed Cancel
+            print("Export cancelled.")
+            return
+
+        try:
+            import csv
+            with open(path, "w", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(headers)
+                writer.writerows(rows)
+            print(f"Results successfully saved to: {path}")
+        except Exception as e:
+            print(f"Failed to write CSV: {e}")
+
+
 
     def _create_zero_config(self):
         """Create a configuration with all theta and phi values set to zero"""
