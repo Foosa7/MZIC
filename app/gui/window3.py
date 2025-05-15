@@ -42,68 +42,174 @@ class Window3Content(ctk.CTkFrame):
         # For each tab, build a separate NxN of CTkEntries.
         self.unitary_entries = self.create_nxn_entries(self.tabview.tab('Unitary'))
 
-        # Bottom buttons
-        self.bottom_buttons_frame = ctk.CTkFrame(self.right_frame, fg_color='transparent')
-        self.bottom_buttons_frame.grid(row=1, column=0, sticky='nsew', padx=10, pady=10)
+        # ──────────────────────────────────────────────────────────────
+        # 1) UNITARY-MATRIX TOOLS
+        # ──────────────────────────────────────────────────────────────
+        self.unitary_buttons_frame = ctk.CTkFrame(
+            self.right_frame, fg_color="transparent"
+        )
+        self.unitary_buttons_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
 
+        # main action buttons
         self.apply_unitary_button = ctk.CTkButton(
-            self.bottom_buttons_frame, text='Decompose',
+            self.unitary_buttons_frame, text="Decompose",
             command=self.decompose_unitary
         )
-        self.apply_unitary_button.pack(anchor='center', pady=(5,5))
+        self.apply_unitary_button.pack(anchor="center", pady=(5, 5))
 
         self.import_unitary_button = ctk.CTkButton(
-            self.bottom_buttons_frame, text='Import Unitary',
+            self.unitary_buttons_frame, text="Import Unitary",
             command=self.import_unitary_file
         )
-        self.import_unitary_button.pack(anchor='center', pady=(5,5))
+        self.import_unitary_button.pack(anchor="center", pady=(5, 5))
 
         self.export_unitary_button = ctk.CTkButton(
-            self.bottom_buttons_frame, text='Export Unitary',
+            self.unitary_buttons_frame, text="Export Unitary",
             command=self.export_unitary_file
         )
-        self.export_unitary_button.pack(anchor='center', pady=(5,5))
+        self.export_unitary_button.pack(anchor="center", pady=(5, 5))
 
-        # Create button frame using pack
-        button_frame = ctk.CTkFrame(self.bottom_buttons_frame, fg_color='transparent')
-        button_frame.pack(anchor='center', pady=(5, 5))
-
-        # Add the cycle unitary button
-        self.cycle_unitaries_button = ctk.CTkButton(
-            button_frame,
-            text="Cycle Unitaries",
-            command=self.cycle_unitaries,
-            width=120,
-            height=30
+        # quick presets
+        self.common_unitaries_frame = ctk.CTkFrame(
+            self.unitary_buttons_frame, fg_color="transparent"
         )
-        self.cycle_unitaries_button.pack(side='left', padx=5, pady=5)
-
-        # Add the dwell time label and entry next to the button
-        self.dwell_label = ctk.CTkLabel(button_frame, text="Dwell Time (s):")
-        self.dwell_label.pack(side='left', padx=5)
-
-        self.dwell_entry = ctk.CTkEntry(button_frame, width=100)
-        self.dwell_entry.insert(0, "0.5")  # default
-        self.dwell_entry.pack(side='left', padx=5)
-
-        # Common unitaries
-        self.common_unitaries_frame = ctk.CTkFrame(self.bottom_buttons_frame, fg_color='transparent')
-        self.common_unitaries_frame.pack(anchor='center', pady=(5,5))
+        self.common_unitaries_frame.pack(anchor="center", pady=(5, 5))
 
         self.identity_button = ctk.CTkButton(
-            self.common_unitaries_frame, text='Identity',
+            self.common_unitaries_frame, text="Identity",
             command=self.fill_identity
         )
-        self.identity_button.pack(side='left', expand=True, anchor='center', padx=2)
+        self.identity_button.pack(side="left", expand=True, anchor="center", padx=2)
 
         self.random_button = ctk.CTkButton(
-            self.common_unitaries_frame, text='Random',
+            self.common_unitaries_frame, text="Random",
             command=self.fill_random
         )
-        self.random_button.pack(side='left', expand=True, anchor='center', padx=2)
+        self.random_button.pack(side="left", expand=True, anchor="center", padx=2)
 
-        # Load any saved unitary from AppData for each tab
+
+        # ──────────────────────────────────────────────────────────────
+        # 2) EXPERIMENT CONTROLS  (DWELL-TIME NOW IN MILLISECONDS)
+        # ──────────────────────────────────────────────────────────────
+        self.cycle_frame = ctk.CTkFrame(
+            self.right_frame, fg_color="#2B2B2B", corner_radius=8
+        )
+        self.cycle_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0, 10))
+        self.cycle_frame.grid_columnconfigure(1, weight=1)
+
+        # title row
+        ctk.CTkLabel(
+            self.cycle_frame, text="⚙  Experiment Controls",
+            font=("Segoe UI", 14, "bold")
+        ).grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(8, 6))
+
+        # ─────────────────────  row 1 – Cycle button
+        self.cycle_unitaries_button = ctk.CTkButton(
+            self.cycle_frame, text="Cycle Unitaries",
+            command=self.cycle_unitaries, width=140, height=32
+        )
+        self.cycle_unitaries_button.grid(row=1, column=0, padx=10, pady=4, sticky="w")
+
+        # ─────────────────────  row 2 – dwell-time (ms)
+        ctk.CTkLabel(self.cycle_frame, text="Dwell Time (ms):")\
+            .grid(row=2, column=0, sticky="e", padx=10, pady=4)
+
+        dwell_time_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
+        dwell_time_frame.grid(row=2, column=1, sticky="ew", padx=10, pady=4)
+        dwell_time_frame.grid_columnconfigure(0, weight=1)
+
+        # shared state
+        self.dwell_var = ctk.StringVar(value="500")   # milliseconds
+        _SLIDER_MIN_MS = 1
+        _SLIDER_MAX_MS = 5_000
+        self._dwell_lock = False                      # recursion guard
+
+        def _slider_moved(value_ms: float):
+            if self._dwell_lock:
+                return
+            self._dwell_lock = True
+            self.dwell_var.set(f"{int(value_ms)}")    # keep as ms
+            self._dwell_lock = False
+
+        def _entry_changed(*_):
+            if self._dwell_lock:
+                return
+            try:
+                ms = int(float(self.dwell_var.get()))
+                ms = max(_SLIDER_MIN_MS, min(_SLIDER_MAX_MS, ms))
+                self._dwell_lock = True
+                self.dwell_slider.set(ms)
+                self._dwell_lock = False
+            except ValueError:
+                # ignore incomplete/invalid input
+                pass
+
+        self.dwell_var.trace_add("write", _entry_changed)
+
+        # slider: 1 ms → 5 000 ms
+        self.dwell_slider = ctk.CTkSlider(
+            dwell_time_frame,
+            from_=_SLIDER_MIN_MS,
+            to=_SLIDER_MAX_MS,
+            number_of_steps=_SLIDER_MAX_MS - _SLIDER_MIN_MS,
+            command=_slider_moved,
+        )
+        self.dwell_slider.set(500)                  # default 500 ms
+        self.dwell_slider.grid(row=0, column=0, sticky="ew")
+
+        # entry bound to the same StringVar
+        self.dwell_entry = ctk.CTkEntry(
+            dwell_time_frame, width=70, textvariable=self.dwell_var
+        )
+        self.dwell_entry.grid(row=0, column=1, padx=(8, 0))
+
+        """
+        Remember to convert ms to seconds for experiment later
+        dwell_ms = float(self.dwell_entry.get())
+        dwell_seconds = dwell_ms / 1000.0
+        """
+
+        # ─────────────────────  row 3 – measurement source
+        self.measurement_source = ctk.StringVar(value="DAQ")
+
+        ctk.CTkLabel(self.cycle_frame, text="Measure with:")\
+            .grid(row=3, column=0, sticky="e", padx=10, pady=4)
+
+        measure_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
+        measure_frame.grid(row=3, column=1, sticky="w", padx=10, pady=4)
+
+        ctk.CTkRadioButton(measure_frame, text="DAQ",
+            variable=self.measurement_source, value="DAQ").pack(side="left", padx=3)
+        ctk.CTkRadioButton(measure_frame, text="Thorlabs",
+            variable=self.measurement_source, value="Thorlabs").pack(side="left", padx=3)
+
+        # ─────────────────────  row 4 – site selection
+        ctk.CTkLabel(self.cycle_frame, text="Record sites:")\
+            .grid(row=4, column=0, sticky="ne", padx=10, pady=(4, 10))
+
+        sites_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
+        sites_frame.grid(row=4, column=1, sticky="w", padx=10, pady=(4, 10))
+
+        self.site_vars = []
+        max_per_row = 4
+        for idx in range(self.n):
+            var = ctk.BooleanVar(value=(idx < 2))
+            self.site_vars.append(var)
+            chk = ctk.CTkCheckBox(sites_frame, text=f"{idx+1}", variable=var)
+            chk.grid(row=idx // max_per_row, column=idx % max_per_row,
+                    padx=3, pady=3, sticky="w")
+            var.trace_add("write", lambda *_: self._update_cycle_button_state())
+
+        self._update_cycle_button_state()
+
+
+
+
+        # ──────────────────────────────────────────────────────────────
+        # Load any saved unitary into the entry grid
+        # ──────────────────────────────────────────────────────────────
         self.handle_all_tabs()
+
 
     def _read_all_daq_channels(self):
         """
@@ -472,6 +578,12 @@ class Window3Content(ctk.CTkFrame):
         else:
             # No resistance parameters, use default
             return float(round(1000 * np.sqrt(P/(50.0*1000)), 2))
+
+    def _update_cycle_button_state(self):
+        """Enable Cycle button only if at least one site is ticked."""
+        enabled = any(v.get() for v in self.site_vars)
+        state = "normal" if enabled else "disabled"
+        self.cycle_unitaries_button.configure(state=state)
 
     def get_unitary_mapping(self):
         '''Returns the entry grid and AppData variable for the unitary tab.'''
