@@ -1,5 +1,5 @@
 # utils/qmapper8x8.py
-from app.imports import *.
+from app.imports import *
 import json
 from jsonschema import validate
 from collections import defaultdict
