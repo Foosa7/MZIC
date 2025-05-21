@@ -13,26 +13,31 @@ class Switch:
         return serial.Serial(self.port, baudrate=self.baudrate, timeout=self.timeout)
 
     def set_channel(self, channel):
-        """
-        Sets the switch to the specified channel.
-        channel = 0 (block), or 1 to 64 depending on your device.
-        """
-        if not (0 <= channel <= 64):
-            raise ValueError("Channel must be between 0 and 64")
+        if not (1 <= channel <= 64):
+            raise ValueError("Channel must be between 1 and 64")
 
-        command = [0xEF, 0xEF, 0x04, 0xFF, 0x04, channel]
+        command = [0xEF, 0xEF, 0x06, 0xFF, 0x0D, 0x00, 0x00, channel]
         command.append(self._checksum(command))
+
+        print(f"[DEBUG] Sending command: {bytes(command).hex()}")
 
         with self._open_serial() as ser:
             ser.write(bytes(command))
+            time.sleep(0.2)
             response = ser.read(7)
 
-        if len(response) == 7 and response[4] == 0xEE:
-            print(f"[INFO][Switch] channel {channel} set successfully.")
+        if response:
+            print(f"[DEBUG] Received response: {response.hex()}")
+        else:
+            print(f"[ERROR] No response received — device may be ignoring command.")
+
+        if len(response) >= 6 and response[5] == 0xEE:
+            print(f"[INFO][Switch] Channel {channel} set successfully.")
             return True
         else:
-            print(f"[INFO][Switch] Failed to set channel. Response: {response.hex()}")
+            print(f"[WARN][Switch] Failed to set channel. Response: {response.hex() if response else 'None'}")
             return False
+
 
     def get_channel(self):
         """
@@ -46,10 +51,14 @@ class Switch:
             ser.write(bytes(command))
             response = ser.read(7)
 
-        if len(response) == 7 and response[3] == 0x02:
+        if len(response) == 7 and response[4] == 0x02:
             current_channel = response[5]
             print(f"[INFO][Switch] Current active channel: {current_channel}")
             return current_channel
         else:
             print(f"[INFO][Switch] Failed to get channel. Response: {response.hex()}")
             return None
+
+## ef ef 06 ff 0d 00 00 01 f1 for channel 1
+## ef ef 06 ff 0d 00 00 02 f2 for channel 2
+## ef ef 06 ff 0d 00 00 03 f3 for channel 3

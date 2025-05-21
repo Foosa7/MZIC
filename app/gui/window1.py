@@ -405,10 +405,21 @@ class Window1Content(ctk.CTkFrame):
             lines = []
 
             # For each pinned index in AppData.selected_output_pins
-            for pin_idx in AppData.selected_output_pins:
+            for in_pin_idx in AppData.selected_output_pins:
                 # Make sure it's valid
-                if 0 <= pin_idx < len(channels):
-                    ch_name = channels[pin_idx]
+                if 0 <= in_pin_idx < len(channels):
+                    ch_name = channels[in_pin_idx]
+                    # Plot that channel
+                    line, = self.ax.plot(self.time_data,
+                                        self.channel_data[ch_name],
+                                        linewidth=1.5)
+                    lines.append((ch_name, line))
+
+            # For each pinned index in AppData.selected_output_pins
+            for out_pin_idx in AppData.selected_output_pins:
+                # Make sure it's valid
+                if 0 <= out_pin_idx < len(channels):
+                    ch_name = channels[out_pin_idx]
                     # Plot that channel
                     line, = self.ax.plot(self.time_data,
                                         self.channel_data[ch_name],
@@ -701,9 +712,25 @@ class Window1Content(ctk.CTkFrame):
         except Exception as e:
             self._show_error(f"Export failed: {str(e)}")
 
+    # def _import_config(self):
+    #     """Import configuration from a JSON file."""
+    #     # Open a file dialog to select a JSON file.
+    #     file_path = filedialog.askopenfilename(
+    #         title="Import Config",
+    #         filetypes=(("JSON files", "*.json"), ("All files", "*.*"))
+    #     )
+    #     if file_path:
+    #         try:
+    #             with open(file_path, "r") as f:
+    #                 json_str = f.read()
+    #             self.custom_grid.import_paths_json(json_str)
+    #             self._update_device()
+    #             print(f"Configuration imported from {file_path}")
+    #         except Exception as e:
+    #             self._show_error(f"Invalid config: {str(e)}")
+
     def _import_config(self):
         """Import configuration from a JSON file."""
-        # Open a file dialog to select a JSON file.
         file_path = filedialog.askopenfilename(
             title="Import Config",
             filetypes=(("JSON files", "*.json"), ("All files", "*.*"))
@@ -711,8 +738,24 @@ class Window1Content(ctk.CTkFrame):
         if file_path:
             try:
                 with open(file_path, "r") as f:
-                    json_str = f.read()
-                self.custom_grid.import_paths_json(json_str)
+                    json_data = json.load(f)
+                input_pin = json_data.get("input_pin")
+                output_pin = json_data.get("output_pin")
+
+                # Update selected pins in AppData
+                AppData.selected_input_pins.clear()
+                AppData.selected_output_pins.clear()
+                if input_pin is not None:
+                    AppData.selected_input_pins.add(input_pin)
+                if output_pin is not None:
+                    AppData.selected_output_pins.add(output_pin)
+
+                # Remove the top-level keys before passing to import
+                path_data = {
+                    k: v for k, v in json_data.items() if k not in ("input_pin", "output_pin")
+                }
+
+                self.custom_grid.import_paths_json(json.dumps(path_data))
                 self._update_device()
                 print(f"Configuration imported from {file_path}")
             except Exception as e:
@@ -817,11 +860,13 @@ class Window1Content(ctk.CTkFrame):
             # grid_config = AppData.default_json_grid
             print(grid_config)
             if not grid_config:
-                self._show_error("No grid configuration found W1")
+                self._show_error("No grid configuration found")
                 return
                 
             # Create label mapping for channel assignments
             label_map = create_label_mapping(8)  # Assuming 8x8 grid
+            
+
             
             # Create a new configuration with current values
             phase_grid_config = copy.deepcopy(grid_config)

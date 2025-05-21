@@ -1,4 +1,4 @@
-# utils/qmapper8x8.py
+# utils/qontrol/qmapper8x8.py
 from app.imports import *
 import json
 from jsonschema import validate
@@ -172,7 +172,6 @@ def apply_qontrol_mapping(qontrol_device, channel_map):
             qontrol_device.set_current(channel, current)
         except Exception as e:
             print(f"Channel {channel} error: {str(e)}")
-
 
 # Example usage:
 if __name__ == "__main__":

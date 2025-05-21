@@ -6,15 +6,17 @@ class AppData:
     _last_selection_lock = Lock()
     last_selected = {"cross": "", "arm": ""}  # Set default starting value
     io_config = {} 
-
+    
+    selected_input_pins = set() # store which pin is selected
     selected_output_pins = set() # store which pin is selected
+    prev_selected_idx = None
+    selected_idx = None 
 
     saved_unitary_U1 = None     
     saved_unitary_U2 = None     
     saved_unitary_U3 = None    
 
     selected_labels = set()
-    selected_output_pins = set()
     io_config = None
     last_selection = {"cross": None, "arm": None}
 

@@ -7,5 +7,6 @@
     "default_mesh": "8x8",
     "options": ["4x4", "6x6", "8x8", "12x12"],
     "default_config": "C:\\Users\\hp-ma\\Downloads\\newcal.pkl"
+    
   }
   
