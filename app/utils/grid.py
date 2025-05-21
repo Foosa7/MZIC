@@ -296,11 +296,15 @@ class Example(Frame):
     def create_x_shape(self, center_name, x, y, arm_length, label):
         """Creates an X shape with label."""
         self.nodes[center_name] = Node(center_name, x, y)
-        self.cross_labels[center_name] = self.canvas.create_text(
+        self.cross_labels[center_name] = None  # Initialize label ID
+        label_id = self.canvas.create_text(
             x + arm_length - 20, y,
             text=label,
             anchor='w', font=("Arial", 12), fill="white"
         )
+        self.cross_labels[center_name] = label_id
+        self.canvas.tag_bind(label_id, "<Button-1>", lambda event, lbl=label: self.on_label_click(lbl, label_id))
+
 
         # # Create top-left dot (added feature)
         # tl_x = x - arm_length
@@ -322,6 +326,18 @@ class Example(Frame):
             arm_name = f"{center_name}_{suffix}"
             self.nodes[arm_name] = Node(arm_name, x + dx, y + dy)
             self.create_path(self.nodes[center_name], self.nodes[arm_name])
+
+    def on_label_click(self, label, label_id):
+        """Handles label selection and stores selected labels in AppData."""
+        if not hasattr(AppData, "selected_labels"):
+            AppData.selected_labels = set()
+        if label in AppData.selected_labels:
+            AppData.selected_labels.remove(label)
+            self.canvas.itemconfig(label_id, fill="white")
+        else:
+            AppData.selected_labels.add(label)
+            self.canvas.itemconfig(label_id, fill="red")
+        print("Selected labels:", AppData.selected_labels)
 
     def get_cross_modes(self):
         """Returns a dict mapping cross labels to their selection type (bar/cross/split)."""
@@ -392,39 +408,122 @@ class Example(Frame):
             # Call your function that handles right-side output labels.
             self.handle_output_label_selection(label_number)
 
+    # Multiple selection of output labels 
     def handle_input_label_selection(self, label_number):
-        """Handles logic when an input label is selected."""
-        print(f"Input label {label_number} selected.")
-       
-    def handle_output_label_selection(self, label_number):
-        # For instance, pin_map = {"7": 0, "8": 1, "9": 2, ...} to ai channels
+        # Map label number to pin index
         pin_map = {
-            "7": 0,
-            "8": 1,
-            "9": 2,
-            "10": 3,
-            "11": 4,
-            "12": 5,
-            "13": 6,
-            "14": 7
+            "7": 7,
+            "8": 6,
+            "9": 5,
+            "10": 4,
+            "11": 3,
+            "12": 2,
+            "13": 1,
+            "14": 0
         }
 
         if label_number not in pin_map:
             return
-        
-        pin_idx = pin_map[label_number]
-        label_tag = f"output_label_{label_number}"
 
-        if pin_idx in AppData.selected_output_pins:
-            # Unpin
-            AppData.selected_output_pins.remove(pin_idx)
-            print(f"Unpinned channel {pin_idx}")
-            # revert color to default (white)
-            self.canvas.itemconfig(label_tag, fill="white")
-        else:
-            # Pin
-            AppData.selected_output_pins.add(pin_idx)
-            print(f"Pinned channel {pin_idx}")
+        in_pin_idx = pin_map[label_number]
+        label_tag = f"input_label_{label_number}"
+        prev_selected_idx = None  # ensure it's defined
+
+        # Deselect previously selected pin (if any)
+        if AppData.selected_input_pins:
+            prev_selected_idx = next(iter(AppData.selected_input_pins))
+            AppData.selected_input_pins.clear()
+
+            # Find the corresponding label number for previous pin (reverse map)
+            for k, v in pin_map.items():
+                if v == prev_selected_idx:
+                    prev_label_tag = f"input_label_{k}"
+                    self.canvas.itemconfig(prev_label_tag, fill="white")
+                    break
+
+        # If the clicked pin was already selected, it was just unselected — so we're done
+        if in_pin_idx == prev_selected_idx:
+            print(f"Input Unpinned channel {in_pin_idx}")
+            return
+
+        # Otherwise, select the new pin
+        AppData.selected_input_pins.add(in_pin_idx)
+        self.canvas.itemconfig(label_tag, fill="red")
+        print(f"Input Pinned channel {in_pin_idx}")
+
+
+    def handle_output_label_selection(self, label_number):
+        # Map label number to pin index
+        pin_map = {
+            "7": 7,
+            "8": 6,
+            "9": 5,
+            "10": 4,
+            "11": 3,
+            "12": 2,
+            "13": 1,
+            "14": 0
+        }
+
+        if label_number not in pin_map:
+            return
+
+        in_pin_idx = pin_map[label_number]
+        label_tag = f"output_label_{label_number}"
+        prev_selected_idx = None  # ensure it's defined
+
+        # Deselect previously selected pin (if any)
+        if AppData.selected_output_pins:
+            prev_selected_idx = next(iter(AppData.selected_output_pins))
+            AppData.selected_output_pins.clear()
+
+            # Find the corresponding label number for previous pin (reverse map)
+            for k, v in pin_map.items():
+                if v == prev_selected_idx:
+                    prev_label_tag = f"output_label_{k}"
+                    self.canvas.itemconfig(prev_label_tag, fill="white")
+                    break
+
+        # If the clicked pin was already selected, it was just unselected — so we're done
+        if in_pin_idx == prev_selected_idx:
+            print(f"Output Unpinned channel {in_pin_idx}")
+            return
+
+        # Otherwise, select the new pin
+        AppData.selected_output_pins.add(in_pin_idx)
+        self.canvas.itemconfig(label_tag, fill="red")
+        print(f"Output Pinned channel {in_pin_idx}")
+
+
+    # def handle_output_label_selection(self, label_number):
+    #     # For instance, pin_map = {"7": 0, "8": 1, "9": 2, ...} to ai channels
+    #     pin_map = {
+    #         "7": 0,
+    #         "8": 1,
+    #         "9": 2,
+    #         "10": 3,
+    #         "11": 4,
+    #         "12": 5,
+    #         "13": 6,
+    #         "14": 7
+    #     }
+
+    #     if label_number not in pin_map:
+    #         return
+        
+    #     out_pin_idx = pin_map[label_number]
+    #     label_tag = f"output_label_{label_number}"
+
+    #     if out_pin_idx in AppData.selected_output_pins:
+    #         # Unpin
+    #         AppData.selected_output_pins.remove(out_pin_idx)
+    #         print(f"Output Unpinned channel {out_pin_idx}")
+    #         # revert color to default (white)
+    #         self.canvas.itemconfig(label_tag, fill="white")
+    #     else:
+    #         # Pin
+    #         AppData.selected_output_pins.add(out_pin_idx)
+    #         print(f"Output Pinned channel {out_pin_idx}")
 
     def toggle_path_selection(self, path):
         """Toggles path selection state."""
@@ -762,23 +861,68 @@ class Example(Frame):
         """Updates coordinate display."""
         self.coord_label.config(text=f"X: {event.x}, Y: {event.y}")
     
+    # def export_paths_json(self):
+    #     """
+    #     Exports selected paths as a JSON string.
+    #     Creates a dictionary keyed by the center (e.g. "A1").
+    #     Each value is a dict with keys:
+    #        - "arms": a list of arm suffixes selected (e.g. ["TL", "BR"])
+    #        - "theta": the current value from the theta input box (default "0")
+    #        - "phi": the current value from the phi input box (default "0")
+    #     """
+    #     export_data = {}
+    #     for path in self.paths:
+    #         if path.line_id in self.selected_paths:
+    #             # Determine the center text for this path.
+    #             center = self.get_cross_label_from_node(path.node1) or self.get_cross_label_from_node(path.node2)
+    #             if not center:
+    #                 continue
+    #             # Determine the arm associated with this path.
+    #             parts1 = path.node1.name.split("_")
+    #             parts2 = path.node2.name.split("_")
+    #             arm = None
+    #             if len(parts1) == 4 and len(parts2) == 3:
+    #                 arm = parts1[-1]
+    #             elif len(parts1) == 3 and len(parts2) == 4:
+    #                 arm = parts2[-1]
+    #             elif len(parts1) == 4 and len(parts2) == 4:
+    #                 arm = parts1[-1]
+    #             if center not in export_data:
+    #                 # If input boxes exist for this center, get their values; otherwise use defaults.
+    #                 if center in self.input_boxes:
+    #                     theta_val = self.input_boxes[center]['theta_entry'].get().strip() or "0"
+    #                     phi_val = self.input_boxes[center]['phi_entry'].get().strip() or "0"
+    #                 else:
+    #                     theta_val, phi_val = "0", "0"
+    #                 export_data[center] = {"arms": [], "theta": theta_val, "phi": phi_val}
+    #             if arm and arm not in export_data[center]["arms"]:
+    #                 export_data[center]["arms"].append(arm)
+    #     return json.dumps(export_data)
+
     def export_paths_json(self):
         """
         Exports selected paths as a JSON string.
-        Creates a dictionary keyed by the center (e.g. "A1").
-        Each value is a dict with keys:
-           - "arms": a list of arm suffixes selected (e.g. ["TL", "BR"])
-           - "theta": the current value from the theta input box (default "0")
-           - "phi": the current value from the phi input box (default "0")
+        Returns a dictionary with:
+          - Top-level "input_pin" and "output_pin"
+          - Per-center path data with:
+              - "arms": list of arm suffixes (e.g. ["TL", "BR"])
+              - "theta": phase theta (string)
+              - "phi": phase phi (string)
         """
-        export_data = {}
+        input_pin = next(iter(AppData.selected_input_pins), None)
+        output_pin = next(iter(AppData.selected_output_pins), None)
+
+        export_data = {
+            "input_pin": input_pin,
+            "output_pin": output_pin
+        }
+
         for path in self.paths:
             if path.line_id in self.selected_paths:
-                # Determine the center text for this path.
                 center = self.get_cross_label_from_node(path.node1) or self.get_cross_label_from_node(path.node2)
                 if not center:
                     continue
-                # Determine the arm associated with this path.
+
                 parts1 = path.node1.name.split("_")
                 parts2 = path.node2.name.split("_")
                 arm = None
@@ -788,17 +932,26 @@ class Example(Frame):
                     arm = parts2[-1]
                 elif len(parts1) == 4 and len(parts2) == 4:
                     arm = parts1[-1]
+
                 if center not in export_data:
-                    # If input boxes exist for this center, get their values; otherwise use defaults.
                     if center in self.input_boxes:
                         theta_val = self.input_boxes[center]['theta_entry'].get().strip() or "0"
                         phi_val = self.input_boxes[center]['phi_entry'].get().strip() or "0"
                     else:
                         theta_val, phi_val = "0", "0"
-                    export_data[center] = {"arms": [], "theta": theta_val, "phi": phi_val}
+
+                    export_data[center] = {
+                        "arms": [],
+                        "theta": theta_val,
+                        "phi": phi_val
+                    }
+
                 if arm and arm not in export_data[center]["arms"]:
                     export_data[center]["arms"].append(arm)
-        return json.dumps(export_data)
+
+        return json.dumps(export_data, indent=2)
+
+
 
     def import_paths_json(self, json_str):
         """

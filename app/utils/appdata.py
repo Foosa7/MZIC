@@ -7,15 +7,16 @@ class AppData:
     last_selected = {"cross": "", "arm": ""}  # Set default starting value
     io_config = {} 
 
+    selected_input_pins = set() # store which pin is selected
     selected_output_pins = set() # store which pin is selected
+    prev_selected_idx = None
+    selected_idx = None 
 
     saved_unitary = None     
   
-
-    # @classmethod
-    # def update_last_selection(cls, cross, arm):
-    #     cls.last_selected["cross"] = cross.split('-')[0]  # Handle composite labels
-    #     cls.last_selected["arm"] = arm.split('-')[0]
+    selected_labels = set()
+    io_config = None
+    last_selection = {"cross": None, "arm": None}  # Set default starting value
 
     @classmethod
     def update_last_selection(cls, cross, arm):
