@@ -7,7 +7,7 @@ import serial.tools.list_ports
 # Add project root (e.g., where the "app" folder is located)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app.devices.switch_device import Switch
+from app.devices.switch_device import SwitchDevice
 
 class SwitchGUI:
     def __init__(self, root):

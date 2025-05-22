@@ -14,6 +14,7 @@ from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mappin
 from collections import defaultdict
 from typing import Dict, Any
 from scipy import optimize
+from app.utils.switch.switch_mapper import get_switch_devices_from_appdata, update_switch_from_json 
 
 class Window1Content(ctk.CTkFrame):
     def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, phase_selector=None, grid_size="8x8", **kwargs):
@@ -696,7 +697,7 @@ class Window1Content(ctk.CTkFrame):
 
 
     def _export_config(self):
-        """Export current configuration to a JSON file."""
+        """Export current configuration to a JSON file. The main export_paths_json function lives in grid.py"""
         try:
             config_str = self.custom_grid.export_paths_json()
             # Ask the user for a file location to save the JSON configuration.
@@ -730,7 +731,7 @@ class Window1Content(ctk.CTkFrame):
     #             self._show_error(f"Invalid config: {str(e)}")
 
     def _import_config(self):
-        """Import configuration from a JSON file."""
+        """Import configuration from a JSON file. The main import_paths_json function lives in grid.py"""
         file_path = filedialog.askopenfilename(
             title="Import Config",
             filetypes=(("JSON files", "*.json"), ("All files", "*.*"))
@@ -742,6 +743,20 @@ class Window1Content(ctk.CTkFrame):
                 input_pin = json_data.get("input_pin")
                 output_pin = json_data.get("output_pin")
 
+                # --- Ensure AppData.switch_port is up-to-date from the widget ---
+                # If you have a reference to your SwitchControlWidget, use its get_selected_ports()
+                # For example, if it's self.switch_control_widget:
+                if hasattr(self, "switch_control_widget"):
+                    input_port, output_port = self.switch_control_widget.get_selected_ports()
+                    AppData.switch_port["input_port"] = input_port
+                    AppData.switch_port["output_port"] = output_port
+                # Otherwise, AppData.switch_port should already be set by the widget
+
+                # Update the physical switch devices using the imported config
+                update_switch_success = update_switch_from_json(json_data)
+                if not update_switch_success:
+                    print("[WARN][SWITCH] Switch update failed during config import.")
+
                 # Update selected pins in AppData
                 AppData.selected_input_pins.clear()
                 AppData.selected_output_pins.clear()
@@ -750,17 +765,12 @@ class Window1Content(ctk.CTkFrame):
                 if output_pin is not None:
                     AppData.selected_output_pins.add(output_pin)
 
-                # Remove the top-level keys before passing to import
-                path_data = {
-                    k: v for k, v in json_data.items() if k not in ("input_pin", "output_pin")
-                }
-
-                self.custom_grid.import_paths_json(json.dumps(path_data))
+                # Pass the full JSON to import_paths_json
+                self.custom_grid.import_paths_json(json.dumps(json_data))
                 self._update_device()
                 print(f"Configuration imported from {file_path}")
             except Exception as e:
                 self._show_error(f"Invalid config: {str(e)}")
-
 
     def _handle_selection_update(self, event):
         """Event-driven update handler"""
@@ -796,12 +806,29 @@ class Window1Content(ctk.CTkFrame):
 
             # Reset selected_labels in AppData
             AppData.selected_labels.clear()
+            AppData.selected_input_pins.clear()
+            AppData.selected_output_pins.clear()
 
-            # Reset all label colors to white
+            # Reset all cross label colors to white
             for label_id in self.custom_grid.cross_labels.values():
                 if label_id is not None:
                     self.custom_grid.canvas.itemconfig(label_id, fill="white")
 
+            # --- Reset input/output pin label colors to white ---
+            pin_map = {
+                7: "input_label_7", 6: "input_label_8", 5: "input_label_9", 4: "input_label_10",
+                3: "input_label_11", 2: "input_label_12", 1: "input_label_13", 0: "input_label_14",
+            }
+            out_pin_map = {
+                7: "output_label_7", 6: "output_label_8", 5: "output_label_9", 4: "output_label_10",
+                3: "output_label_11", 2: "output_label_12", 1: "output_label_13", 0: "output_label_14",
+            }
+            for tag in pin_map.values():
+                if self.custom_grid.canvas.find_withtag(tag):
+                    self.custom_grid.canvas.itemconfig(tag, fill="white")
+            for tag in out_pin_map.values():
+                if self.custom_grid.canvas.find_withtag(tag):
+                    self.custom_grid.canvas.itemconfig(tag, fill="white")
 
             # Reset last selection.
             self.custom_grid.last_selection = {"cross": None, "arm": None}

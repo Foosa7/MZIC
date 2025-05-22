@@ -31,6 +31,7 @@ class Example(Frame):
         self.grid_n = grid_n
         self.scale = scale
         self.selection_callback = None  # Callback to update dynamic selection display.
+        self.arm_to_extension = {}  # Maps arm node name to (extension line_id, label_tag)
         self.initUI()
         self.input_boxes = {}  # Tracks input boxes by cross label.
         self.cross_selected_count = defaultdict(int)  # Tracks selected path counts per cross.
@@ -223,12 +224,16 @@ class Example(Frame):
             new_x = node.x + (ext_length if side == "right" else -ext_length)
             ext_node = Node(f"{node.name}_EXT", new_x, node.y)
             self.nodes[ext_node.name] = ext_node
-            self.create_path(node, ext_node)
+            # self.create_path(node, ext_node)
+            line_id = self.create_path(node, ext_node)  # Modify create_path to return line_id
 
             # Add labels for 8x8 grid
             if n == 8:
                 label = 14 - i if side == "left" else 7 + i
+                label_tag = f"input_label_{label}" if side == "left" else f"output_label_{label}"
                 self._draw_side_label(is_special, label, side, new_x, node.y)
+                # Store mapping from arm node to extension line and label tag
+                self.arm_to_extension[node.name] = (line_id, label_tag)
             elif n == 12:
                 label = 22 - i if side == "left" else 11 + i
                 self._draw_side_label(is_special, label, side, new_x, node.y)
@@ -367,7 +372,7 @@ class Example(Frame):
             elif arm_set in [{'TR', 'BR', 'TL'}, {'TR', 'BR', 'BL'}]:  
                 modes[cross] = 'split_state'
         
-        print("Computed cross modes:", modes)
+        # print("Computed cross modes:", modes)
         return modes
 
 
@@ -385,6 +390,7 @@ class Example(Frame):
             fill="white", width=2
         )
         self.paths.append(Path(node1, node2, line_id))
+        return line_id
 
     def on_canvas_click(self, event):
         """Handles path selection."""
@@ -443,13 +449,13 @@ class Example(Frame):
 
         # If the clicked pin was already selected, it was just unselected — so we're done
         if in_pin_idx == prev_selected_idx:
-            print(f"Input Unpinned channel {in_pin_idx}")
+            # print(f"Input Unpinned channel {in_pin_idx}")
             return
 
         # Otherwise, select the new pin
         AppData.selected_input_pins.add(in_pin_idx)
         self.canvas.itemconfig(label_tag, fill="red")
-        print(f"Input Pinned channel {in_pin_idx}")
+        # print(f"Input Pinned channel {in_pin_idx}")
 
 
     def handle_output_label_selection(self, label_number):
@@ -486,13 +492,13 @@ class Example(Frame):
 
         # If the clicked pin was already selected, it was just unselected — so we're done
         if in_pin_idx == prev_selected_idx:
-            print(f"Output Unpinned channel {in_pin_idx}")
+            # print(f"Output Unpinned channel {in_pin_idx}")
             return
 
         # Otherwise, select the new pin
         AppData.selected_output_pins.add(in_pin_idx)
         self.canvas.itemconfig(label_tag, fill="red")
-        print(f"Output Pinned channel {in_pin_idx}")
+        # print(f"Output Pinned channel {in_pin_idx}")
 
 
     # def handle_output_label_selection(self, label_number):
@@ -531,10 +537,36 @@ class Example(Frame):
         if adding:
             self.canvas.itemconfig(path.line_id, fill="red")
             self.selected_paths.add(path.line_id)
+            # Highlight extension if this path is an arm
+            for node in [path.node1, path.node2]:
+                if node.name in self.arm_to_extension:
+                    ext_line_id, label_tag = self.arm_to_extension[node.name]
+                    self.canvas.itemconfig(ext_line_id, fill="red")
+                    self.canvas.itemconfig(label_tag, fill="red")
+                    # --- NEW: Update AppData pin sets ---
+                    if label_tag.startswith("input_label_"):
+                        pin_idx = int(label_tag.split("_")[-1])
+                        AppData.selected_input_pins.add(pin_idx)
+                    elif label_tag.startswith("output_label_"):
+                        pin_idx = int(label_tag.split("_")[-1])
+                        AppData.selected_output_pins.add(pin_idx)
         else:
             self.canvas.itemconfig(path.line_id, fill="white")
             self.selected_paths.remove(path.line_id)
-        
+            # Un-highlight extension if this path is an arm
+            for node in [path.node1, path.node2]:
+                if node.name in self.arm_to_extension:
+                    ext_line_id, label_tag = self.arm_to_extension[node.name]
+                    self.canvas.itemconfig(ext_line_id, fill="white")
+                    self.canvas.itemconfig(label_tag, fill="white")
+                    # --- NEW: Remove from AppData pin sets ---
+                    if label_tag.startswith("input_label_"):
+                        pin_idx = int(label_tag.split("_")[-1])
+                        AppData.selected_input_pins.discard(pin_idx)
+                    elif label_tag.startswith("output_label_"):
+                        pin_idx = int(label_tag.split("_")[-1])
+                        AppData.selected_output_pins.discard(pin_idx)
+
         affected_crosses = set()
         for node in [path.node1, path.node2]:
             cross_label = self.get_cross_label_from_node(node)
@@ -570,7 +602,7 @@ class Example(Frame):
 
     def update_input_box_mode(self, visible_label):
         """Updates the theta input box for the given cross (by visible label) with the default value.
-        Inserts 1 if mode is 'bar_state' and 2 if mode is 'cross_state'."""
+        Inserts 1 if mode is 'bar_state' and 2 if mode is 'cross_state'. Print the mode for debugging."""
         if visible_label not in self.input_boxes:
             return
         modes = self.get_cross_modes()  # modes keyed by visible labels (e.g. "A1", "A2")
@@ -582,13 +614,13 @@ class Example(Frame):
         
         if mode == 'bar_state':
             theta_entry.insert(0, "1")
-            print(f"{visible_label}: Bar mode detected. Inserting 1.")
+            # print(f"{visible_label}: Bar mode detected. Inserting 1.")
         elif mode == 'cross_state':
             theta_entry.insert(0, "2")
-            print(f"{visible_label}: Cross mode detected. Inserting 2.")
+            # print(f"{visible_label}: Cross mode detected. Inserting 2.")
         elif mode == 'split_state':
             theta_entry.insert(0, "1.5")
-            print(f"{visible_label}: Split mode detected. Inserting 1.5.")            
+            # print(f"{visible_label}: Split mode detected. Inserting 1.5.")            
         else:
             print(f"{visible_label}: No matching mode. Mode value: {mode}")
 
@@ -597,12 +629,6 @@ class Example(Frame):
     def get_last_selection(self):
         """Public method to access last selection"""
         return self.last_selection.copy()
-
-    def import_paths_json(self, json_str):
-        """Existing import method"""
-        # Add this at the end to preserve selection after import
-        if self.last_selection['cross'] and self.last_selection['arm']:
-            self._apply_last_selection()
 
     def _apply_last_selection(self):
         """Internal method to highlight last selected path"""
@@ -800,7 +826,7 @@ class Example(Frame):
         theta_entry_id = self.canvas.create_window(input_x + 20, y - 20, window=theta_entry, anchor='w')
         
         # Get the mode using the visible label (e.g. "A1")
-        modes = self.get_cross_modes()  # modes keyed by visible labels (like "A1", "A2", etc.)
+        modes = self.get_cross_modes()  # modes keyed by visible labels (e.g. "A1", "A2", etc.)
         mode = modes.get(actual_label)
         print(f"Mode for {actual_label} is: {mode}")
         
@@ -956,21 +982,15 @@ class Example(Frame):
 
         return json.dumps(export_data, indent=2)
 
-
-
     def import_paths_json(self, json_str):
         """
         Imports path selection from a JSON string.
-        The JSON is expected to be a dictionary with keys equal to the center (e.g. "A1")
-        and values containing:
-           - "arms": list of arms to select (e.g. ["TL", "BR"])
-           - "theta": string value for theta
-           - "phi": string value for phi
+        Highlights top-level keys (input_pin, output_pin, phase_shifter, calibration_node) in red.
         For each center, all paths that match a selected arm will be re‑selected,
         and the corresponding input boxes will be updated (or created).
         """
         try:
-            imported = json.loads(json_str) #default_json_grid 
+            imported = json.loads(json_str)
         except Exception as e:
             print("Invalid JSON:", e)
             return
@@ -983,18 +1003,65 @@ class Example(Frame):
                 self.toggle_path_selection(path)  # Re-apply with new data                
         self.selected_paths.clear()
 
-        # For each center in the imported data...
+        # --- Highlight input pin ---
+        pin_map = {
+            7: "input_label_7", 6: "input_label_8", 5: "input_label_9", 4: "input_label_10",
+            3: "input_label_11", 2: "input_label_12", 1: "input_label_13", 0: "input_label_14",
+        }
+        input_pin = imported.get("input_pin", None)
+        # print(f"[DEBUG] input_pin from JSON: {input_pin}")
+        # print(f"[DEBUG] pin_map: {pin_map}")
+        # print(f"[DEBUG] canvas tags: {self.canvas.gettags('all')}")
+        if input_pin is not None and input_pin in pin_map:
+            tag = pin_map[input_pin]
+            found = self.canvas.find_withtag(tag)
+            # print(f"[DEBUG] Looking for input tag: {tag}, found: {found}")
+            if found:
+                self.canvas.itemconfig(tag, fill="red")
+            else:
+                print(f"[DEBUG] Input label tag {tag} not found on canvas.")
+
+        # --- Highlight output pin ---
+        out_pin_map = {
+            7: "output_label_7", 6: "output_label_8", 5: "output_label_9", 4: "output_label_10",
+            3: "output_label_11", 2: "output_label_12", 1: "output_label_13", 0: "output_label_14",
+        }
+        output_pin = imported.get("output_pin", None)
+        # print(f"[DEBUG] output_pin from JSON: {output_pin}")
+        # print(f"[DEBUG] out_pin_map: {out_pin_map}")
+        if output_pin is not None and output_pin in out_pin_map:
+            tag = out_pin_map[output_pin]
+            found = self.canvas.find_withtag(tag)
+            # print(f"[DEBUG] Looking for output tag: {tag}, found: {found}")
+            if found:
+                self.canvas.itemconfig(tag, fill="red")
+            else:
+                print(f"[DEBUG] Output label tag {tag} not found on canvas.")
+
+        # --- Highlight phase_shifter and calibration_node cross labels ---
+        highlight_keys = {"phase_shifter", "calibration_node"}
+        for key in highlight_keys:
+            value = imported.get(key, None)
+            if value is not None:
+                for cross_key, text_id in self.cross_labels.items():
+                    label_text = self.canvas.itemcget(text_id, 'text')
+                    if label_text == str(value):
+                        self.canvas.itemconfig(text_id, fill="red")
+
+        # --- Restore grid center selection and input boxes ---
+        skip_keys = {"input_pin", "output_pin", "phase_shifter", "calibration_node"}
         for center, data in imported.items():
+            if center in skip_keys:
+                continue
+
             arms = data.get("arms", [])
             theta_val = data.get("theta", "0")
             phi_val = data.get("phi", "0")
             # Loop over all paths and re-select those that match.
             for path in self.paths:
-                # Use the center from either node.
                 center_from_node = self.get_cross_label_from_node(path.node1) or self.get_cross_label_from_node(path.node2)
                 if center_from_node != center:
                     continue
-                # Determine the arm for this path.
                 parts1 = path.node1.name.split("_")
                 parts2 = path.node2.name.split("_")
                 arm = None
@@ -1007,6 +1074,20 @@ class Example(Frame):
                 if arm and arm in arms:
                     self.canvas.itemconfig(path.line_id, fill="red")
                     self.selected_paths.add(path.line_id)
+                    # Highlight extension if this path is an arm
+                    for node in [path.node1, path.node2]:
+                        if node.name in self.arm_to_extension:
+                            ext_line_id, label_tag = self.arm_to_extension[node.name]
+                            self.canvas.itemconfig(ext_line_id, fill="red")
+                            self.canvas.itemconfig(label_tag, fill="red")
+                            # Also update AppData pin sets for export consistency
+                            if label_tag.startswith("input_label_"):
+                                pin_idx = int(label_tag.split("_")[-1])
+                                AppData.selected_input_pins.add(pin_idx)
+                            elif label_tag.startswith("output_label_"):
+                                pin_idx = int(label_tag.split("_")[-1])
+                                AppData.selected_output_pins.add(pin_idx)
+
             # Ensure input boxes for this center exist; if not, create them.
             if center not in self.input_boxes:
                 self.create_input_boxes(center)
@@ -1018,6 +1099,67 @@ class Example(Frame):
 
         self.event_generate("<<SelectionUpdated>>")  # Add event trigger        
         self.update_selection()
+
+    # def import_paths_json(self, json_str):
+    #     """
+    #     Imports path selection from a JSON string.
+    #     The JSON is expected to be a dictionary with keys equal to the center (e.g. "A1")
+    #     and values containing:
+    #        - "arms": list of arms to select (e.g. ["TL", "BR"])
+    #        - "theta": string value for theta
+    #        - "phi": string value for phi
+    #     For each center, all paths that match a selected arm will be re‑selected,
+    #     and the corresponding input boxes will be updated (or created).
+    #     """
+    #     try:
+    #         imported = json.loads(json_str) #default_json_grid 
+    #     except Exception as e:
+    #         print("Invalid JSON:", e)
+    #         return
+
+    #     # Clear current selection.
+    #     for path in self.paths:
+    #         if path.line_id in self.selected_paths:
+    #             self.canvas.itemconfig(path.line_id, fill="white")
+    #             self.toggle_path_selection(path)  # Clear existing
+    #             self.toggle_path_selection(path)  # Re-apply with new data                
+    #     self.selected_paths.clear()
+
+    #     # For each center in the imported data...
+    #     for center, data in imported.items():
+    #         arms = data.get("arms", [])
+    #         theta_val = data.get("theta", "0")
+    #         phi_val = data.get("phi", "0")
+    #         # Loop over all paths and re-select those that match.
+    #         for path in self.paths:
+    #             # Use the center from either node.
+    #             center_from_node = self.get_cross_label_from_node(path.node1) or self.get_cross_label_from_node(path.node2)
+    #             if center_from_node != center:
+    #                 continue
+    #             # Determine the arm for this path.
+    #             parts1 = path.node1.name.split("_")
+    #             parts2 = path.node2.name.split("_")
+    #             arm = None
+    #             if len(parts1) == 4 and len(parts2) == 3:
+    #                 arm = parts1[-1]
+    #             elif len(parts1) == 3 and len(parts2) == 4:
+    #                 arm = parts2[-1]
+    #             elif len(parts1) == 4 and len(parts2) == 4:
+    #                 arm = parts1[-1]
+    #             if arm and arm in arms:
+    #                 self.canvas.itemconfig(path.line_id, fill="red")
+    #                 self.selected_paths.add(path.line_id)
+    #         # Ensure input boxes for this center exist; if not, create them.
+    #         if center not in self.input_boxes:
+    #             self.create_input_boxes(center)
+    #         if center in self.input_boxes:
+    #             self.input_boxes[center]['theta_entry'].delete(0, "end")
+    #             self.input_boxes[center]['theta_entry'].insert(0, theta_val)
+    #             self.input_boxes[center]['phi_entry'].delete(0, "end")
+    #             self.input_boxes[center]['phi_entry'].insert(0, phi_val)
+
+    #     self.event_generate("<<SelectionUpdated>>")  # Add event trigger        
+    #     self.update_selection()
 
 def main():
     root = Tk()

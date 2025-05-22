@@ -3,6 +3,8 @@ from app.imports import *
 import json
 from jsonschema import validate
 from collections import defaultdict
+from app.utils.appdata import AppData
+from app.devices.switch_device import SwitchDevice
 
 MAPPING_SCHEMA = {
     "type": "object",
@@ -33,33 +35,75 @@ MAPPING_SCHEMA = {
     "additionalProperties": False
 }
 
-def apply_switch_mapping(qontrol_device, grid_data, grid_size):
-    """Main function to map grid values to Qontrol channels"""
+
+def get_switch_devices_from_appdata():
+    """
+    Create SwitchDevice instances for input and output ports from AppData.
+    Returns (input_switch, output_switch) or (None, None) if not set.
+    """
+    input_port = AppData.switch_port.get("input_port")
+    output_port = AppData.switch_port.get("output_port")
+    input_switch = SwitchDevice(input_port) if input_port else None
+    output_switch = SwitchDevice(output_port) if output_port else None
+    return input_switch, output_switch
+
+
+def update_switch_from_json(json_data):
+    """
+    Update the input and output switch devices using the default JSON API.
+    Sets the channel and verifies by reading back the channel.
+    Returns True if both switches are set and verified, else False.
+    """
     try:
-        n = int(grid_size.split('x')[0])
-        label_map = create_label_mapping(n)
-        
-        # Parse grid export data
-        export_data = json.loads(grid_data)
-        channel_values = {}
-        
-        # Get current limit from device config
-        current_limit = qontrol_device.config.get("globalcurrrentlimit")
-        
-        # Map values to channels
-        for label, data in export_data.items():
-            if label in label_map:
-                theta_ch, phi_ch = label_map[label]
-                
-                # Clamp values to safety limits
-                theta = clamp_value(data.get("theta", 0), current_limit)
-                phi = clamp_value(data.get("phi", 0), current_limit)
-                
-                channel_values[theta_ch] = theta
-                channel_values[phi_ch] = phi
-        
-        # Apply to Qontrol device
-        apply_qontrol_mapping(qontrol_device, channel_values)
-        
+        if isinstance(json_data, str):
+            data = json.loads(json_data)
+        else:
+            data = json_data
+
+        # Only extract pins, skip schema validation
+        input_pin = data.get("input_pin")
+        output_pin = data.get("output_pin")
+        if input_pin is None or output_pin is None:
+            print("[ERROR][Switch] JSON missing 'input_pin' or 'output_pin'.")
+            return False
+
+        input_switch, output_switch = get_switch_devices_from_appdata()
+        success = True
+
+        if input_switch:
+            print(f"[INFO][Switch] Setting input switch to channel {input_pin}...")
+            if input_switch.set_channel(input_pin):
+                actual = input_switch.get_channel()
+                if actual != input_pin:
+                    print(f"[WARN][Switch] Input switch verification failed (expected {input_pin}, got {actual})")
+                    success = False
+                else:
+                    print(f"[INFO][Switch] Input switch set and verified.")
+            else:
+                print("[ERROR][Switch] Failed to set input switch channel.")
+                success = False
+        else:
+            print("[ERROR][Switch] Input switch device not available.")
+            success = False
+
+        if output_switch:
+            print(f"[INFO][Switch] Setting output switch to channel {output_pin}...")
+            if output_switch.set_channel(output_pin):
+                actual = output_switch.get_channel()
+                if actual != output_pin:
+                    print(f"[WARN][Switch] Output switch verification failed (expected {output_pin}, got {actual})")
+                    success = False
+                else:
+                    print(f"[INFO][Switch] Output switch set and verified.")
+            else:
+                print("[ERROR][Switch] Failed to set output switch channel.")
+                success = False
+        else:
+            print("[ERROR][Switch] Output switch device not available.")
+            success = False
+
+        return success
+
     except Exception as e:
-        print(f"Mapping error: {str(e)}")
+        print(f"[ERROR][Switch] Exception updating switch: {str(e)}")
+        return False

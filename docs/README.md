@@ -12,10 +12,11 @@
 2. 
 
 #### Done
-1. export paths works as it should no input and output extensions but not a priority 
+1. export paths works as it should no input and output extensions but not a priority - also works with input and output extensions
+2. Make the import work with the new export 
 
 
 #### Todo
-1. Make the import work with the new export 
-2. Make the switches change to the new export
-
+1. Make the switches change to the new export - cannot find ports
+2. Try calibration with switch and calibration_node selection
+3. Phase shifter selection has to change to the json file
