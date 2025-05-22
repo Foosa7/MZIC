@@ -1,5 +1,6 @@
 # app/gui/widgets.py
 
+from serial.tools import list_ports
 from app.imports import *
 
 class DeviceControlWidget(ctk.CTkFrame):
@@ -164,7 +165,243 @@ class DeviceControlWidget(ctk.CTkFrame):
             if attr_name.startswith("thorlabs_model_label") and attr_name != "thorlabs_model_label":
                 get_attr(self, attr_name).configure(text=f"Thorlabs {attr_name[19:]} Model: -")
 
+# class SwitchControlWidget(ctk.CTkFrame):
+#     def __init__(self, master, *args, **kwargs):
+#         super().__init__(master, *args, **kwargs)
+        
+#         # --- Header Section ---
+#         self.header_frame = ctk.CTkFrame(
+#             self,
+#             fg_color="#4c4c4c",
+#             border_width=0,
+#             corner_radius=4
+#         )
+#         self.header_frame.pack(fill="x", padx=10, pady=(10, 5), anchor="center")
+        
+#         self.status_label = ctk.CTkLabel(
+#             self.header_frame,
+#             text="Switch Control",
+#             anchor="center",
+#             font=("TkDefaultFont", 13, "bold"),
+#             justify="center"
+#         )
+#         self.status_label.pack(fill="x", padx=5, pady=5)
+        
+#         # --- Switch Selection Section ---
+#         self.switch_select_frame = ctk.CTkFrame(self, fg_color="transparent")
+#         self.switch_select_frame.pack(fill="x", padx=10, pady=(0, 10))
+        
+#         # Input Switch Selection
+#         self.input_switch_label = ctk.CTkLabel(
+#             self.switch_select_frame, 
+#             text="Input Switch:",
+#             width=80,
+#             anchor="w"
+#         )
+#         self.input_switch_label.grid(row=0, column=0, padx=(0, 5), pady=2, sticky="w")
+        
+#         self.input_switch_menu = ctk.CTkOptionMenu(
+#             self.switch_select_frame,
+#             values=["Scanning..."],
+#             width=120
+#         )
+#         self.input_switch_menu.grid(row=0, column=1, padx=(0, 15), pady=2, sticky="w")
+        
+#         # Output Switch Selection
+#         self.output_switch_label = ctk.CTkLabel(
+#             self.switch_select_frame,
+#             text="Output Switch:",
+#             width=80,
+#             anchor="w"
+#         )
+#         self.output_switch_label.grid(row=1, column=0, padx=(0, 5), pady=2, sticky="w")
+        
+#         self.output_switch_menu = ctk.CTkOptionMenu(
+#             self.switch_select_frame,
+#             values=["Scanning..."],
+#             width=120
+#         )
+#         self.output_switch_menu.grid(row=1, column=1, padx=(0, 15), pady=2, sticky="w")
+        
+#         # Refresh Button
+#         self.refresh_button = ctk.CTkButton(
+#             self.switch_select_frame,
+#             text="↻",
+#             width=30,
+#             command=self.refresh_ports
+#         )
+#         self.refresh_button.grid(row=1, column=2, padx=(10, 0))
+        
+#         self.switch_select_frame.grid_columnconfigure(1, weight=1)
+#         self.refresh_ports()
+
+#     def refresh_ports(self):
+#         """Scan for available FTDI-based COM ports"""
+#         ftdi_ports = []
+#         for port in list_ports.comports():
+#             if port.vid == 0x0403:  # FTDI Vendor ID
+#                 desc = f"{port.device} ({port.product})" if port.product else port.device
+#                 ftdi_ports.append((port.device, desc))
+        
+#         ports = [desc for _, desc in ftdi_ports]
+#         self.input_switch_menu.configure(values=ports)
+#         self.output_switch_menu.configure(values=ports)
+        
+#         if ports:
+#             if not self.input_switch_menu.get() or self.input_switch_menu.get() not in ports:
+#                 self.input_switch_menu.set(ports[0])
+#             if not self.output_switch_menu.get() or self.output_switch_menu.get() not in ports:
+#                 self.output_switch_menu.set(ports[-1])
+
+#     def get_selected_ports(self):
+#         """Return (input_port, output_port) device paths"""
+#         port_map = {desc: dev for dev, desc in self._get_ftdi_ports()}
+#         return (
+#             port_map.get(self.input_switch_menu.get()),
+#             port_map.get(self.output_switch_menu.get())
+#         )
+
+#     def _get_ftdi_ports(self):
+#         """Return list of (device, description) for FTDI ports"""
+#         return [
+#             (port.device, f"{port.device} ({port.product})" if port.product else port.device)
+#             for port in list_ports.comports()
+#             if port.vid == 0x0403
+#         ]
+
+class SwitchControlWidget(ctk.CTkFrame):
+    def __init__(self, master, *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+        
+        # --- Header Section ---
+        self.header_frame = ctk.CTkFrame(
+            self,
+            fg_color="#4c4c4c",
+            border_width=0,
+            corner_radius=4
+        )
+        self.header_frame.pack(fill="x", padx=10, pady=(10, 5), anchor="center")
+        
+        # Add StringVars for port selection
+        self.input_port_var = ctk.StringVar()
+        self.output_port_var = ctk.StringVar()
+
+        # Header content with refresh button
+        self.header_grid = ctk.CTkFrame(self.header_frame, fg_color="transparent")
+        self.header_grid.pack(fill="x", padx=5, pady=5)
+        
+        # Configure grid columns
+        self.header_grid.grid_columnconfigure(0, weight=1)  # Left spacer
+        self.header_grid.grid_columnconfigure(1, weight=0)  # Text center
+        self.header_grid.grid_columnconfigure(2, weight=1)  # Right spacer
+        
+        # Centered header label
+        self.status_label = ctk.CTkLabel(
+            self.header_grid,
+            text="Switch Control",
+            anchor="center",
+            font=("TkDefaultFont", 13, "bold"),
+        )
+        self.status_label.grid(row=0, column=1, sticky="ew")
+        
+        # Refresh button
+        self.refresh_button = ctk.CTkButton(
+            self.header_grid,
+            text="↻",
+            width=10,
+            height=10,
+            command=self.refresh_ports,
+            fg_color="transparent",
+            hover_color="#3a3a3a",
+            border_width=0
+        )
+        self.refresh_button.grid(row=0, column=3, sticky="e")
+        # --- Switch Selection Section ---
+        self.switch_select_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.switch_select_frame.pack(fill="x", padx=10, pady=(0, 10))
+        
+        # Input Switch Selection
+        self.input_switch_label = ctk.CTkLabel(
+            self.switch_select_frame, 
+            text="Input Switch:",
+            width=80,
+            anchor="w"
+        )
+        self.input_switch_label.grid(row=0, column=0, padx=(0, 5), pady=2, sticky="w")
+        
+        self.input_switch_menu = ctk.CTkOptionMenu(
+            self.switch_select_frame,
+            values=["None"],
+            width=120
+        )
+        self.input_switch_menu.grid(row=0, column=1, padx=(0, 15), pady=2, sticky="w")
+        
+        # Output Switch Selection
+        self.output_switch_label = ctk.CTkLabel(
+            self.switch_select_frame,
+            text="Output Switch:",
+            width=80,
+            anchor="w"
+        )
+        self.output_switch_label.grid(row=1, column=0, padx=(0, 5), pady=2, sticky="w")
+        
+        self.output_switch_menu = ctk.CTkOptionMenu(
+            self.switch_select_frame,
+            values=["None"],
+            width=120
+        )
+        self.output_switch_menu.grid(row=1, column=1, padx=(0, 15), pady=2, sticky="w")
+        
+        self.switch_select_frame.grid_columnconfigure(1, weight=1)
+        self.refresh_ports()
+
+        # Set up traces to save selections
+        self.input_port_var.trace_add("write", self._save_ports)
+        self.output_port_var.trace_add("write", self._save_ports)
+
+    # Keep the refresh_ports and other methods the same as before
+    def refresh_ports(self):
+        """Scan for available FTDI-based COM ports"""
+        ftdi_ports = []
+        for port in list_ports.comports():
+            if port.vid == 0x0403:  # FTDI Vendor ID
+                desc = f"{port.device} ({port.product})" if port.product else port.device
+                ftdi_ports.append((port.device, desc))
+        
+        ports = [desc for _, desc in ftdi_ports]
+        self.input_switch_menu.configure(values=ports)
+        self.output_switch_menu.configure(values=ports)
+        
+        if ports:
+            if not self.input_switch_menu.get() or self.input_switch_menu.get() not in ports:
+                self.input_switch_menu.set(ports[0])
+            if not self.output_switch_menu.get() or self.output_switch_menu.get() not in ports:
+                self.output_switch_menu.set(ports[-1])
+
+    def get_selected_ports(self):
+        """Return (input_port, output_port) device paths"""
+        port_map = {desc: dev for dev, desc in self._get_ftdi_ports()}
+        return (
+            port_map.get(self.input_switch_menu.get()),
+            port_map.get(self.output_switch_menu.get())
+        )
+
+    def _get_ftdi_ports(self):
+        """Return list of (device, description) for FTDI ports"""
+        return [
+            (port.device, f"{port.device} ({port.product})" if port.product else port.device)
+            for port in list_ports.comports()
+            if port.vid == 0x0403
+        ]
     
+
+    
+    def _save_ports(self, *args):
+        """Save selected ports to AppData"""
+        AppData.switch_port["input_port"] = self.input_port_var.get()
+        AppData.switch_port["output_port"] = self.output_port_var.get()
+
+
 class AppControlWidget(ctk.CTkFrame):
     def __init__(self, master, import_command=None, export_command=None, 
                 mesh_change_command=None, submesh_change_command=None, config=None, *args, **kwargs):
@@ -214,16 +451,16 @@ class AppControlWidget(ctk.CTkFrame):
         # Replace pack with grid for consistent geometry management
         self.mesh_optionmenu.grid(row=0, column=1, padx=(0,5), pady=2, sticky="w")
 
-        # Row 1: Sub-mesh label & option menu
-        self.submesh_label = ctk.CTkLabel(mesh_submesh_frame, text="Sub-mesh:")
-        self.submesh_label.grid(row=1, column=0, padx=(0,5), pady=2, sticky="e")
+        # # Row 1: Sub-mesh label & option menu
+        # self.submesh_label = ctk.CTkLabel(mesh_submesh_frame, text="Sub-mesh:")
+        # self.submesh_label.grid(row=1, column=0, padx=(0,5), pady=2, sticky="e")
 
-        self.submesh_optionmenu = ctk.CTkOptionMenu(
-            mesh_submesh_frame,
-            values=["No","1x1","2x2","3x3", "4x4", "5x5", "6x6", "7x7"],
-            command=submesh_change_command
-        )
-        self.submesh_optionmenu.grid(row=1, column=1, padx=(0,5), pady=2, sticky="w")
+        # self.submesh_optionmenu = ctk.CTkOptionMenu(
+        #     mesh_submesh_frame,
+        #     values=["No","1x1","2x2","3x3", "4x4", "5x5", "6x6", "7x7"],
+        #     command=submesh_change_command
+        # )
+        # self.submesh_optionmenu.grid(row=1, column=1, padx=(0,5), pady=2, sticky="w")
 
         # --- Import/Export Buttons ---
         self.button_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -450,9 +687,11 @@ class PhaseShifterSelectionWidget(ctk.CTkFrame):
         self.change_command = change_command
         # Trigger initial update to ensure the change_command is called with default value
         self.on_radio_change()  # Add this line
-    
+            
     def on_radio_change(self):
-        """Handles radio button selection change."""
+        """Handles radio button selection change. And updates AppData."""
+        from app.utils.appdata import AppData
+        AppData.phase_shifter_selection = self.radio_var.get()
+        print(f"Phase shifter selection changed to: {AppData.phase_shifter_selection}")
         if self.change_command:
             self.change_command(self.radio_var.get())
-            

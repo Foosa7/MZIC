@@ -70,7 +70,14 @@ class MainWindow(ctk.CTk):
             connect_command=self.connect_devices,
             disconnect_command=self.disconnect_devices
         )
-        self.device_control.pack(anchor="nw", padx=10, pady=(10, 5), fill="x")
+        self.device_control.pack(anchor="nw", padx=10, pady=(2.5, 2.5), fill="x")
+
+        # Add Switch Control below Device Control
+        self.switch_control = widgets.SwitchControlWidget(
+            master=self.left_panel
+        )
+        self.switch_control.pack(anchor="nw", padx=10, pady=(2.5, 2.5), fill="x")
+
 
         self.app_control = widgets.AppControlWidget(
             master=self.left_panel,
@@ -79,17 +86,17 @@ class MainWindow(ctk.CTk):
             mesh_change_command=self.mesh_changed,
             config=self.config
         )
-        self.app_control.pack(anchor="nw", padx=10, pady=(5, 5), fill="x")
+        self.app_control.pack(anchor="nw", padx=10, pady=(2.5, 2.5), fill="x")
         
         self.windowSelection = widgets.WindowSelectionWidget(
             master=self.left_panel,
             change_command=self.window_changed
         )
-        self.windowSelection.pack(anchor="nw", padx=10, pady=(5, 10), fill="x")
+        self.windowSelection.pack(anchor="nw", padx=10, pady=(2.5, 2.5), fill="x")
  
         # Add calibration controls
         self.calibration_control = PhaseShifterSelectionWidget(self.left_panel)
-        self.calibration_control.pack(anchor="nw", padx=10, pady=(5, 10), fill="x")
+        self.calibration_control.pack(anchor="nw", padx=10, pady=(2.5, 2.5), fill="x")
 
         # # Add other widgets...
         # self.windowSelection.pack(anchor="nw", padx=10, pady=(5, 10), fill="x")

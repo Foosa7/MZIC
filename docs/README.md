@@ -10,3 +10,12 @@
 #### Updates
 1. Grid reads globally
 2. 
+
+#### Done
+1. export paths works as it should no input and output extensions but not a priority 
+
+
+#### Todo
+1. Make the import work with the new export 
+2. Make the switches change to the new export
+

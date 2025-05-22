@@ -21,7 +21,7 @@ class Path:
         self.line_id = line_id
 
 class Example(Frame):
-    def __init__(self, master=None, grid_n=8, scale=1):
+    def __init__(self, master=None, phase_selector=None, grid_n=8, scale=1):
         """
         master: parent widget.
         grid_n: number of columns (and related rows) for the grid.
@@ -911,10 +911,15 @@ class Example(Frame):
         """
         input_pin = next(iter(AppData.selected_input_pins), None)
         output_pin = next(iter(AppData.selected_output_pins), None)
+        # self.phase_selector = PhaseShifterSelectionWidget(self)
+        phase_shifter_selection = AppData.phase_shifter_selection
+        calibration_node = next(iter(AppData.selected_labels), None)
 
         export_data = {
             "input_pin": input_pin,
-            "output_pin": output_pin
+            "output_pin": output_pin,
+            "phase_shifter": phase_shifter_selection,
+            "calibration_node": calibration_node
         }
 
         for path in self.paths:

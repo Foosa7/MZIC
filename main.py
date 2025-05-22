@@ -32,6 +32,7 @@ def main():
     qontrol = QontrolDevice(config=config)
     # Connect to Qontrol device
     qontrol.connect()
+    
     # import_pickle(config)
     # apply_imported_config(config)   
     # appdata = AppData(n_channels=0)

@@ -1,6 +1,6 @@
 from app.imports import *
 
-class Switch:
+class SwitchDevice:
     def __init__(self, port, baudrate=115200, timeout=1):
         self.port = port
         self.baudrate = baudrate
@@ -13,7 +13,7 @@ class Switch:
         return serial.Serial(self.port, baudrate=self.baudrate, timeout=self.timeout)
 
     def set_channel(self, channel):
-        if not (1 <= channel <= 64):
+        if not (0 <= channel <= 12):
             raise ValueError("Channel must be between 1 and 64")
 
         command = [0xEF, 0xEF, 0x06, 0xFF, 0x0D, 0x00, 0x00, channel]

@@ -1,5 +1,13 @@
 # app/devices/qontrol_device.py
 
+import sys
+import os
+
+# Get the project root directory (MZIC/)
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, project_root)
+
+
 from app.imports import *
 import platform  
 
