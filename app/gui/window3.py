@@ -201,6 +201,34 @@ class Window3Content(ctk.CTkFrame):
 
         self._update_cycle_button_state()
 
+        # ─────────────────────  row 5 – Switch I/O
+        ctk.CTkLabel(self.cycle_frame, text="Switch I/O:")\
+            .grid(row=5, column=0, sticky="e", padx=10, pady=4)
+
+        switch_io_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
+        switch_io_frame.grid(row=5, column=1, sticky="w", padx=10, pady=4)
+
+        # Input selection
+        ctk.CTkLabel(switch_io_frame, text="Input:").pack(side="left", padx=5)
+        self.input_var = ctk.StringVar(value="1")  # Default input value
+        self.input_dropdown = ctk.CTkOptionMenu(
+            switch_io_frame,
+            variable=self.input_var,
+            values=[str(i) for i in range(1, 13)],  # Input range 1–12
+            width=60  # Adjust the width to make it narrower
+        )
+        self.input_dropdown.pack(side="left", padx=10)  # Increased padx for more space
+
+        # Output selection
+        ctk.CTkLabel(switch_io_frame, text="Output:").pack(side="left", padx=10)  # Increased padx for more space
+        self.output_var = ctk.StringVar(value="1")  # Default output value
+        self.output_dropdown = ctk.CTkOptionMenu(
+            switch_io_frame,
+            variable=self.output_var,
+            values=[str(i) for i in range(1, 13)],  # Output range 1–12
+            width=60  # Adjust the width to make it narrower
+        )
+        self.output_dropdown.pack(side="left", padx=5)
         # ──────────────────────────────────────────────────────────────
         # Load any saved unitary into the entry grid
         # ──────────────────────────────────────────────────────────────
