@@ -380,10 +380,16 @@ class Window3Content(ctk.CTkFrame):
                     I      = unitary.decomposition(U_step)
                     bs     = I.BS_list
                     mzi_convention.clements_to_chip(bs)
-                    AppData.default_json_grid = mzi_lut.get_json_output(self.n, bs)
+                    
+                    input_pin = str(self.input_var.get())  
+                    output_pin = str(self.output_var.get())
+                    json_output = mzi_lut.get_json_output(self.n, bs, input_pin, output_pin)
+                    
+                    setattr(AppData, 'default_json_grid', json_output)
+                    print(AppData.default_json_grid)
                 except Exception as e:
                     print(f"  ✖  Decomposition failed: {e}")
-                    continue
+                    continue              
 
                 # b) push phases to the chip
                 self.apply_phase_new()
