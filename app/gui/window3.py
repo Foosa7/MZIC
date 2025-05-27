@@ -4,8 +4,7 @@ from app.imports import *
 import tkinter.filedialog as filedialog
 import copy
 from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
-from app.utils.unitary import mzi_lut
-from app.utils.unitary import mzi_convention
+from app.utils.unitary import unitary, mzi_lut, mzi_convention
 from app.utils.appdata import AppData
 from datetime import datetime
 
@@ -327,7 +326,7 @@ class Window3Content(ctk.CTkFrame):
                 # a) load the unitary + decompose → set heaters
                 try:
                     U_step = np.load(file_path)
-                    I      = itf.square_decomposition(U_step)
+                    I      = unitary.decomposition(U_step)
                     bs     = I.BS_list
                     mzi_convention.clements_to_chip(bs)
                     AppData.default_json_grid = mzi_lut.get_json_output(self.n, bs)
@@ -752,7 +751,7 @@ class Window3Content(ctk.CTkFrame):
         try:
             
             # Perform decomposition
-            I = itf.square_decomposition(matrix_u)
+            I = unitary.decomposition(matrix_u)
             bs_list = I.BS_list
             mzi_convention.clements_to_chip(bs_list)
     
