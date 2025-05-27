@@ -98,7 +98,7 @@ def get_json_output(n, bs_list, input_pin, output_pin):
     output = {
         "input_pin": input_pin,
         "output_pin": output_pin,
-        "phase_shifter": "null",  # Always set to null
+        "phase_shifter": "theta",  # Always set to null
         "calibration_node": "null",  # Always set to null
     }
 
