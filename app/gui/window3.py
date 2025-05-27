@@ -823,7 +823,7 @@ class Window3Content(ctk.CTkFrame):
 
     def fill_random(self):
         '''Fill the currently selected tab with a random unitary matrix.'''
-        mat = itf.random_unitary(self.n)
+        mat = unitary.random_unitary(self.n)
     
         entries, appdata_var = self.get_active_tab()  # Get active tab dynamically
     
@@ -834,6 +834,7 @@ class Window3Content(ctk.CTkFrame):
     def update_grid(self, new_mesh_size):
         '''Refresh NxN grids when the user selects a new mesh size.'''
         self.n = int(new_mesh_size.split('x')[0])
+        self.grid_size = new_mesh_size          # keep the string in sync
 
         # Get the single mapping
         entries, appdata_var = self.get_unitary_mapping()
