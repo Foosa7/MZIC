@@ -1,13 +1,13 @@
-# -*- coding: utf-8 -*-
 import numpy as np
+
 
 class Beamsplitter:
     """This class defines a beam splitter
 
-    The matrix describing the mode transformation is:
+    The new matrix describing the mode transformation is:
 
-        e^{iphi}*cos(theta)     -sin(theta)
-        e^{iphi}*sin(theta)     cos(theta)
+        e^{iphi}*i*sin(theta) * e^{i(theta)}     i*cos(theta) * e^{i(theta)}
+        e^{iphi}*i*cos(theta) * e^{i(theta)}     -i*sin(theta) * e^{i(theta)}
 
     Args:
         mode1 (int): the index of the first mode (the first mode is mode 1)
@@ -23,7 +23,7 @@ class Beamsplitter:
         self.phi = phi
 
     def __repr__(self):
-        repr = "\n Beam splitter between modes {} and {}: \n Theta angle: {:.2f} \n Phase: {:.2f}".format(
+        repr = "\n Beam splitter between modes {} and {}: \n Theta angle: {:.3f} \n Phase: {:.3f}".format(
             self.mode1,
             self.mode2,
             self.theta,
@@ -46,6 +46,18 @@ class Interferometer:
     def __init__(self):
         self.BS_list = []
         self.output_phases = []
+
+    def flip_angle_theta(self, Clements_theta, left_lim=1, right_lim=3*np.pi):
+        width = right_lim - left_lim
+        flipped = (2*Clements_theta) + np.pi
+        wrapped = ((flipped - left_lim) % width) + left_lim
+        return wrapped
+    
+    def flip_angle_phi(self, Clements_phi, left_lim=1, right_lim=3*np.pi):
+        width = right_lim - left_lim
+        flipped = (Clements_phi) + np.pi
+        wrapped = ((flipped - left_lim) % width) + left_lim
+        return wrapped
 
     def add_BS(self, BS):
         """Adds a beam splitter at the output of the current interferometer
@@ -77,29 +89,29 @@ class Interferometer:
         highest_index = max([max([BS.mode1, BS.mode2]) for BS in self.BS_list])
         return highest_index
 
-    def calculate_transformation(self):       
-        """Calculate unitary matrix describing the transformation implemented by the interferometer
-    
+    def calculate_transformation(self):
+        """Calculate unitary matrix describing the transformation implemented by the interferometer.
+
         Returns:
             complex-valued 2D numpy array representing the interferometer
         """
         N = int(self.count_modes())
-        U = np.eye(N, dtype=np.complex_)
+        U = np.eye(N, dtype=np.complex128)
 
         for BS in self.BS_list:
-            T = np.eye(N, dtype=np.complex_)
-            g = np.exp(1j * (BS.theta + np.pi / 2))     # global phase
-            T[BS.mode1 - 1, BS.mode1 - 1] = g * (np.exp(1j * BS.phi) * np.sin(BS.theta))
-            T[BS.mode1 - 1, BS.mode2 - 1] = g * (np.cos(BS.theta))
-            T[BS.mode2 - 1, BS.mode1 - 1] = g * (np.exp(1j * BS.phi) * np.cos(BS.theta))
-            T[BS.mode2 - 1, BS.mode2 - 1] = g * (-np.sin(BS.theta))
-            U = np.matmul(T,U)
+            T = np.eye(N, dtype=np.complex128)  # Use higher precision for the MZI matrix
+            global_phase = np.exp(1j * BS.theta)  # Explicitly include the global phase
+            T[BS.mode1 - 1, BS.mode1 - 1] = global_phase * (1j * np.exp(1j * BS.phi) * np.sin(BS.theta))
+            T[BS.mode1 - 1, BS.mode2 - 1] = global_phase * (1j * np.cos(BS.theta))
+            T[BS.mode2 - 1, BS.mode1 - 1] = global_phase * (1j * np.exp(1j * BS.phi) * np.cos(BS.theta))
+            T[BS.mode2 - 1, BS.mode2 - 1] = global_phase * (-1j * np.sin(BS.theta))
+            U = np.matmul(T, U)
 
         while np.size(self.output_phases) < N:  # Autofill for users who don't want to bother with output phases
             self.output_phases.append(0)
 
         D = np.diag(np.exp([1j * phase for phase in self.output_phases]))
-        U = np.matmul(D,U)
+        U = np.matmul(D, U)
         return U
 
     def draw(self, show_plot=True):  
@@ -124,24 +136,31 @@ class Interferometer:
             plt.plot((x, x+0.3), (N - BS.mode2, N - BS.mode2), lw=1, color="blue")
             plt.plot((x+0.3, x+1), (N - BS.mode2, N - BS.mode1), lw=1, color="blue")
             plt.plot((x+0.4, x+0.9), (N - (BS.mode2 + BS.mode1)/2, N - (BS.mode2 + BS.mode1)/2), lw=1, color="blue")
-            reflectivity = "{:3f}".format(np.sin(BS.theta)**2)
+            reflectivity = "{:4f}".format(np.sin(BS.theta)**2)
             ra_r = BS.theta/np.pi
             ra_r = 2*ra_r
-    
+            #ra_r = self.flip_angle_theta(BS.theta)
+
+            the_rad = round(ra_r, 2)
+            #the_rad = round(ra_r/np.pi, 2)
+
             plt.text(x+0.9, N + 0.05 - (BS.mode2 + BS.mode1)/2, f"R = {reflectivity[0:5]}", color="green", fontsize=16)
-            plt.text(x+1.0, N - 0.12 - (BS.mode2 + BS.mode1)/2, f"\u03B8={ra_r:.3f} \u03C0", color = 'blue', fontsize = 16)
+            plt.text(x+1.0, N - 0.12 - (BS.mode2 + BS.mode1)/2, f"\u03B8={the_rad} \u03C0", color = 'blue', fontsize = 16)
 
             plt.plot((x+0.15, x+0.15), (N+0.3-(BS.mode2 + BS.mode1)/2., N+0.7-(BS.mode2 + BS.mode1)/2.), lw=1, color="blue")
             circle = plt.Circle((x+0.15, N+0.5-(BS.mode2 + BS.mode1)/2.), 0.1, fill=False)
             plt.gca().add_patch(circle)
-            phase = "{:3f}".format(BS.phi)
+            phase = "{:4f}".format(BS.phi)
             p_r = BS.phi/np.pi
-           
-  
+            #p_r = self.flip_angle_phi(BS.phi)
+            p_r = round(p_r, 2)
+            #p_r = round(p_r/np.pi, 2)
+
+
             if BS.phi > 0:
-                plt.text(x+0.3, N+0.5-(BS.mode2 + BS.mode1)/2., f"\u03C6 ={p_r:.3f} \u03C0", color="red", fontsize=16)
+                plt.text(x+0.3, N+0.5-(BS.mode2 + BS.mode1)/2., f"\u03C6 ={p_r} \u03C0", color="red", fontsize=16)
             else:
-                plt.text(x+0.3, N+0.5-(BS.mode2 + BS.mode1)/2., f"\u03C6 ={p_r:.3f} \u03C0", color="red", fontsize=16)
+                plt.text(x+0.3, N+0.5-(BS.mode2 + BS.mode1)/2., f"\u03C6 ={p_r} \u03C0", color="red", fontsize=16)
             if x > mode_tracker[BS.mode1-1]:
                 plt.plot((mode_tracker[BS.mode1-1], x), (N-BS.mode1, N-BS.mode1), lw=1, color="blue")
             if x > mode_tracker[BS.mode2-1]:
@@ -160,11 +179,11 @@ class Interferometer:
                 plt.gca().add_patch(circle)
                 phase = str(self.output_phases[ii])
                 p_r = BS.phi/np.pi
-                p_r = round(p_r, 3)
+                p_r = round(p_r, 2)
                 if BS.phi > 0:
-                    plt.text(max_x+0.6, N-ii-0.8, f"\u03C6 ={p_r:.3f} \u03C0", color="red", fontsize=16)
+                    plt.text(max_x+0.6, N-ii-0.8, f"\u03C6 ={p_r} \u03C0", color="red", fontsize=16)
                 else:
-                    plt.text(max_x+0.6, N-ii-0.8, f"\u03C6 ={p_r:.3f} \u03C0", color="red", fontsize=16)
+                    plt.text(max_x+0.6, N-ii-0.8, f"\u03C6 ={p_r} \u03C0", color="red", fontsize=16)
 
 
         plt.text(max_x/2, -0.7, "green: BS reflectivity", color="green", fontsize=16)
@@ -177,12 +196,53 @@ class Interferometer:
         if show_plot:
             plt.show()
 
+
+def triangle_decomposition(U):
+    """Returns a triangular mesh of MZIs implementing matrix U
+
+    This code implements the decomposition algorithm in:
+    Reck, Michael, et al. "Experimental realization of any discrete unitary operator." 
+    Physical review letters 73.1 (1994): 58.
+
+    Args:
+        U (np.ndarray): complex-valued 2D numpy array representing the interferometer
+
+    Returns:
+        an Interferometer instance
+    """
+    I = Interferometer()
+    N = int(np.sqrt(U.size))
+    for ii in range(N-1):
+        for jj in range(N-1-ii):
+            modes = [N - jj - 1, N - jj]
+            theta = custom_arctan(U[ii, N - 1 - jj], U[ii, N - 2 - jj])
+            phi = -custom_angle(-U[ii, N - 1 - jj], U[ii, N - 2 - jj])
+            global_phase = np.angle(U[ii, N - 1 - jj])  # Extract global phase
+
+            # Define the MZI matrix
+            invT = np.eye(N, dtype=np.complex128)
+            invT[modes[0]-1, modes[0]-1] = np.exp(1j * global_phase) * (1j * np.exp(1j * phi) * np.sin(theta))
+            invT[modes[0]-1, modes[1]-1] = np.exp(1j * global_phase) * (1j * np.cos(theta))
+            invT[modes[1]-1, modes[0]-1] = np.exp(1j * global_phase) * (1j * np.exp(1j * phi) * np.cos(theta))
+            invT[modes[1]-1, modes[1]-1] = np.exp(1j * global_phase) * (-1j * np.sin(theta))
+
+            U = np.matmul(U, invT)
+            I.BS_list.append(Beamsplitter(modes[0], modes[1], theta, phi))
+    phases = np.diag(U)
+    phases = phases / np.abs(phases)  # Normalize to ensure unit magnitude
+    I.output_phases = [np.angle(i) for i in phases]
+    return I
+
+
 def decomposition(U):
-    """Returns a rectangular mesh of beam splitters implementing matrix U
+    """Returns a rectangular mesh of MZIs implementing matrix U
 
     This code implements the decomposition algorithm in:
     Clements, William R., et al. "Optimal design for universal multiport interferometers." 
     Optica 3.12 (2016): 1460-1465.
+
+    Args:
+        U (np.ndarray): complex-valued 2D numpy array representing the interferometer
 
     Returns:
         an Interferometer instance
@@ -193,54 +253,77 @@ def decomposition(U):
     for ii in range(N-1):
         if np.mod(ii, 2) == 0:
             for jj in range(ii+1):
-                a = U[N-1-jj, ii-jj]
-                b = U[N-1-jj, ii-jj+1]
                 modes = [ii - jj + 1, ii + 2 - jj]
-                theta = custom_arctan(b, a)                                   # theta = arctan(b/a)
-                phi = (custom_angle(a, b) + np.pi) % (2 * np.pi)              # phi = arg(a) - arg(b) + pi 
-                g = np.exp(-1j * (theta + np.pi / 2))     # global phase
-                invT = np.eye(N, dtype=np.complex_)
-                invT[modes[0]-1, modes[0]-1] = g * (np.exp(-1j * phi) * np.sin(theta))
-                invT[modes[0]-1, modes[1]-1] = g * (np.exp(-1j * phi) * np.cos(theta))
-                invT[modes[1]-1, modes[0]-1] = g * (np.cos(theta))
-                invT[modes[1]-1, modes[1]-1] = g * (-np.sin(theta))
-                U = np.matmul(U, invT)  
+                """
+                theta = custom_arctan(U[N-1-jj, ii-jj], U[N-1-jj, ii-jj+1])
+                phi = custom_angle(U[N-1-jj, ii-jj], U[N-1-jj, ii-jj+1])
+                """
+
+                theta = custom_arccot(U[N-1-jj, ii-jj], U[N-1-jj, ii-jj+1])
+                phi = custom_angle(-U[N-1-jj, ii-jj], U[N-1-jj, ii-jj+1])
+                global_phase = theta 
+
+                # Define the MZI matrix
+                invT = np.eye(N, dtype=np.complex128)
+                invT[modes[0]-1, modes[0]-1] = np.exp(-1j * global_phase) * (-1j * np.exp(-1j * phi) * np.sin(theta))
+                invT[modes[0]-1, modes[1]-1] = np.exp(-1j * global_phase) * (-1j * np.exp(-1j * phi) * np.cos(theta))
+                invT[modes[1]-1, modes[0]-1] = np.exp(-1j * global_phase) * (-1j * np.cos(theta))
+                invT[modes[1]-1, modes[1]-1] = np.exp(-1j * global_phase) * (1j * np.sin(theta))
+
+                U = np.matmul(U, invT)
+                #print(modes[0], modes[1],U)
                 I.BS_list.append(Beamsplitter(modes[0], modes[1], theta, phi))
         else:
             for jj in range(ii+1):
-                a = U[N+jj-ii-1, jj]
-                b = U[N+jj-ii-2, jj]
                 modes = [N+jj-ii-1, N+jj-ii]
-                theta = custom_arctan(b, a)                                     # theta = arctan(b/a)
-                phi = custom_angle(a,b) % (2 * np.pi)                           # phi = arg(-b/a)
-                g = np.exp(1j * (theta + np.pi / 2))     # global phase
-                T = np.eye(N, dtype=np.complex_)
-                T[modes[0]-1, modes[0]-1] = g * (np.exp(1j * phi) * np.sin(theta))
-                T[modes[0]-1, modes[1]-1] = g * (np.cos(theta))
-                T[modes[1]-1, modes[0]-1] = g * (np.exp(1j * phi) * np.cos(theta))
-                T[modes[1]-1, modes[1]-1] = g * (-np.sin(theta))
-                U = np.matmul(T, U)         
+                """
+                theta = custom_arctan(U[N+jj-ii-1, jj], U[N+jj-ii-2, jj])
+                phi = custom_angle(-U[N+jj-ii-1, jj], U[N+jj-ii-2, jj])
+                """
+                theta = custom_arccot(U[N+jj-ii-1, jj], U[N+jj-ii-2, jj])
+                phi = custom_angle(U[N+jj-ii-1, jj], U[N+jj-ii-2, jj])
+                global_phase = theta 
+
+                # Define the MZI matrix
+                T = np.eye(N, dtype=np.complex128)  # Use higher precision for the MZI matrix
+                T[modes[0]-1, modes[0]-1] = np.exp(1j * global_phase) * (1j * np.exp(1j * phi) * np.sin(theta))
+                T[modes[0]-1, modes[1]-1] = np.exp(1j * global_phase) * (1j * np.cos(theta))
+                T[modes[1]-1, modes[0]-1] = np.exp(1j * global_phase) * (1j * np.exp(1j * phi) * np.cos(theta))
+                T[modes[1]-1, modes[1]-1] = np.exp(1j * global_phase) * (-1j * np.sin(theta))
+
+                U = np.matmul(T, U)
+                #print(modes[0], modes[1],U)
                 left_T.append(Beamsplitter(modes[0], modes[1], theta, phi))
 
     for BS in np.flip(left_T, 0):
+
+        theta = BS.theta
+        phi = BS.phi
         modes = [int(BS.mode1), int(BS.mode2)]
-        g = np.exp(-1j * (BS.theta + np.pi / 2))     # global phase
-        invT = np.eye(N, dtype=np.complex_)
-        invT[modes[0]-1, modes[0]-1] = g * (np.exp(-1j * BS.phi) * np.sin(BS.theta))
-        invT[modes[0]-1, modes[1]-1] = g * (np.exp(-1j * BS.phi) * np.cos(BS.theta))
-        invT[modes[1]-1, modes[0]-1] = g * (np.cos(BS.theta))
-        invT[modes[1]-1, modes[1]-1] = g * (-np.sin(BS.theta))
+        global_phase = theta 
+
+        invT = np.eye(N, dtype=np.complex128)
+
+        invT[modes[0]-1, modes[0]-1] = np.exp(-1j * global_phase) * (-1j * np.exp(-1j * phi) * np.sin(theta))
+        invT[modes[0]-1, modes[1]-1] = np.exp(-1j * global_phase) * (-1j * np.exp(-1j * phi) * np.cos(theta))
+        invT[modes[1]-1, modes[0]-1] = np.exp(-1j * global_phase) * (-1j * np.cos(theta))
+        invT[modes[1]-1, modes[1]-1] = np.exp(-1j * global_phase) * (1j * np.sin(theta))
         U = np.matmul(invT, U)
-        theta = custom_arctan(U[modes[1]-1, modes[1]-1], U[modes[1]-1, modes[0]-1])     # theta = arctan(b/a)
-        phi = custom_angle(U[modes[1]-1, modes[0]-1], U[modes[1]-1, modes[1]-1])       # phi = arg(a) - arg(b) + pi
-        phi = (phi + np.pi) % (2 * np.pi)
-        g = np.exp(-1j * (theta + np.pi / 2))     # global phase
-        invT[modes[0]-1, modes[0]-1] = g * (np.exp(-1j * phi) * np.sin(theta))
-        invT[modes[0]-1, modes[1]-1] = g * (np.exp(-1j * phi) * np.cos(theta))
-        invT[modes[1]-1, modes[0]-1] = g * (np.cos(theta))
-        invT[modes[1]-1, modes[1]-1] = g * (-np.sin(theta))
+
+        theta = custom_arccot(U[modes[1]-1, modes[0]-1], U[modes[1]-1, modes[1]-1])
+        phi = custom_angle(-U[modes[1]-1, modes[0]-1], U[modes[1]-1, modes[1]-1])
+
+        invT[modes[0]-1, modes[0]-1] = np.exp(-1j * global_phase) * (-1j * np.exp(-1j * phi) * np.sin(theta))
+        invT[modes[0]-1, modes[1]-1] = np.exp(-1j * global_phase) * (-1j * np.exp(-1j * phi) * np.cos(theta))
+        invT[modes[1]-1, modes[0]-1] = np.exp(-1j * global_phase) * (-1j * np.cos(theta))
+        invT[modes[1]-1, modes[1]-1] = np.exp(-1j * global_phase) * (1j * np.sin(theta))
+
         U = np.matmul(U, invT) 
+        #print(modes[0], modes[1],U)
         I.BS_list.append(Beamsplitter(modes[0], modes[1], theta, phi))
+
+    
+    #print("Diagonal matrix =", U)
     phases = np.diag(U)
     I.output_phases = [np.angle(i) for i in phases]
     return I
@@ -258,7 +341,7 @@ def random_unitary(N):
     Returns:
         complex-valued 2D numpy array representing the interferometer
     """
-    X = np.zeros([N, N], dtype=np.complex_)
+    X = np.zeros([N, N], dtype=np.complex128)
     for ii in range(N):
         for jj in range(N):
             X[ii, jj] = (np.random.normal() + 1j * np.random.normal()) / np.sqrt(2)
@@ -270,18 +353,37 @@ def random_unitary(N):
     return U
 
 def custom_arctan(x1, x2):
-    return np.arctan2(np.abs(x1), np.abs(x2))
+    """Stable arctangent calculation using arctan2."""
+    return np.abs(np.arctan2(np.abs(x1), np.abs(x2)))  # Add epsilon
+
+def custom_arccot(x1, x2):
+    """Stable arccotangent calculation using arctan2."""
+    if x1 == 0:
+        return np.pi / 2
+    else:
+        return np.arctan2(np.abs(x2), np.abs(x1))
 
 def custom_angle(x1, x2):
-    return np.angle(x1) - np.angle(x2)
+    """Stable phase difference calculation using arctan2."""
+    return np.angle(x1) - np.angle(x2) 
 
-if __name__ == "__main__":
-    N = 8
-    #U  = random_unitary(N)
-    U = np.eye(N)
-    Int = decomposition(U)
-    Int.draw()
-    Ure  = Int.calculate_transformation()
-    error = abs(np.max(Ure-U))
-    print(f"Error: {error}")
+# def custom_arctan(x1, x2):
+#     if x2 != 0:
+#         return np.arctan(abs(x1/x2))
+#     else:
+#         return np.pi/2
+    
+# def custom_arccot(x1, x2):
+#     if x1 != 0:
+#         return np.arctan(abs(x2/x1))
+#     else:
+#         return np.pi/2
+
+# def custom_angle(x1, x2):
+#     if x2 != 0:
+#         return np.angle(x1/x2)
+#     else:
+#         return 0
+
+
 
