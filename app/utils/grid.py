@@ -176,33 +176,32 @@ class Example(Frame):
             )
 
     def add_side_extensions(self, n, col, extension, side):
-        """Handles extensions with proper inverted left numbering and special node placement"""
+        """Handles extensions with proper pin numbering for n=8 and n=12 grids."""
         relevant_nodes = []
         second_last_col = n - 2
-        
+
         # Node collection with precise filtering
         for node in self.nodes.values():
             parts = node.name.split('_')
-            if len(parts) < 4: continue
+            if len(parts) < 4:
+                continue
             node_col, direction = int(parts[1]), parts[3]
-            
-            # Special case: right side of last column (8x8 only)
+
+            # Special case: right side of last column (8x8 or 12x12)
             if n in [8, 12] and side == "right" and col == second_last_col + 1:
                 if node_col in [second_last_col, col] and direction in ["TR", "BR"]:
                     relevant_nodes.append(node)
             # Normal case
-            elif node_col == col and ((side == "left" and direction in ["TL", "BL"]) or 
-                                    (side == "right" and direction in ["TR", "BR"])):
+            elif node_col == col and ((side == "left" and direction in ["TL", "BL"]) or
+                                      (side == "right" and direction in ["TR", "BR"])):
                 relevant_nodes.append(node)
 
         # Custom sorting logic
         if n in [8, 12] and side == "right" and col == second_last_col + 1:
             # Special right-side handling
             second_last_nodes = [n for n in relevant_nodes if f"X_{second_last_col}" in n.name]
-            last_col_nodes = sorted([n for n in relevant_nodes if f"X_{col}_" in n.name], 
-                                key=lambda x: x.y)
-            
-            # Find bottom node using max row calculation
+            last_col_nodes = sorted([n for n in relevant_nodes if f"X_{col}_" in n.name],
+                                    key=lambda x: x.y)
             max_row = max(int(n.name.split('_')[2]) for n in second_last_nodes) if second_last_nodes else 0
             sorted_nodes = [
                 next((n for n in second_last_nodes if "_0_TR" in n.name), None),
@@ -214,33 +213,37 @@ class Example(Frame):
             # Sort nodes by Y-coordinate ascending (top to bottom)
             sorted_nodes = sorted(relevant_nodes, key=lambda x: x.y, reverse=False)
 
-        # Create extensions and labels
+        # --- Pin label lists for n=12 and n=8 ---
+        if n == 12:
+            input_labels = ["14", "13", "12", "11", "10", "9", "8", "7", "6", "5", "4", "3"]
+            output_labels = ["3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]
+        else:  # n == 8
+            input_labels = ["14", "13", "12", "11", "10", "9", "8", "7"]
+            output_labels = ["7", "8", "9", "10", "11", "12", "13", "14"]
+
+        # Assign correct label numbers for each extension
         for i, node in enumerate(sorted_nodes):
-            # Determine extension parameters
             is_special = f"X_{second_last_col}" in node.name and side == "right"
             ext_length = extension * 3 if is_special else extension
-            
-            # Calculate extension position
             new_x = node.x + (ext_length if side == "right" else -ext_length)
             ext_node = Node(f"{node.name}_EXT", new_x, node.y)
             self.nodes[ext_node.name] = ext_node
-            # self.create_path(node, ext_node)
-            line_id = self.create_path(node, ext_node)  # Modify create_path to return line_id
+            line_id = self.create_path(node, ext_node)
 
-            # Add labels for 8x8 grid
-            if n == 8:
-                label = 14 - i if side == "left" else 7 + i
-                label_tag = f"input_label_{label}" if side == "left" else f"output_label_{label}"
-                self._draw_side_label(is_special, label, side, new_x, node.y)
-                # Store mapping from arm node to extension line and label tag
-                self.arm_to_extension[node.name] = (line_id, label_tag)
-            elif n == 12:
-                label = 22 - i if side == "left" else 11 + i
-                self._draw_side_label(is_special, label, side, new_x, node.y)
+            if side == "left":
+                # Use input_labels in order
+                label = input_labels[i] if i < len(input_labels) else str(input_labels[-1])
+                label_tag = f"input_label_{label}"
+            else:  # side == "right"
+                # Use output_labels in order
+                label = output_labels[i] if i < len(output_labels) else str(output_labels[-1])
+                label_tag = f"output_label_{label}"
 
-        if side == "right" and col == second_last_col and n == 8:
-            self.connect_vertical_extensions(col, (n // 2) - 1, extension * 3)
-        elif side == "right" and col == second_last_col and n == 12:
+            self._draw_side_label(is_special, label, side, new_x, node.y)
+            self.arm_to_extension[node.name] = (line_id, label_tag)
+
+        # Connect vertical extensions if needed
+        if side == "right" and col == second_last_col and n in [8, 12]:
             self.connect_vertical_extensions(col, (n // 2) - 1, extension * 3)
             
     # def _draw_side_label(self, is_special, label, side, new_x, node_y):
@@ -416,89 +419,72 @@ class Example(Frame):
 
     # Multiple selection of output labels 
     def handle_input_label_selection(self, label_number):
-        # Map label number to pin index
-        pin_map = {
-            "7": 7,
-            "8": 6,
-            "9": 5,
-            "10": 4,
-            "11": 3,
-            "12": 2,
-            "13": 1,
-            "14": 0
-        }
+        """Handle input label selection for n=8 or n=12."""
+        if self.grid_n == 12:
+            pin_map = {
+                "14": 12, "13": 11, "12": 10, "11": 9, "10": 8, "9": 7,
+                "8": 6, "7": 5, "6": 4, "5": 3, "4": 2, "3": 1
+            }
+        else:  # n=8
+            pin_map = {
+                "7": 8, "8": 7, "9": 6, "10": 5, "11": 4, "12": 3, "13": 2, "14": 1
+            }
 
         if label_number not in pin_map:
             return
 
         in_pin_idx = pin_map[label_number]
         label_tag = f"input_label_{label_number}"
-        prev_selected_idx = None  # ensure it's defined
+        prev_selected_idx = None
 
-        # Deselect previously selected pin (if any)
         if AppData.selected_input_pins:
             prev_selected_idx = next(iter(AppData.selected_input_pins))
             AppData.selected_input_pins.clear()
-
-            # Find the corresponding label number for previous pin (reverse map)
             for k, v in pin_map.items():
                 if v == prev_selected_idx:
                     prev_label_tag = f"input_label_{k}"
                     self.canvas.itemconfig(prev_label_tag, fill="white")
                     break
 
-        # If the clicked pin was already selected, it was just unselected — so we're done
         if in_pin_idx == prev_selected_idx:
-            # print(f"Input Unpinned channel {in_pin_idx}")
             return
 
-        # Otherwise, select the new pin
         AppData.selected_input_pins.add(in_pin_idx)
         self.canvas.itemconfig(label_tag, fill="red")
-        # print(f"Input Pinned channel {in_pin_idx}")
-
 
     def handle_output_label_selection(self, label_number):
-        # Map label number to pin index
-        pin_map = {
-            "7": 7,
-            "8": 6,
-            "9": 5,
-            "10": 4,
-            "11": 3,
-            "12": 2,
-            "13": 1,
-            "14": 0
-        }
+        """Handle output label selection for n=8 or n=12."""
+        if self.grid_n == 12:
+            pin_map = {
+                "3": 12, "4": 11, "5": 10, "6": 9, "7": 8, "8": 7,
+                "9": 6, "10": 5, "11": 4, "12": 3, "13": 2, "14": 1
+            }
+        else:  # n=8
+            pin_map = {
+                "7": 8, "8": 7, "9": 6, "10": 5, "11": 4, "12": 3, "13": 2, "14": 1
+            }
 
         if label_number not in pin_map:
             return
 
-        in_pin_idx = pin_map[label_number]
+        out_pin_idx = pin_map[label_number]
         label_tag = f"output_label_{label_number}"
-        prev_selected_idx = None  # ensure it's defined
+        prev_selected_idx = None
 
-        # Deselect previously selected pin (if any)
         if AppData.selected_output_pins:
             prev_selected_idx = next(iter(AppData.selected_output_pins))
             AppData.selected_output_pins.clear()
-
-            # Find the corresponding label number for previous pin (reverse map)
             for k, v in pin_map.items():
                 if v == prev_selected_idx:
                     prev_label_tag = f"output_label_{k}"
                     self.canvas.itemconfig(prev_label_tag, fill="white")
                     break
 
-        # If the clicked pin was already selected, it was just unselected — so we're done
-        if in_pin_idx == prev_selected_idx:
-            # print(f"Output Unpinned channel {in_pin_idx}")
+        if out_pin_idx == prev_selected_idx:
             return
 
-        # Otherwise, select the new pin
-        AppData.selected_output_pins.add(in_pin_idx)
+        AppData.selected_output_pins.add(out_pin_idx)
         self.canvas.itemconfig(label_tag, fill="red")
-        # print(f"Output Pinned channel {in_pin_idx}")
 
 
     # def handle_output_label_selection(self, label_number):

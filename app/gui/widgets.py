@@ -168,6 +168,7 @@ class DeviceControlWidget(ctk.CTkFrame):
 class SwitchControlWidget(ctk.CTkFrame):
     def __init__(self, master, *args, **kwargs):
         super().__init__(master, *args, **kwargs)
+        self.switch_device = None  # Will be set by MainWindow after creation
         
         # --- Header Section ---
         self.header_frame = ctk.CTkFrame(
@@ -179,8 +180,8 @@ class SwitchControlWidget(ctk.CTkFrame):
         self.header_frame.pack(fill="x", padx=10, pady=(10, 5), anchor="center")
         
         # Add StringVars for port selection
-        self.input_port_var = ctk.StringVar()
-        self.output_port_var = ctk.StringVar()
+        self.input_port_var = ctk.StringVar(value="None")
+        self.output_port_var = ctk.StringVar(value="None")
 
         # Header content with refresh button
         self.header_grid = ctk.CTkFrame(self.header_frame, fg_color="transparent")
@@ -228,7 +229,8 @@ class SwitchControlWidget(ctk.CTkFrame):
         self.input_switch_menu = ctk.CTkOptionMenu(
             self.switch_select_frame,
             values=["None"],
-            width=120
+            width=120,
+            command=self.on_input_change
         )
         self.input_switch_menu.grid(row=0, column=1, padx=(0, 15), pady=2, sticky="w")
         
@@ -244,56 +246,85 @@ class SwitchControlWidget(ctk.CTkFrame):
         self.output_switch_menu = ctk.CTkOptionMenu(
             self.switch_select_frame,
             values=["None"],
-            width=120
+            width=120,
+            command=self.on_output_change
         )
         self.output_switch_menu.grid(row=1, column=1, padx=(0, 15), pady=2, sticky="w")
         
         self.switch_select_frame.grid_columnconfigure(1, weight=1)
-        self.refresh_ports()
 
         # Set up traces to save selections
         self.input_port_var.trace_add("write", self._save_ports)
         self.output_port_var.trace_add("write", self._save_ports)
+        # self.refresh_ports()
 
-    # Keep the refresh_ports and other methods the same as before
     def refresh_ports(self):
-        """Scan for available FTDI-based COM ports"""
+        """Scan for available FTDI-based COM ports and update menus with 'None' option and mutual exclusion."""
         ftdi_ports = []
         for port in list_ports.comports():
-            if port.vid == 0x0403:  # FTDI Vendor ID
+            if port.vid == 0x0403:
                 desc = f"{port.device} ({port.product})" if port.product else port.device
                 ftdi_ports.append((port.device, desc))
-        
         ports = [desc for _, desc in ftdi_ports]
-        self.input_switch_menu.configure(values=ports)
-        self.output_switch_menu.configure(values=ports)
-        
-        if ports:
-            if not self.input_switch_menu.get() or self.input_switch_menu.get() not in ports:
-                self.input_switch_menu.set(ports[0])
-            if not self.output_switch_menu.get() or self.output_switch_menu.get() not in ports:
-                self.output_switch_menu.set(ports[-1])
+        ports_with_none = ["None"] + ports
+
+        # Get current selections
+        input_sel = self.input_switch_menu.get()
+        output_sel = self.output_switch_menu.get()
+
+        # Update menu values with mutual exclusion
+        output_values = ["None"] + [p for p in ports if p != input_sel or input_sel == "None"]
+        input_values = ["None"] + [p for p in ports if p != output_sel or output_sel == "None"]
+
+        self.input_switch_menu.configure(values=input_values)
+        self.output_switch_menu.configure(values=output_values)
+
+        # Restore selection or set to "None"
+        if input_sel in input_values:
+            self.input_switch_menu.set(input_sel)
+        else:
+            self.input_switch_menu.set("None")
+        if output_sel in output_values:
+            self.output_switch_menu.set(output_sel)
+        else:
+            self.output_switch_menu.set("None")
+
+        # Update StringVars
+        self.input_port_var.set(self.input_switch_menu.get())
+        self.output_port_var.set(self.output_switch_menu.get())
+
+    def on_input_change(self, value):
+        self.input_port_var.set(value)
+        self.refresh_ports()
+        if self.switch_device:
+            self.switch_device.connect()  # Connect and print status
+
+    def on_output_change(self, value):
+        self.output_port_var.set(value)
+        self.refresh_ports()
+        if self.switch_device:
+            self.switch_device.connect()  # Connect and print status
 
     def get_selected_ports(self):
-        """Return (input_port, output_port) device paths"""
+        """Return (input_port, output_port) device paths or None if not selected."""
         port_map = {desc: dev for dev, desc in self._get_ftdi_ports()}
+        input_desc = self.input_switch_menu.get()
+        output_desc = self.output_switch_menu.get()
         return (
-            port_map.get(self.input_switch_menu.get()),
-            port_map.get(self.output_switch_menu.get())
+            port_map.get(input_desc) if input_desc != "None" else None,
+            port_map.get(output_desc) if output_desc != "None" else None
         )
 
     def _get_ftdi_ports(self):
-        """Return list of (device, description) for FTDI ports"""
         return [
             (port.device, f"{port.device} ({port.product})" if port.product else port.device)
             for port in list_ports.comports()
             if port.vid == 0x0403
         ]
-    
 
-    
     def _save_ports(self, *args):
         """Save selected ports to AppData"""
+        from app.utils.appdata import AppData
         AppData.switch_port["input_port"] = self.input_port_var.get()
         AppData.switch_port["output_port"] = self.output_port_var.get()
 

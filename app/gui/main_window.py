@@ -6,11 +6,13 @@ import app.gui.widgets as widgets
 import app.gui.window1 as window1
 from app.gui.widgets import PhaseShifterSelectionWidget
 from app.utils.utils import import_pickle, apply_imported_config
+from app.gui.widgets import SwitchControlWidget  # Import the SwitchControlWidget
 
 from app.gui.window1 import Window1Content  # Import the Window1Content widget
 from app.gui.window2 import Window2Content  # Import the Window2Content widget
 from app.gui.window3 import Window3Content  # Import the Window3Content widget
 from app.devices.qontrol_device import QontrolDevice  # Your QontrolDevice class
+from app.devices.switch_device import SwitchDevice
 import app.utils
 from app.utils.utils import importfunc
 from app.utils.appdata import AppData   # Import the AppData class
@@ -24,10 +26,16 @@ class MainWindow(ctk.CTk):
         self.config = config
         self.daq = daq
 
+        self.switch_control = SwitchControlWidget(master=self)  # or your left panel
+        self.switch_device = SwitchDevice(widget=self.switch_control)
+        self.switch_control.switch_device = self.switch_device  # for callbacks if needed
+
+
         self.current_content = None  # Important: so we can check it safely switch tabs
         screen_width = self.winfo_screenwidth()
         screen_height = self.winfo_screenheight()
         self.geometry(f"{screen_width}x{screen_height}+-10+-5")
+        
 
         # Create an AppData instance with the desired number of channels.
         self.appdata = AppData(n_channels=0)
@@ -78,6 +86,9 @@ class MainWindow(ctk.CTk):
         )
         self.switch_control.pack(anchor="nw", padx=10, pady=(2.5, 2.5), fill="x")
 
+        # Create the SwitchDevice using the *same* widget
+        self.switch_device = SwitchDevice(widget=self.switch_control)
+        self.switch_control.switch_device = self.switch_device  # <-- Add this line
 
         self.app_control = widgets.AppControlWidget(
             master=self.left_panel,
@@ -133,6 +144,8 @@ class MainWindow(ctk.CTk):
                 app=self.appdata,
                 qontrol=self.qontrol,
                 thorlabs = self.thorlabs,
+                switch=self.switch_device,
+                
                 daq = self.daq,
                 grid_size=mesh_size,
                 phase_selector=self.calibration_control,  # Pass the existing widget
@@ -161,6 +174,7 @@ class MainWindow(ctk.CTk):
                 app=self.appdata,
                 qontrol=self.qontrol,
                 thorlabs=self.thorlabs,
+                
                 daq = self.daq,
                 grid_size=mesh_size
             )            
@@ -194,6 +208,7 @@ class MainWindow(ctk.CTk):
 
     def connect_devices(self):
         # Handle Qontrol connection should be connected by default
+        self.switch_device.connect()
         if self.qontrol:
             if hasattr(self.qontrol, "device") and self.qontrol.device is not None:
                 params = self.qontrol.params
@@ -256,6 +271,7 @@ class MainWindow(ctk.CTk):
                 else:
                     print("[INFO][DAQ] Connection failed.")
                     self.device_control.update_device_info(None, "daq")
+                    
 
     def disconnect_devices(self):
         if self.qontrol:
@@ -306,5 +322,5 @@ class MainWindow(ctk.CTk):
 
 if __name__ == "__main__":
     qontrol_device = QontrolDevice(config={"globalcurrrentlimit"})
-    app = MainWindow(qontrol=qontrol_device, thorlabs=None, daq=None, config={})
+    app = MainWindow(qontrol=qontrol_device, thorlabs=None, daq=None, switch=None, config={})
     app.mainloop()

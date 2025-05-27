@@ -2,6 +2,9 @@
 from app.imports import *
 import ctypes
 from nidaqmx.errors import DaqNotFoundError 
+from app.devices.switch_device import SwitchDevice
+from app.gui.widgets import SwitchControlWidget
+import app.gui.widgets as widgets
 
 SETTINGS_PATH = os.path.join(os.path.dirname(__file__), "config", "settings.json")
 
@@ -33,6 +36,7 @@ def main():
     # Connect to Qontrol device
     qontrol.connect()
     
+
     # import_pickle(config)
     # apply_imported_config(config)   
     # appdata = AppData(n_channels=0)

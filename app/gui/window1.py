@@ -17,7 +17,7 @@ from scipy import optimize
 from app.utils.switch.switch_mapper import get_switch_devices_from_appdata, update_switch_from_json 
 
 class Window1Content(ctk.CTkFrame):
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, phase_selector=None, grid_size="8x8", **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, switch=None, phase_selector=None, grid_size="8x8", **kwargs):
         super().__init__(master, **kwargs)
         self.qontrol = qontrol
         self.thorlabs = thorlabs
@@ -30,7 +30,7 @@ class Window1Content(ctk.CTkFrame):
         self.phase_params = {}
         self.phase_selector = phase_selector
         self.app = app  # Store the AppData instance
-
+        self.switch = switch
 
         # Configure main layout
         self.grid_rowconfigure(0, weight=1)
@@ -101,13 +101,27 @@ class Window1Content(ctk.CTkFrame):
         controls = [
             ("Import", self._import_config),
             ("Export", self._export_config),
-            ("Current", self._apply_config),
+            # ("Current", self._apply_config),
             ("Clear", self._clear_grid),
-            # ("Status", self._show_full_status),
             ("R", self._run_resistance_calibration),
             ("P", self._run_phase_calibration),
-            ("Phase", self.apply_phase_new)  # Add this new button
+            ("Switch", self._apply_switch_pins), 
+            ("Apply", self.apply_phase_new)
         ]
+
+
+
+        # # Add to your controls list in _create_compact_control_panel method:
+        # controls = [
+        #     ("Import", self._import_config),
+        #     ("Export", self._export_config),
+        #     # ("Current", self._apply_config),
+        #     ("Clear", self._clear_grid),
+        #     ("R", self._run_resistance_calibration),
+        #     ("P", self._run_phase_calibration),
+        #     ("Phase", self.apply_phase_new),
+        #     ("S", self._apply_switch_pins) 
+        # ]
 
         for col in range(7):
             btn_frame.grid_columnconfigure(col, weight=1)
@@ -753,9 +767,14 @@ class Window1Content(ctk.CTkFrame):
                 # Otherwise, AppData.switch_port should already be set by the widget
 
                 # Update the physical switch devices using the imported config
-                update_switch_success = update_switch_from_json(json_data)
-                if not update_switch_success:
-                    print("[WARN][SWITCH] Switch update failed during config import.")
+                if self.switch:
+                    self.switch.connect()  # Update ports from widget/AppData
+                    success_in = self.switch.set_channel(input_pin, port_type="input")
+                    success_out = self.switch.set_channel(output_pin, port_type="output")
+                    if not (success_in and success_out):
+                        print("[WARN][SWITCH] Switch update failed during config import.")
+                else:
+                    print("[WARN][SWITCH] No switch device available during config import.")
 
                 # Update selected pins in AppData
                 AppData.selected_input_pins.clear()
@@ -1735,8 +1754,7 @@ class Window1Content(ctk.CTkFrame):
     #         # Store the phase grid config for later use
     #         self.phase_grid_config = phase_grid_config
             
-    #         # Only show error message if there are failures
-    #         if failed_channels:
+    #                 # Only show error message if there are failures    #         if failed_channels:
     #             result_message = f"Failed to apply to {len(failed_channels)} channels"
     #             print(result_message)
     #             print("Failed channels:", failed_channels)
@@ -1812,3 +1830,30 @@ class Window1Content(ctk.CTkFrame):
             print(f"Results saved to {path}")
         except Exception as e:
             print(f"Failed to save results: {e}")
+
+    def _apply_switch_pins(self):
+        """Apply the selected input and output pins from AppData to the switch device."""
+        input_pins = list(AppData.selected_input_pins)
+        output_pins = list(AppData.selected_output_pins)
+
+        if not input_pins or not output_pins:
+            self._show_error("Please select both input and output pins before applying.")
+            return
+
+        input_pin = input_pins[0]  # Use the first selected (or adapt for multiple)
+        output_pin = output_pins[0]
+
+        print(f"[INFO][Window1] Applying input pin: {input_pin}, output pin: {output_pin}")
+
+        # If you have a switch device, set the channels
+        if hasattr(self, "switch") and self.switch:
+            # Set input channel
+            success_in = self.switch.set_channel(input_pin, port_type="input")
+            # Set output channel
+            success_out = self.switch.set_channel(output_pin, port_type="output")
+            if success_in and success_out:
+                print("[INFO][Window1] Switch input/output pins applied successfully.")
+            else:
+                self._show_error("Failed to apply switch pins. Check connection and try again.")
+        else:
+            self._show_error("Switch device not available.")

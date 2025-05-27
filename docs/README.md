@@ -20,3 +20,11 @@
 1. Make the switches change to the new export - cannot find ports
 2. Try calibration with switch and calibration_node selection
 3. Phase shifter selection has to change to the json file
+
+
+### 27th May
+- switch with new format
+- import json
+- run steps for calibration 
+- make variables in appdata for new calibration format
+- fix br
