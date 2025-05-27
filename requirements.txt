@@ -8,7 +8,6 @@ sympy
 customtkinter
 qontrol
 ThorlabsPM100
-interferometer
 jsonschema
 scipy
 nidaqmx
