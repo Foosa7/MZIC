@@ -12,9 +12,7 @@ class AppData:
     prev_selected_idx = None
     selected_idx = None 
 
-    saved_unitary_U1 = None     
-    saved_unitary_U2 = None     
-    saved_unitary_U3 = None    
+    saved_unitary = None  
     phase_shifter_selection = "theta"  # Default value
 
 
