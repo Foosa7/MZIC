@@ -64,9 +64,9 @@ MZIC/
 │   │   │   ├── qmapper8x8.py       # Maps from the Clements mesh layout to the chip pin number.
 │   │   │   └── qset.py             # Sets current values to the qontrol module from qmapper.
 │   │   ├── unitary/                # Modules for unitary transformations and MZI mappings.
-│   │   │   ├── __init__.py         # Initializes the unitary subpackage.
 │   │   │   ├── mzi_convention.py   # Converts the BS angles from Clements convention to chip convention.
-│   │   │   └── mzi_lut.py          # Lookup table for mapping angles to MZIs.
+│   │   │   ├── mzi_lut.py          # Lookup table for mapping angles to MZIs.
+│   │   │   └── unitary.py          # Interferometer package for unitary decomposition.
 │   │   └── utils.py                # Miscellaneous utility functions.
 │   └── __pycache__/                # Compiled Python files (ignored in version control).
 └── tests/                          # Automated tests for the project.
