@@ -188,44 +188,67 @@ class Window3Content(ctk.CTkFrame):
 
         sites_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
         sites_frame.grid(row=4, column=1, sticky="w", padx=10, pady=(4, 10))
-
         self.site_vars = []
         max_per_row = 4
-        for idx in range(self.n):
+
+        try:
+            if self.n == 8:
+                site_range = [str(i) for i in range(7, 15)]  # range 7-14
+            elif self.n == 12:
+                site_range = [str(i) for i in range(3, 15)]  # range 3-14
+            else:
+                site_range = [str(i) for i in range(1, self.n + 1)]  # Default range
+        except Exception as e:
+            print(f"Error generating site range: {e}")
+            site_range = [str(i) for i in range(1, 9)]  # Fallback to a default range (1-8)
+
+        for idx, site in enumerate(site_range):
             var = ctk.BooleanVar(value=(idx < 2))
             self.site_vars.append(var)
-            chk = ctk.CTkCheckBox(sites_frame, text=f"{idx+1}", variable=var)
+            chk = ctk.CTkCheckBox(sites_frame, text=site, variable=var)
             chk.grid(row=idx // max_per_row, column=idx % max_per_row,
-                    padx=3, pady=3, sticky="w")
+                 padx=3, pady=3, sticky="w")
             var.trace_add("write", lambda *_: self._update_cycle_button_state())
 
         self._update_cycle_button_state()
 
         # ─────────────────────  row 5 – Switch I/O
-        ctk.CTkLabel(self.cycle_frame, text="Switch I/O:")\
+        ctk.CTkLabel(self.cycle_frame, text="Pin I/O:")\
             .grid(row=5, column=0, sticky="e", padx=10, pady=4)
 
         switch_io_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
         switch_io_frame.grid(row=5, column=1, sticky="w", padx=10, pady=4)
 
+        try:
+            if self.n == 8:
+                pin_range = [str(i) for i in range(7, 15)]  # range 7-14
+            elif self.n == 12:
+                pin_range = [str(i) for i in range(3, 15)]  # range 3-14
+            else:
+                pin_range = [str(i) for i in range(1, self.n + 1)]  # Default range
+        except Exception as e:
+            print(f"Error generating pin range: {e}")
+            pin_range = [str(i) for i in range(1, 9)]  # Fallback to a default range (1-8)
+
         # Input selection
         ctk.CTkLabel(switch_io_frame, text="Input:").pack(side="left", padx=5)
-        self.input_var = ctk.StringVar(value="1")  # Default input value
+        self.input_var = ctk.StringVar(value=pin_range[-1])  # Default input value
+
         self.input_dropdown = ctk.CTkOptionMenu(
             switch_io_frame,
             variable=self.input_var,
-            values=[str(i) for i in range(1, 13)],  # Input range 1–12
+            values=pin_range,
             width=60  # Adjust the width to make it narrower
         )
         self.input_dropdown.pack(side="left", padx=10)  # Increased padx for more space
 
         # Output selection
         ctk.CTkLabel(switch_io_frame, text="Output:").pack(side="left", padx=10)  # Increased padx for more space
-        self.output_var = ctk.StringVar(value="1")  # Default output value
+        self.output_var = ctk.StringVar(value=pin_range[0])  # Default output value
         self.output_dropdown = ctk.CTkOptionMenu(
             switch_io_frame,
             variable=self.output_var,
-            values=[str(i) for i in range(1, 13)],  # Output range 1–12
+            values=pin_range,  # Output range 1–12
             width=60  # Adjust the width to make it narrower
         )
         self.output_dropdown.pack(side="left", padx=5)
@@ -777,14 +800,19 @@ class Window3Content(ctk.CTkFrame):
             return
     
         try:
-            
             # Perform decomposition
             I = unitary.decomposition(matrix_u)
             bs_list = I.BS_list
             mzi_convention.clements_to_chip(bs_list)
-    
-            # Store the decomposition result in AppData
-            setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
+
+            # Update the AppData with the new JSON output
+            input_pin = str(self.input_var.get())  
+            output_pin = str(self.output_var.get())
+            json_output = mzi_lut.get_json_output(self.n, bs_list, input_pin, output_pin)
+            print(json_output) 
+
+            # Save the updated JSON to AppData
+            setattr(AppData, 'default_json_grid', json_output)
             print(AppData.default_json_grid)
 
         except Exception as e:

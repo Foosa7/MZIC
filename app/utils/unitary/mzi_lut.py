@@ -90,19 +90,23 @@ def map_bs_list(n, bs_list):
     
     return mapping
 
-def get_json_output(n, bs_list):
+def get_json_output(n, bs_list, input_pin, output_pin):
     """
-    New version: Directly map BS list to physical layout
+    Generate JSON output with additional metadata and formatted theta/phi values.
     """
     mapping = map_bs_list(n, bs_list)
-    output = {}
-    
+    output = {
+        "input_pin": input_pin,
+        "output_pin": output_pin,
+        "phase_shifter": "null",  # Always set to null
+        "calibration_node": "null",  # Always set to null
+    }
+
     for label, (theta, phi) in mapping.items():
-        
         output[label] = {
-            "arms": ['TL', 'TR', 'BL', 'BR'],	
-            "theta": str(theta),
-            "phi": str(phi),
+            "arms": ['TL', 'TR', 'BL', 'BR'],
+            "theta": str(theta),  # Format theta to 10 decimal places
+            "phi": str(phi),     # Format phi to 10 decimal places
         }
-        
+
     return output
