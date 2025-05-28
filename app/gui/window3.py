@@ -56,37 +56,6 @@ class Window3Content(ctk.CTkFrame):
         )
         self.apply_unitary_button.pack(anchor="center", pady=(5, 5))
 
-        self.import_unitary_button = ctk.CTkButton(
-            self.unitary_buttons_frame, text="Import Unitary",
-            command=self.import_unitary_file
-        )
-        self.import_unitary_button.pack(anchor="center", pady=(5, 5))
-
-        self.export_unitary_button = ctk.CTkButton(
-            self.unitary_buttons_frame, text="Export Unitary",
-            command=self.export_unitary_file
-        )
-        self.export_unitary_button.pack(anchor="center", pady=(5, 5))
-
-        # quick presets
-        self.common_unitaries_frame = ctk.CTkFrame(
-            self.unitary_buttons_frame, fg_color="transparent"
-        )
-        self.common_unitaries_frame.pack(anchor="center", pady=(5, 5))
-
-        self.identity_button = ctk.CTkButton(
-            self.common_unitaries_frame, text="Identity",
-            command=self.fill_identity
-        )
-        self.identity_button.pack(side="left", expand=True, anchor="center", padx=2)
-
-        self.random_button = ctk.CTkButton(
-            self.common_unitaries_frame, text="Random",
-            command=self.fill_random
-        )
-        self.random_button.pack(side="left", expand=True, anchor="center", padx=2)
-
-
         # ──────────────────────────────────────────────────────────────
         # 2) EXPERIMENT CONTROLS  
         # ──────────────────────────────────────────────────────────────
@@ -256,6 +225,12 @@ class Window3Content(ctk.CTkFrame):
         # Load any saved unitary into the entry grid
         # ──────────────────────────────────────────────────────────────
         self.handle_all_tabs()
+
+        # Add a text box to display the matrix
+        self.unitary_textbox = ctk.CTkTextbox(
+            self.right_frame, width=600, height=300, wrap="none"
+        )
+        self.unitary_textbox.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
     def _read_all_daq_channels(self):
         """
@@ -797,15 +772,33 @@ class Window3Content(ctk.CTkFrame):
                 entries_2d[i][j].insert(0, val_str)
 
     def decompose_unitary(self):
-        '''Read NxN from the currently selected tab and decompose it.'''
-        entries, appdata_var = self.get_active_tab()  # Get the active tab's unitary
-    
-        # Read the matrix from the selected tab
-        matrix_u = self.read_tab_entries(entries)
-        if matrix_u is None:
+        """
+        Load a .npy file, decompose it, and display the matrix in text format with spacing.
+        """
+        # Ask the user to select a .npy file
+        path = filedialog.askopenfilename(
+            title="Select Unitary File",
+            filetypes=[("NumPy files", "*.npy")]  # Only allow .npy files
+        )
+        if not path:
+            print("No file selected. Aborting.")
             return
-    
+
         try:
+            # Load the unitary matrix from the .npy file
+            matrix_u = np.load(path)
+            print(f"Loaded unitary matrix from {path}")
+
+            # Format the matrix with additional spacing
+            formatted_matrix = "\n".join(
+                ["  ".join(f"{elem.real:.4f}{'+' if elem.imag >= 0 else ''}{elem.imag:.4f}j" for elem in row)
+                 for row in matrix_u]
+            )
+
+            # Display the formatted matrix in the text box
+            self.unitary_textbox.delete("1.0", "end")  # Clear the text box
+            self.unitary_textbox.insert("1.0", formatted_matrix)
+
             # Perform decomposition
             I = unitary.decomposition(matrix_u)
             bs_list = I.BS_list
@@ -815,14 +808,14 @@ class Window3Content(ctk.CTkFrame):
             input_pin = str(self.input_var.get())  
             output_pin = str(self.output_var.get())
             json_output = mzi_lut.get_json_output(self.n, bs_list, input_pin, output_pin)
-            print(json_output) 
+            print(json_output)
 
             # Save the updated JSON to AppData
             setattr(AppData, 'default_json_grid', json_output)
-            print(AppData.default_json_grid)
+            print("Updated JSON grid saved to AppData.")
 
         except Exception as e:
-            print('Error in decomposition:', e)
+            print(f"Error during decomposition: {e}")
 
     def import_unitary_file(self):
         '''Import an .npy unitary file into the currently selected tab.'''
