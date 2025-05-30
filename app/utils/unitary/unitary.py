@@ -138,7 +138,10 @@ class Interferometer:
             plt.plot((x+0.4, x+0.9), (N - (BS.mode2 + BS.mode1)/2, N - (BS.mode2 + BS.mode1)/2), lw=1, color="blue")
             reflectivity = "{:4f}".format(np.sin(BS.theta)**2)
             ra_r = BS.theta/np.pi
+            #print("Internal phase rad: " + str(2*BS.theta))
             ra_r = 2*ra_r
+            #print("Internal phase pi units: " + str(ra_r))
+
             #ra_r = self.flip_angle_theta(BS.theta)
 
             the_rad = round(ra_r, 2)
@@ -386,4 +389,12 @@ def custom_angle(x1, x2):
 #         return 0
 
 
+if __name__ == "__main__":
+    
+    U = random_unitary(3)
+    Int = decomposition(U)
+    Int.draw()
+    Ure  = Int.calculate_transformation()
+    error = abs(np.max(Ure-U))
+    print(f"Error: {error}")
 

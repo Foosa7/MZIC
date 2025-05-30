@@ -356,8 +356,8 @@ class Window3Content(ctk.CTkFrame):
                     bs     = I.BS_list
                     mzi_convention.clements_to_chip(bs)
                     
-                    input_pin = str(self.input_var.get())  
-                    output_pin = str(self.output_var.get())
+                    input_pin = self.input_var.get() if isinstance(self.input_var, ctk.StringVar) else self.input_var
+                    output_pin = self.output_var.get() if isinstance(self.output_var, ctk.StringVar) else self.output_var
                     json_output = mzi_lut.get_json_output(self.n, bs, input_pin, output_pin)
                     
                     setattr(AppData, 'default_json_grid', json_output)
@@ -805,8 +805,8 @@ class Window3Content(ctk.CTkFrame):
             mzi_convention.clements_to_chip(bs_list)
 
             # Update the AppData with the new JSON output
-            input_pin = str(self.input_var.get())  
-            output_pin = str(self.output_var.get())
+            input_pin = int(self.input_var.get())
+            output_pin = int(self.output_var.get())
             json_output = mzi_lut.get_json_output(self.n, bs_list, input_pin, output_pin)
             print(json_output)
 

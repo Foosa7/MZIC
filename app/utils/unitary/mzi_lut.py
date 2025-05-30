@@ -34,6 +34,13 @@ LABEL_SEQUENCE_8x8 = [
     ["G4", "H3"]
 ]
 
+CUSTOM_DIAGONAL = [
+    # First diagonal 
+    ["E1"],
+    # Second diagonal 
+    ["F1", "G1"],
+]
+
 LABEL_SEQUENCE_12x12 = [
     ["A1"],
     ["A2", "B1", "C1"],
@@ -67,7 +74,7 @@ def get_label_sequence(n):
     elif n == 6:
         return LABEL_SEQUENCE_6x6
     elif n == 8:
-        return LABEL_SEQUENCE_8x8
+        return CUSTOM_DIAGONAL
     else:
         return LABEL_SEQUENCE_12x12
         
@@ -98,10 +105,37 @@ def get_json_output(n, bs_list, input_pin, output_pin):
     output = {
         "input_pin": input_pin,
         "output_pin": output_pin,
+        #"output_pin_1": 7,
+        #"output_pin_2": 8,
+        #"output_pin_3": 9,
         "phase_shifter": "theta",  # Always set to null
         "calibration_node": "null",  # Always set to null
     }
-
+    
+    static_config = {
+            "A1": {
+                "arms": ["TL", "TR"],
+                "theta": str(1),
+                "phi": str(0),
+            },
+            "C1": {
+                "arms": ["TL", "TR"],
+                "theta": str(1),
+                "phi": str(0),
+            },
+            "G2": {
+                "arms": ["TL", "TR"],
+                "theta": str(1),
+                "phi": str(0),
+            },
+            "H1": {
+                "arms": ["TL", "BL"],
+                "theta": str(1),
+                "phi": str(0),
+            }
+        }
+    output.update(static_config)  # Add static configuration to the JSON output
+    
     for label, (theta, phi) in mapping.items():
         output[label] = {
             "arms": ['TL', 'TR', 'BL', 'BR'],
