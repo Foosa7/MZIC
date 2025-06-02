@@ -221,9 +221,55 @@ class Window1Content(ctk.CTkFrame):
                                           placeholder_text="Samples")
         self.samples_entry.pack(side="left", padx=5, pady=5)
 
+        # --- Add input for path sequence, delay, and run button ---
+        self.path_sequence_entry = ctk.CTkEntry(row1_frame,
+                                                width=180,
+                                                placeholder_text="Paste JSON lines here")
+        self.path_sequence_entry.pack(side="left", padx=5, pady=5)
+
+        self.delay_entry = ctk.CTkEntry(row1_frame,
+                                        width=60,
+                                        placeholder_text="Delay (s)")
+        self.delay_entry.insert(0, "0.5")
+        self.delay_entry.pack(side="left", padx=5, pady=5)
+
+        self.run_path_sequence_button = ctk.CTkButton(
+            row1_frame,
+            text="Run Path Sequence",
+            command=self._on_run_path_sequence
+        )
+        self.run_path_sequence_button.pack(side="left", padx=5, pady=5)
+
         # Compact error display in inner_frame
         self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
         self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
+
+    def _on_run_path_sequence(self):
+        """
+        Handler for the Run Path Sequence button.
+        Expects multiple JSON lines in the entry, one per line.
+        """
+        import json
+        raw = self.path_sequence_entry.get()
+        delay_raw = self.delay_entry.get()
+        if not raw.strip():
+            self._show_error("Please paste JSON lines for the path sequence.")
+            return
+        try:
+            delay = float(delay_raw)
+            if delay < 0:
+                raise ValueError("Delay must be non-negative.")
+        except Exception as e:
+            self._show_error(f"Invalid delay value: {e}")
+            return
+        try:
+            # Support multi-line input: each line is a JSON dict
+            lines = [line for line in raw.strip().splitlines() if line.strip()]
+            path_list = [json.loads(line) for line in lines]
+        except Exception as e:
+            self._show_error(f"Invalid JSON input: {e}")
+            return
+        self.run_path_sequence(path_list, delay=delay)
 
     def _start_status_updates(self):
         """Start periodic status updates"""
