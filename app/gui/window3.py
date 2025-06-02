@@ -71,14 +71,14 @@ class Window3Content(ctk.CTkFrame):
             font=("Segoe UI", 14, "bold")
         ).grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(8, 6))
 
-        # ─────────────────────  row 1 – Cycle button
+        # ─────────────────────  row – Cycle button
         self.cycle_unitaries_button = ctk.CTkButton(
             self.cycle_frame, text="Cycle Unitaries",
             command=self.cycle_unitaries, width=140, height=32
         )
         self.cycle_unitaries_button.grid(row=1, column=0, padx=10, pady=4, sticky="w")
 
-        # ─────────────────────  row 2 – dwell-time (ms)
+        # ─────────────────────  row – dwell-time (ms)
         ctk.CTkLabel(self.cycle_frame, text="Dwell Time (ms):")\
             .grid(row=2, column=0, sticky="e", padx=10, pady=4)
 
@@ -137,6 +137,10 @@ class Window3Content(ctk.CTkFrame):
         dwell_seconds = dwell_ms / 1000.0
         """
 
+        # Adjust column configuration for proper alignment
+        self.cycle_frame.grid_columnconfigure(0, weight=1)
+        self.cycle_frame.grid_columnconfigure(1, weight=1)
+
         # ─────────────────────  row 3 – measurement source
         self.measurement_source = ctk.StringVar(value="DAQ")
 
@@ -151,12 +155,32 @@ class Window3Content(ctk.CTkFrame):
         ctk.CTkRadioButton(measure_frame, text="Thorlabs",
             variable=self.measurement_source, value="Thorlabs").pack(side="left", padx=3)
 
-        # ─────────────────────  row 4 – site selection
+        # ─────────────────────  row 4 – Package option
+        ctk.CTkLabel(self.cycle_frame, text="Package:").grid(row=4, column=0, sticky="e", padx=10, pady=4)
+        self.decomposition_package_var = ctk.StringVar(value="interferometer")  # Default value
+        self.decomposition_package_dropdown = ctk.CTkOptionMenu(
+            self.cycle_frame,
+            variable=self.decomposition_package_var,
+            values=["interferometer", "pnn"]
+        )
+        self.decomposition_package_dropdown.grid(row=4, column=1, sticky="ew", padx=10, pady=4)
+
+        # ─────────────────────  row 5 – Global Phase option
+        ctk.CTkLabel(self.cycle_frame, text="Global Phase:").grid(row=5, column=0, sticky="e", padx=10, pady=4)
+        self.global_phase_var = ctk.BooleanVar(value=True)  # Default: enabled
+        self.global_phase_checkbox = ctk.CTkCheckBox(
+            self.cycle_frame,
+            text="Enable",
+            variable=self.global_phase_var
+        )
+        self.global_phase_checkbox.grid(row=5, column=1, sticky="w", padx=10, pady=4)
+
+        # ─────────────────────  row 6 – site selection
         ctk.CTkLabel(self.cycle_frame, text="Record sites:")\
-            .grid(row=4, column=0, sticky="ne", padx=10, pady=(4, 10))
+            .grid(row=6, column=0, sticky="ne", padx=10, pady=(4, 10))
 
         sites_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
-        sites_frame.grid(row=4, column=1, sticky="w", padx=10, pady=(4, 10))
+        sites_frame.grid(row=6, column=1, sticky="w", padx=10, pady=(4, 10))
         self.site_vars = []
         max_per_row = 4
 
@@ -183,10 +207,10 @@ class Window3Content(ctk.CTkFrame):
 
         # ─────────────────────  row 5 – Switch I/O
         ctk.CTkLabel(self.cycle_frame, text="Pin I/O:")\
-            .grid(row=5, column=0, sticky="e", padx=10, pady=4)
+            .grid(row=7, column=0, sticky="e", padx=10, pady=4)
 
         switch_io_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
-        switch_io_frame.grid(row=5, column=1, sticky="w", padx=10, pady=4)
+        switch_io_frame.grid(row=7, column=1, sticky="w", padx=10, pady=4)
 
         try:
             if self.n == 8:
@@ -313,6 +337,8 @@ class Window3Content(ctk.CTkFrame):
 
             use_source = self.measurement_source.get()        # "DAQ" or "Thorlabs"
 
+            use_global_phase = self.global_phase_var.get() # True or False
+
             selected_sites = [i for i, var in enumerate(self.site_vars) if var.get()]
             if not selected_sites:
                 print("No sites selected – aborting.")
@@ -352,7 +378,7 @@ class Window3Content(ctk.CTkFrame):
                 # a) load the unitary + decompose → set heaters
                 try:
                     U_step = np.load(file_path)
-                    I      = unitary.decomposition(U_step)
+                    I      = unitary.decomposition(U_step, global_phase=use_global_phase)
                     bs     = I.BS_list
                     mzi_convention.clements_to_chip(bs)
                     
@@ -799,8 +825,10 @@ class Window3Content(ctk.CTkFrame):
             self.unitary_textbox.delete("1.0", "end")  # Clear the text box
             self.unitary_textbox.insert("1.0", formatted_matrix)
 
+            use_global_phase = self.global_phase_var.get() # True or False
+
             # Perform decomposition
-            I = unitary.decomposition(matrix_u)
+            I = unitary.decomposition(matrix_u, global_phase=use_global_phase)
             bs_list = I.BS_list
             mzi_convention.clements_to_chip(bs_list)
 
