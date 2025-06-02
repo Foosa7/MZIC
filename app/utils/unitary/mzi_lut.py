@@ -1,4 +1,5 @@
 # app/utils/mzi_lut.py
+
 from app.imports import *
 
 # Label sequence matching the physical layout
@@ -33,6 +34,13 @@ LABEL_SEQUENCE_8x8 = [
     ["G4", "H3"]
 ]
 
+CUSTOM_DIAGONAL = [
+    # First diagonal 
+    ["E1"],
+    # Second diagonal 
+    ["F1", "G1"],
+]
+
 LABEL_SEQUENCE_12x12 = [
     ["A1"],
     ["A2", "B1", "C1"],
@@ -47,6 +55,18 @@ LABEL_SEQUENCE_12x12 = [
     ["K6", "L5"]
 ]
 
+LABEL_CHIP_8x8 = [
+# PNN package mapping
+    ["A1", "C1", "E1", "G1"],
+    ["B1", "D1", "F1", "H1"],
+    ["A2", "C2", "E2", "G2"],
+    ["B2", "D2", "F2", "H2"],
+    ["A3", "C3", "E3", "G3"],
+    ["B3", "D3", "F3", "H3"],
+    ["A4", "C4", "E4", "G4"]
+]
+
+
 #Clements
 def get_label_sequence(n):
     if n == 4:
@@ -54,7 +74,7 @@ def get_label_sequence(n):
     elif n == 6:
         return LABEL_SEQUENCE_6x6
     elif n == 8:
-        return LABEL_SEQUENCE_8x8
+        return CUSTOM_DIAGONAL
     else:
         return LABEL_SEQUENCE_12x12
         
@@ -77,26 +97,42 @@ def map_bs_list(n, bs_list):
     
     return mapping
 
-def get_json_output(n, bs_list):
+def get_json_output(n, bs_list, input_pin, output_pin):
     """
-    New version: Directly map BS list to physical layout
+    Generate JSON output with additional metadata and formatted theta/phi values.
     """
     mapping = map_bs_list(n, bs_list)
     output = {}
     
-    for label, (theta, phi) in mapping.items():
-
-        if label == "B1": #must account for the bar/cross problem for this MZI
-            theta = theta + np.pi 
-            theta = theta % (2*np.pi)
-
-        theta = format(theta/np.pi,'.10f')
-        phi = format(phi/np.pi,'.10f')
-
-        output[label] = {
-            "arms": ['TL', 'TR', 'BL', 'BR'],	
-            "theta": theta,
-            "phi": phi,
+    static_config = {
+            "A1": {
+                "arms": ["TL", "TR"],
+                "theta": str(1),
+                "phi": str(0),
+            },
+            "C1": {
+                "arms": ["TL", "TR"],
+                "theta": str(1),
+                "phi": str(0),
+            },
+            "G2": {
+                "arms": ["TL", "TR"],
+                "theta": str(1),
+                "phi": str(0),
+            },
+            "H1": {
+                "arms": ["TL", "BL"],
+                "theta": str(1),
+                "phi": str(0),
+            }
         }
-        
+    output.update(static_config)  # Add static configuration to the JSON output
+    
+    for label, (theta, phi) in mapping.items():
+        output[label] = {
+            "arms": ['TL', 'TR', 'BL', 'BR'],
+            "theta": str(theta),  # Format theta to 10 decimal places
+            "phi": str(phi),     # Format phi to 10 decimal places
+        }
+
     return output

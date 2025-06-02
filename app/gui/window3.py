@@ -4,8 +4,7 @@ from app.imports import *
 import tkinter.filedialog as filedialog
 import copy
 from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
-from app.utils.unitary import mzi_lut
-from app.utils.unitary import mzi_convention
+from app.utils.unitary import unitary, mzi_lut, mzi_convention
 from app.utils.appdata import AppData
 from datetime import datetime
 
@@ -57,37 +56,6 @@ class Window3Content(ctk.CTkFrame):
         )
         self.apply_unitary_button.pack(anchor="center", pady=(5, 5))
 
-        self.import_unitary_button = ctk.CTkButton(
-            self.unitary_buttons_frame, text="Import Unitary",
-            command=self.import_unitary_file
-        )
-        self.import_unitary_button.pack(anchor="center", pady=(5, 5))
-
-        self.export_unitary_button = ctk.CTkButton(
-            self.unitary_buttons_frame, text="Export Unitary",
-            command=self.export_unitary_file
-        )
-        self.export_unitary_button.pack(anchor="center", pady=(5, 5))
-
-        # quick presets
-        self.common_unitaries_frame = ctk.CTkFrame(
-            self.unitary_buttons_frame, fg_color="transparent"
-        )
-        self.common_unitaries_frame.pack(anchor="center", pady=(5, 5))
-
-        self.identity_button = ctk.CTkButton(
-            self.common_unitaries_frame, text="Identity",
-            command=self.fill_identity
-        )
-        self.identity_button.pack(side="left", expand=True, anchor="center", padx=2)
-
-        self.random_button = ctk.CTkButton(
-            self.common_unitaries_frame, text="Random",
-            command=self.fill_random
-        )
-        self.random_button.pack(side="left", expand=True, anchor="center", padx=2)
-
-
         # ──────────────────────────────────────────────────────────────
         # 2) EXPERIMENT CONTROLS  
         # ──────────────────────────────────────────────────────────────
@@ -103,14 +71,14 @@ class Window3Content(ctk.CTkFrame):
             font=("Segoe UI", 14, "bold")
         ).grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(8, 6))
 
-        # ─────────────────────  row 1 – Cycle button
+        # ─────────────────────  row – Cycle button
         self.cycle_unitaries_button = ctk.CTkButton(
             self.cycle_frame, text="Cycle Unitaries",
             command=self.cycle_unitaries, width=140, height=32
         )
         self.cycle_unitaries_button.grid(row=1, column=0, padx=10, pady=4, sticky="w")
 
-        # ─────────────────────  row 2 – dwell-time (ms)
+        # ─────────────────────  row – dwell-time (ms)
         ctk.CTkLabel(self.cycle_frame, text="Dwell Time (ms):")\
             .grid(row=2, column=0, sticky="e", padx=10, pady=4)
 
@@ -169,6 +137,10 @@ class Window3Content(ctk.CTkFrame):
         dwell_seconds = dwell_ms / 1000.0
         """
 
+        # Adjust column configuration for proper alignment
+        self.cycle_frame.grid_columnconfigure(0, weight=1)
+        self.cycle_frame.grid_columnconfigure(1, weight=1)
+
         # ─────────────────────  row 3 – measurement source
         self.measurement_source = ctk.StringVar(value="DAQ")
 
@@ -183,29 +155,106 @@ class Window3Content(ctk.CTkFrame):
         ctk.CTkRadioButton(measure_frame, text="Thorlabs",
             variable=self.measurement_source, value="Thorlabs").pack(side="left", padx=3)
 
-        # ─────────────────────  row 4 – site selection
+        # ─────────────────────  row 4 – Package option
+        ctk.CTkLabel(self.cycle_frame, text="Package:").grid(row=4, column=0, sticky="e", padx=10, pady=4)
+        self.decomposition_package_var = ctk.StringVar(value="interferometer")  # Default value
+        self.decomposition_package_dropdown = ctk.CTkOptionMenu(
+            self.cycle_frame,
+            variable=self.decomposition_package_var,
+            values=["interferometer", "pnn"]
+        )
+        self.decomposition_package_dropdown.grid(row=4, column=1, sticky="ew", padx=10, pady=4)
+
+        # ─────────────────────  row 5 – Global Phase option
+        ctk.CTkLabel(self.cycle_frame, text="Global Phase:").grid(row=5, column=0, sticky="e", padx=10, pady=4)
+        self.global_phase_var = ctk.BooleanVar(value=True)  # Default: enabled
+        self.global_phase_checkbox = ctk.CTkCheckBox(
+            self.cycle_frame,
+            text="Enable",
+            variable=self.global_phase_var
+        )
+        self.global_phase_checkbox.grid(row=5, column=1, sticky="w", padx=10, pady=4)
+
+        # ─────────────────────  row 6 – site selection
         ctk.CTkLabel(self.cycle_frame, text="Record sites:")\
-            .grid(row=4, column=0, sticky="ne", padx=10, pady=(4, 10))
+            .grid(row=6, column=0, sticky="ne", padx=10, pady=(4, 10))
 
         sites_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
-        sites_frame.grid(row=4, column=1, sticky="w", padx=10, pady=(4, 10))
-
+        sites_frame.grid(row=6, column=1, sticky="w", padx=10, pady=(4, 10))
         self.site_vars = []
         max_per_row = 4
-        for idx in range(self.n):
+
+        try:
+            if self.n == 8:
+                site_range = [str(i) for i in range(7, 15)]  # range 7-14
+            elif self.n == 12:
+                site_range = [str(i) for i in range(3, 15)]  # range 3-14
+            else:
+                site_range = [str(i) for i in range(1, self.n + 1)]  # Default range
+        except Exception as e:
+            print(f"Error generating site range: {e}")
+            site_range = [str(i) for i in range(1, 9)]  # Fallback to a default range (1-8)
+
+        for idx, site in enumerate(site_range):
             var = ctk.BooleanVar(value=(idx < 2))
             self.site_vars.append(var)
-            chk = ctk.CTkCheckBox(sites_frame, text=f"{idx+1}", variable=var)
+            chk = ctk.CTkCheckBox(sites_frame, text=site, variable=var)
             chk.grid(row=idx // max_per_row, column=idx % max_per_row,
-                    padx=3, pady=3, sticky="w")
+                 padx=3, pady=3, sticky="w")
             var.trace_add("write", lambda *_: self._update_cycle_button_state())
 
         self._update_cycle_button_state()
 
+        # ─────────────────────  row 5 – Switch I/O
+        ctk.CTkLabel(self.cycle_frame, text="Pin I/O:")\
+            .grid(row=7, column=0, sticky="e", padx=10, pady=4)
+
+        switch_io_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
+        switch_io_frame.grid(row=7, column=1, sticky="w", padx=10, pady=4)
+
+        try:
+            if self.n == 8:
+                pin_range = [str(i) for i in range(7, 15)]  # range 7-14
+            elif self.n == 12:
+                pin_range = [str(i) for i in range(3, 15)]  # range 3-14
+            else:
+                pin_range = [str(i) for i in range(1, self.n + 1)]  # Default range
+        except Exception as e:
+            print(f"Error generating pin range: {e}")
+            pin_range = [str(i) for i in range(1, 9)]  # Fallback to a default range (1-8)
+
+        # Input selection
+        ctk.CTkLabel(switch_io_frame, text="Input:").pack(side="left", padx=5)
+        self.input_var = ctk.StringVar(value=pin_range[-1])  # Default input value
+
+        self.input_dropdown = ctk.CTkOptionMenu(
+            switch_io_frame,
+            variable=self.input_var,
+            values=pin_range,
+            width=60  # Adjust the width to make it narrower
+        )
+        self.input_dropdown.pack(side="left", padx=10)  # Increased padx for more space
+
+        # Output selection
+        ctk.CTkLabel(switch_io_frame, text="Output:").pack(side="left", padx=10)  # Increased padx for more space
+        self.output_var = ctk.StringVar(value=pin_range[0])  # Default output value
+        self.output_dropdown = ctk.CTkOptionMenu(
+            switch_io_frame,
+            variable=self.output_var,
+            values=pin_range,  # Output range 1–12
+            width=60  # Adjust the width to make it narrower
+        )
+        self.output_dropdown.pack(side="left", padx=5)
         # ──────────────────────────────────────────────────────────────
         # Load any saved unitary into the entry grid
         # ──────────────────────────────────────────────────────────────
         self.handle_all_tabs()
+
+        # Add a text box to display the matrix
+        self.unitary_textbox = ctk.CTkTextbox(
+            self.right_frame, width=600, height=300, wrap="none"
+        )
+        self.unitary_textbox.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
     def _read_all_daq_channels(self):
         """
@@ -288,6 +337,8 @@ class Window3Content(ctk.CTkFrame):
 
             use_source = self.measurement_source.get()        # "DAQ" or "Thorlabs"
 
+            use_global_phase = self.global_phase_var.get() # True or False
+
             selected_sites = [i for i, var in enumerate(self.site_vars) if var.get()]
             if not selected_sites:
                 print("No sites selected – aborting.")
@@ -327,13 +378,19 @@ class Window3Content(ctk.CTkFrame):
                 # a) load the unitary + decompose → set heaters
                 try:
                     U_step = np.load(file_path)
-                    I      = itf.square_decomposition(U_step)
+                    I      = unitary.decomposition(U_step, global_phase=use_global_phase)
                     bs     = I.BS_list
                     mzi_convention.clements_to_chip(bs)
-                    AppData.default_json_grid = mzi_lut.get_json_output(self.n, bs)
+                    
+                    input_pin = self.input_var.get() if isinstance(self.input_var, ctk.StringVar) else self.input_var
+                    output_pin = self.output_var.get() if isinstance(self.output_var, ctk.StringVar) else self.output_var
+                    json_output = mzi_lut.get_json_output(self.n, bs, input_pin, output_pin)
+                    
+                    setattr(AppData, 'default_json_grid', json_output)
+                    print(AppData.default_json_grid)
                 except Exception as e:
                     print(f"  ✖  Decomposition failed: {e}")
-                    continue
+                    continue              
 
                 # b) push phases to the chip
                 self.apply_phase_new()
@@ -741,27 +798,53 @@ class Window3Content(ctk.CTkFrame):
                 entries_2d[i][j].insert(0, val_str)
 
     def decompose_unitary(self):
-        '''Read NxN from the currently selected tab and decompose it.'''
-        entries, appdata_var = self.get_active_tab()  # Get the active tab's unitary
-    
-        # Read the matrix from the selected tab
-        matrix_u = self.read_tab_entries(entries)
-        if matrix_u is None:
+        """
+        Load a .npy file, decompose it, and display the matrix in text format with spacing.
+        """
+        # Ask the user to select a .npy file
+        path = filedialog.askopenfilename(
+            title="Select Unitary File",
+            filetypes=[("NumPy files", "*.npy")]  # Only allow .npy files
+        )
+        if not path:
+            print("No file selected. Aborting.")
             return
-    
+
         try:
-            
+            # Load the unitary matrix from the .npy file
+            matrix_u = np.load(path)
+            print(f"Loaded unitary matrix from {path}")
+
+            # Format the matrix with additional spacing
+            formatted_matrix = "\n".join(
+                ["  ".join(f"{elem.real:.4f}{'+' if elem.imag >= 0 else ''}{elem.imag:.4f}j" for elem in row)
+                 for row in matrix_u]
+            )
+            print("Formatted matrix: ")
+            print(formatted_matrix)
+            # Display the formatted matrix in the text box
+            self.unitary_textbox.delete("1.0", "end")  # Clear the text box
+            self.unitary_textbox.insert("1.0", formatted_matrix)
+
+            use_global_phase = self.global_phase_var.get() # True or False
+
             # Perform decomposition
-            I = itf.square_decomposition(matrix_u)
+            I = unitary.decomposition(matrix_u, global_phase=use_global_phase)
             bs_list = I.BS_list
             mzi_convention.clements_to_chip(bs_list)
-    
-            # Store the decomposition result in AppData
-            setattr(AppData, 'default_json_grid', mzi_lut.get_json_output(self.n, bs_list))
-            print(AppData.default_json_grid)
+
+            # Update the AppData with the new JSON output
+            input_pin = int(self.input_var.get())
+            output_pin = int(self.output_var.get())
+            json_output = mzi_lut.get_json_output(self.n, bs_list, input_pin, output_pin)
+            print(json_output)
+
+            # Save the updated JSON to AppData
+            setattr(AppData, 'default_json_grid', json_output)
+            print("Updated JSON grid saved to AppData.")
 
         except Exception as e:
-            print('Error in decomposition:', e)
+            print(f"Error during decomposition: {e}")
 
     def import_unitary_file(self):
         '''Import an .npy unitary file into the currently selected tab.'''
@@ -824,7 +907,7 @@ class Window3Content(ctk.CTkFrame):
 
     def fill_random(self):
         '''Fill the currently selected tab with a random unitary matrix.'''
-        mat = itf.random_unitary(self.n)
+        mat = unitary.random_unitary(self.n)
     
         entries, appdata_var = self.get_active_tab()  # Get active tab dynamically
     
@@ -835,6 +918,7 @@ class Window3Content(ctk.CTkFrame):
     def update_grid(self, new_mesh_size):
         '''Refresh NxN grids when the user selects a new mesh size.'''
         self.n = int(new_mesh_size.split('x')[0])
+        self.grid_size = new_mesh_size          # keep the string in sync
 
         # Get the single mapping
         entries, appdata_var = self.get_unitary_mapping()
