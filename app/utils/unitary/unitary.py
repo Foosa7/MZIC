@@ -46,6 +46,7 @@ class Interferometer:
     def __init__(self):
         self.BS_list = []
         self.output_phases = []
+        self.global_phase = True 
 
     def flip_angle_theta(self, Clements_theta, left_lim=1, right_lim=3*np.pi):
         width = right_lim - left_lim
@@ -95,16 +96,24 @@ class Interferometer:
         Returns:
             complex-valued 2D numpy array representing the interferometer
         """
+
+        global_phase = self.global_phase
+
         N = int(self.count_modes())
         U = np.eye(N, dtype=np.complex128)
 
         for BS in self.BS_list:
+
+            if global_phase:
+                g = 1j*np.exp(1j * BS.theta)
+            else:
+                g = 1
+
             T = np.eye(N, dtype=np.complex128)  # Use higher precision for the MZI matrix
-            global_phase = np.exp(1j * BS.theta)  # Explicitly include the global phase
-            T[BS.mode1 - 1, BS.mode1 - 1] = global_phase * (1j * np.exp(1j * BS.phi) * np.sin(BS.theta))
-            T[BS.mode1 - 1, BS.mode2 - 1] = global_phase * (1j * np.cos(BS.theta))
-            T[BS.mode2 - 1, BS.mode1 - 1] = global_phase * (1j * np.exp(1j * BS.phi) * np.cos(BS.theta))
-            T[BS.mode2 - 1, BS.mode2 - 1] = global_phase * (-1j * np.sin(BS.theta))
+            T[BS.mode1 - 1, BS.mode1 - 1] = g * np.exp(1j * BS.phi) * np.sin(BS.theta)
+            T[BS.mode1 - 1, BS.mode2 - 1] = g * np.cos(BS.theta)
+            T[BS.mode2 - 1, BS.mode1 - 1] = g * np.exp(1j * BS.phi) * np.cos(BS.theta)
+            T[BS.mode2 - 1, BS.mode2 - 1] = g * (-1 * np.sin(BS.theta))
             U = np.matmul(T, U)
 
         while np.size(self.output_phases) < N:  # Autofill for users who don't want to bother with output phases
@@ -237,7 +246,7 @@ def triangle_decomposition(U):
     return I
 
 
-def decomposition(U):
+def decomposition(U, global_phase=None):
     """Returns a rectangular mesh of MZIs implementing matrix U
 
     This code implements the decomposition algorithm in:
@@ -251,6 +260,12 @@ def decomposition(U):
         an Interferometer instance
     """
     I = Interferometer()
+
+    if global_phase is None:
+        global_phase = True
+
+    I.global_phase = global_phase
+
     N = int(np.sqrt(U.size))
     left_T = []
     for ii in range(N-1):
@@ -264,14 +279,18 @@ def decomposition(U):
 
                 theta = custom_arccot(U[N-1-jj, ii-jj], U[N-1-jj, ii-jj+1])
                 phi = custom_angle(-U[N-1-jj, ii-jj], U[N-1-jj, ii-jj+1])
-                global_phase = theta 
+
+                if global_phase:
+                    g = -1j*np.exp(-1j * theta) 
+                else:
+                    g = 1
 
                 # Define the MZI matrix
                 invT = np.eye(N, dtype=np.complex128)
-                invT[modes[0]-1, modes[0]-1] = np.exp(-1j * global_phase) * (-1j * np.exp(-1j * phi) * np.sin(theta))
-                invT[modes[0]-1, modes[1]-1] = np.exp(-1j * global_phase) * (-1j * np.exp(-1j * phi) * np.cos(theta))
-                invT[modes[1]-1, modes[0]-1] = np.exp(-1j * global_phase) * (-1j * np.cos(theta))
-                invT[modes[1]-1, modes[1]-1] = np.exp(-1j * global_phase) * (1j * np.sin(theta))
+                invT[modes[0]-1, modes[0]-1] = g * np.exp(-1j * phi) * np.sin(theta)
+                invT[modes[0]-1, modes[1]-1] = g * np.exp(-1j * phi) * np.cos(theta)
+                invT[modes[1]-1, modes[0]-1] = g * np.cos(theta)
+                invT[modes[1]-1, modes[1]-1] = g * (-1*np.sin(theta))
 
                 U = np.matmul(U, invT)
                 #print(modes[0], modes[1],U)
@@ -285,14 +304,18 @@ def decomposition(U):
                 """
                 theta = custom_arccot(U[N+jj-ii-1, jj], U[N+jj-ii-2, jj])
                 phi = custom_angle(U[N+jj-ii-1, jj], U[N+jj-ii-2, jj])
-                global_phase = theta 
+                
+                if global_phase:
+                    g = 1j*np.exp(1j * theta) 
+                else:
+                    g = 1
 
                 # Define the MZI matrix
                 T = np.eye(N, dtype=np.complex128)  # Use higher precision for the MZI matrix
-                T[modes[0]-1, modes[0]-1] = np.exp(1j * global_phase) * (1j * np.exp(1j * phi) * np.sin(theta))
-                T[modes[0]-1, modes[1]-1] = np.exp(1j * global_phase) * (1j * np.cos(theta))
-                T[modes[1]-1, modes[0]-1] = np.exp(1j * global_phase) * (1j * np.exp(1j * phi) * np.cos(theta))
-                T[modes[1]-1, modes[1]-1] = np.exp(1j * global_phase) * (-1j * np.sin(theta))
+                T[modes[0]-1, modes[0]-1] = g * np.exp(1j * phi) * np.sin(theta)
+                T[modes[0]-1, modes[1]-1] = g * np.cos(theta)
+                T[modes[1]-1, modes[0]-1] = g * np.exp(1j * phi) * np.cos(theta)
+                T[modes[1]-1, modes[1]-1] = g * (-1*np.sin(theta))
 
                 U = np.matmul(T, U)
                 #print(modes[0], modes[1],U)
@@ -303,23 +326,32 @@ def decomposition(U):
         theta = BS.theta
         phi = BS.phi
         modes = [int(BS.mode1), int(BS.mode2)]
-        global_phase = theta 
+        
+        if global_phase:
+            g = -1j*np.exp(-1j * theta)
+        else:
+            g = 1 
 
         invT = np.eye(N, dtype=np.complex128)
 
-        invT[modes[0]-1, modes[0]-1] = np.exp(-1j * global_phase) * (-1j * np.exp(-1j * phi) * np.sin(theta))
-        invT[modes[0]-1, modes[1]-1] = np.exp(-1j * global_phase) * (-1j * np.exp(-1j * phi) * np.cos(theta))
-        invT[modes[1]-1, modes[0]-1] = np.exp(-1j * global_phase) * (-1j * np.cos(theta))
-        invT[modes[1]-1, modes[1]-1] = np.exp(-1j * global_phase) * (1j * np.sin(theta))
+        invT[modes[0]-1, modes[0]-1] = g * np.exp(-1j * phi) * np.sin(theta)
+        invT[modes[0]-1, modes[1]-1] = g * np.exp(-1j * phi) * np.cos(theta)
+        invT[modes[1]-1, modes[0]-1] = g * np.cos(theta)
+        invT[modes[1]-1, modes[1]-1] = g * (-1*np.sin(theta))
         U = np.matmul(invT, U)
 
         theta = custom_arccot(U[modes[1]-1, modes[0]-1], U[modes[1]-1, modes[1]-1])
         phi = custom_angle(-U[modes[1]-1, modes[0]-1], U[modes[1]-1, modes[1]-1])
 
-        invT[modes[0]-1, modes[0]-1] = np.exp(-1j * global_phase) * (-1j * np.exp(-1j * phi) * np.sin(theta))
-        invT[modes[0]-1, modes[1]-1] = np.exp(-1j * global_phase) * (-1j * np.exp(-1j * phi) * np.cos(theta))
-        invT[modes[1]-1, modes[0]-1] = np.exp(-1j * global_phase) * (-1j * np.cos(theta))
-        invT[modes[1]-1, modes[1]-1] = np.exp(-1j * global_phase) * (1j * np.sin(theta))
+        if global_phase:
+            g = -1j*np.exp(-1j * theta)
+        else:
+            g = 1 
+
+        invT[modes[0]-1, modes[0]-1] = g * np.exp(-1j * phi) * np.sin(theta)
+        invT[modes[0]-1, modes[1]-1] = g * np.exp(-1j * phi) * np.cos(theta)
+        invT[modes[1]-1, modes[0]-1] = g * np.cos(theta)
+        invT[modes[1]-1, modes[1]-1] = g * (-1*np.sin(theta))
 
         U = np.matmul(U, invT) 
         #print(modes[0], modes[1],U)
@@ -391,8 +423,8 @@ def custom_angle(x1, x2):
 
 if __name__ == "__main__":
     
-    U = random_unitary(3)
-    Int = decomposition(U)
+    U = random_unitary(4)
+    Int = decomposition(U,global_phase=True)
     Int.draw()
     Ure  = Int.calculate_transformation()
     error = abs(np.max(Ure-U))
