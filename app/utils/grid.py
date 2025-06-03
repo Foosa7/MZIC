@@ -587,7 +587,7 @@ class Example(Frame):
             theta_entry.insert(0, "2")
             print(f"{visible_label}: Cross mode detected. Inserting 2.")
         elif mode == 'split_state':
-            theta_entry.insert(0, "1.5")
+            theta_entry.insert(0, "0.5")
             print(f"{visible_label}: Split mode detected. Inserting 1.5.")            
         else:
             print(f"{visible_label}: No matching mode. Mode value: {mode}")

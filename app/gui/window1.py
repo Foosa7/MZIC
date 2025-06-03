@@ -271,6 +271,72 @@ class Window1Content(ctk.CTkFrame):
             return
         self.run_path_sequence(path_list, delay=delay)
 
+    def run_path_sequence(self, path_list, delay=0.5):
+        """
+        Run each path (JSON dict) in path_list with a delay between each.
+        Applies phase logic for each step.
+        Measures from 2 Thorlabs devices after each step and saves results to CSV at the end.
+        """
+        import json
+        from datetime import datetime
+
+        results = []
+        headers = ["timestamp", "step", "thorlabs1_uW", "thorlabs2_uW"]
+
+        def run_next(index):
+            if index >= len(path_list):
+                # Export results
+                if results:
+                    self._export_results_to_csv(results, headers)
+                    print("\nNH experiment complete!")
+                    # Reset phases to zero
+                    zero_config = self._create_zero_config()
+                    apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
+                    print("All values reset to zero")
+                else:
+                    print("\nNo results collected during experiment")
+                return
+
+            # Update the global grid config
+            AppData.default_json_grid = path_list[index]
+            print(f"Applying path {index+1}/{len(path_list)}: {AppData.default_json_grid}")
+            # Optionally update the grid UI
+            self.custom_grid.import_paths_json(json.dumps(AppData.default_json_grid))
+            # Run your phase application logic
+            self.apply_phase_new()
+
+            # Thorlabs measurements (use only the first two devices)
+            thorlabs_values = [0.0, 0.0]
+            if self.thorlabs:
+                devices = self.thorlabs if isinstance(self.thorlabs, list) else [self.thorlabs]
+                for i in range(2):
+                    try:
+                        thorlabs_values[i] = devices[i].read_power(unit=self.selected_unit)
+                    except Exception as e:
+                        print(f"Error reading Thorlabs {i}: {e}")
+                        thorlabs_values[i] = 0.0
+
+            # Record results with timestamp
+            current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            row = [current_timestamp, index+1, thorlabs_values[0], thorlabs_values[1]]
+            results.append(row)
+
+            # Print current values
+            print(f"Step {index+1} measurements:")
+            print(f"  Thorlabs 1: {thorlabs_values[0]:.3f} {self.selected_unit}")
+            print(f"  Thorlabs 2: {thorlabs_values[1]:.3f} {self.selected_unit}")
+
+            # Schedule the next path after the delay
+            self.after(int(delay * 1000), lambda: run_next(index + 1))
+
+        try:
+            run_next(0)
+        except Exception as e:
+            print(f"Experiment failed: {e}")
+            import traceback
+            traceback.print_exc()
+
+
     def _start_status_updates(self):
         """Start periodic status updates"""
         self._update_system_status()
@@ -1499,6 +1565,34 @@ class Window1Content(ctk.CTkFrame):
             
         # Keep reference to prevent garbage collection
         self._current_measure_image = ctk_image
+
+
+    def _export_results_to_csv(self, results, headers):
+        """Export step data with custom headers (includes DAQ + Thorlabs)."""
+        if not results:
+            print("No results to save.")
+            return
+
+        path = filedialog.asksaveasfilename(
+            title='Save AMF Results',
+            defaultextension='.csv',
+            filetypes=[('CSV files', '*.csv')]
+        )
+        if not path:
+            return
+
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                # Write header
+                f.write(",".join(headers) + "\n")
+                # Write rows
+                for row in results:
+                    line_str = ",".join(str(x) for x in row)
+                    f.write(line_str + "\n")
+
+            print(f"Results saved to {path}")
+        except Exception as e:
+            print(f"Failed to save results: {e}")
 
     # def apply_phase_sweep(self):
     #     """
