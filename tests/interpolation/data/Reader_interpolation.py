@@ -187,7 +187,7 @@ print('Initial:', th_test/np.pi, "\u03C0"," "*4, 'Corrected:', f"{a1/np.pi:.5g}"
 def picplot(theta_input=None):
     global th_test, a1  # 新增这行以修改模块外变量
     if theta_input is not None:
-        th_test = theta_input
+        th_test = theta_input* np.pi  # 更新 th_test 为输入的角度值
     else:
         th_test = 1.65 * np.pi
 
