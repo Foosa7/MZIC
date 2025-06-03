@@ -6,15 +6,17 @@ import json
 base = {
     "A1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
     "C1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
-    "E1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
-    "G1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "E1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "G1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "F1": {"arms": ["TL", "TR"], "theta": "0.5", "phi": "0"},
+    "G2": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
 }
 
 # ----- build and export newline-delimited JSON with string values -----
 relative_path = r"tests\interpolation\json_steps"
 os.makedirs(relative_path, exist_ok=True)  # Ensure the directory exists
 
-output_filename = "H1_theta.json"
+output_filename = "H1_phi.json"
 output_path = os.path.join(relative_path, output_filename)
 
 with open(output_path, "w") as f:
@@ -23,8 +25,8 @@ with open(output_path, "w") as f:
             **base,
             "H1": {
                 "arms": ["TL", "BR"],
-                "theta": str(round(float(t), 2)),
-                "phi": 0,
+                "theta": 0.5,
+                "phi": str(round(float(t), 2)),
             },
         }
         # Dump compact JSON (no spaces) and write one object per line
@@ -43,6 +45,16 @@ STATIC BASE CONFIGURATION: E1_theta
     "G2": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
     "H2": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
 
+    
+STATIC BASE CONFIGURATION: E1_phi
+    "A1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "C1": {"arms": ["TL", "TR"], "theta": "0.5", "phi": "0"},
+    "G1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "D1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "F1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "H1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "G2": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+
 
 STATIC BASE CONFIGURATION: E2_theta
     "A1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
@@ -55,7 +67,21 @@ STATIC BASE CONFIGURATION: E2_theta
     "F2": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
     "H2": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
 
+    
+STATIC BASE CONFIGURATION: E2_phi
+    "A1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "G1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "B1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "D1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "F1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "H1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "C2": {"arms": ["TL", "TR"], "theta": "0.5", "phi": "0"},
+    "D2": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "F2": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "H2": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "G3": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
 
+    
 STATIC BASE CONFIGURATION: F1_theta
     "A1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
     "C1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
@@ -65,10 +91,29 @@ STATIC BASE CONFIGURATION: F1_theta
     "G2": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
 
 
+STATIC BASE CONFIGURATION: F1_phi
+    "A1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "C1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "E1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "G1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "D1": {"arms": ["TL", "TR"], "theta": "0.5", "phi": "0"},
+    "H1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "E2": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "G2": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+
+
 STATIC BASE CONFIGURATION: G1_theta
     "A1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
     "C1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
     "E1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "H1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+
+    
+STATIC BASE CONFIGURATION: G1_phi
+    "A1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "C1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "E1": {"arms": ["TL", "TR"], "theta": "0.5", "phi": "0"},
+    "F1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
     "H1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
 
 
@@ -81,10 +126,28 @@ STATIC BASE CONFIGURATION: G2_theta
     "H2": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
 
 
+STATIC BASE CONFIGURATION: G2_phi
+    "A1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "C1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "D1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "F1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "H1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "E2": {"arms": ["TL", "TR"], "theta": "0.5", "phi": "0"},
+    "F2": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "H2": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+
 STATIC BASE CONFIGURATION: H1_theta
     "A1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
     "C1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
     "E1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
     "G1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
 
+
+STATIC BASE CONFIGURATION: H1_phi
+    "A1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "C1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "E1": {"arms": ["TL", "TR"], "theta": "2", "phi": "0"},
+    "G1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
+    "F1": {"arms": ["TL", "TR"], "theta": "0.5", "phi": "0"},
+    "G2": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"},
 '''
