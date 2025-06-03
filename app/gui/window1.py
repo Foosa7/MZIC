@@ -48,7 +48,7 @@ class Window1Content(ctk.CTkFrame):
             img = Image.open(buf).copy()
             buf.close()
 
-            ctk_img = CTkImage(light_image=img, dark_image=img, size=(300, 180))
+            ctk_img = CTkImage(light_image=img, dark_image=img, size=(450, 360))  ### define the size of the image
             self.interp_plot_label.configure(image=ctk_img, text="")
             self._interp_img_ref = ctk_img
             plt.close()
