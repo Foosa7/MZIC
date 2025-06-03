@@ -17,12 +17,36 @@ from scipy import optimize
 from tests.interpolation.data import Reader_interpolation
 
 class Window1Content(ctk.CTkFrame):
+    def _on_sweep_file_changed(self, selected_file):
+        """Handler to reload sweep file for interpolation"""
+        try:
+            from tests.interpolation.data import Reader_interpolation as reader
+            reader.load_sweep_file(selected_file)
+            print(f"[Interpolation] Loaded file: {selected_file}")
+        except Exception as e:
+            self._show_error(f"Failed to load file: {e}")
+
+
+
+
+
+
+
     def _on_plot_interpolation(self):
         """Called when 'Plot' button is clicked in Interpolation tab."""
         if self.interp_option_a.get() != "enable":
             self._show_error("Interpolation is disabled.")
             return
 
+        
+        
+        
+        # Reload file before plotting
+        self._on_sweep_file_changed(self.sweep_file_menu.get())
+
+        
+        
+        
         try:
             angle_input = float(self.angle_entry.get())
         except Exception as e:
@@ -38,9 +62,8 @@ class Window1Content(ctk.CTkFrame):
             from customtkinter import CTkImage
 
             plt.close('all')
-            reader.th_test = angle_input
-            reader.a1 = reader.theta_trans(reader.th_test, reader.theta, reader.theta_corrected)
-            reader.picplot()
+            reader.picplot(angle_input)
+
 
             buf = io.BytesIO()
             plt.savefig(buf, format="png", dpi=100, bbox_inches='tight')
@@ -206,12 +229,31 @@ class Window1Content(ctk.CTkFrame):
         self.interp_option_b.set("Not satisfy")
         self.interp_option_b.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="ew")
 
+        # --- Sweep file choose ---
+        file_label = ctk.CTkLabel(interpolation_tab, text="Sweep file:")
+        file_label.grid(row=4, column=0, padx=10, pady=(5, 0), sticky="w")
+
+        self.sweep_file_menu = ctk.CTkOptionMenu(
+            interpolation_tab,
+            values=[
+                "H1_theta_200stps.csv",
+                "G1_theta_200_steps.csv",
+                "F1_theta_200_steps.csv",
+                "E1_theta_200_steps.csv",
+                "E2_theta_200_steps.csv"
+            ],
+            command=self._on_sweep_file_changed
+        )
+        self.sweep_file_menu.set("G2_theta_200_steps.csv")  # 默认值
+        self.sweep_file_menu.grid(row=5, column=0, padx=10, pady=(0, 5), sticky="ew")
+
+
         # --- Phase type in box  ---
         angle_label = ctk.CTkLabel(interpolation_tab, text="Input angle (rad):")
         angle_label.grid(row=4, column=0, padx=10, pady=(10, 5), sticky="w")
 
         self.angle_entry = ctk.CTkEntry(interpolation_tab, placeholder_text="e.g., 1.57")
-        self.angle_entry.grid(row=5, column=0, padx=10, pady=(0, 10), sticky="ew")
+        self.angle_entry.grid(row=6, column=0, padx=10, pady=(0, 10), sticky="ew")
 
         # --- Plot button (for angles vs angles_corrected comparison) ---
         self.plot_button = ctk.CTkButton(
@@ -219,13 +261,13 @@ class Window1Content(ctk.CTkFrame):
             text="Plot",
             command=self._on_plot_interpolation
         )
-        self.plot_button.grid(row=6, column=0, padx=10, pady=(5, 10), sticky="ew")
+        self.plot_button.grid(row=7, column=0, padx=10, pady=(5, 10), sticky="ew")
 
         # --- Show the plot ---
         self.interp_plot_label = ctk.CTkLabel(interpolation_tab, text="No image yet")
-        self.interp_plot_label.grid(row=7, column=0, padx=5, pady=5, sticky="nsew")
+        self.interp_plot_label.grid(row=8, column=0, padx=5, pady=5, sticky="nsew")
 
-        interpolation_tab.grid_rowconfigure(7, weight=1)
+        interpolation_tab.grid_rowconfigure(8, weight=1)
 
         ######   
 

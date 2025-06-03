@@ -184,15 +184,43 @@ print('Initial:', th_test/np.pi, "\u03C0"," "*4, 'Corrected:', f"{a1/np.pi:.5g}"
 
 #     plt.show()
 
-def picplot(theta_input=None):
-    global th_test, a1  # 新增这行以修改模块外变量
-    if theta_input is not None:
-        th_test = theta_input  # 更新 th_test 为输入的角度值
-    else:
-        th_test = 1.65 * np.pi
+# def picplot(theta_input=None):
+#     global th_test, a1  # 新增这行以修改模块外变量
+#     if theta_input is not None:
+#         th_test = theta_input  # 更新 th_test 为输入的角度值
+#     else:
+#         th_test = 1.65 * np.pi
 
-    a1 = theta_trans(th_test, theta, theta_corrected)
+#     a1 = theta_trans(th_test, theta, theta_corrected)
     
+#     plt.close('all')
+#     plt.figure(figsize=(12, 6))
+
+#     # subplot 1
+#     plt.subplot(211)
+#     plt.plot(theta, y1_sim, label='Theoretical')
+#     plt.scatter(theta, y1_norm, label='Tested')
+#     plt.xlabel('Angles', fontsize=18)
+#     plt.ylabel('Ratio', fontsize=18)
+#     plt.title('First Subplot: Theoretical vs Tested Ratio', fontsize=20)
+#     plt.legend(fontsize=14)
+#     plt.grid(True)
+
+#     # subplot 2
+#     plt.subplot(212)
+#     th_plt = th_test % (2*np.pi)
+#     plt.scatter(theta, theta_corrected, color='g')
+#     plt.scatter(th_plt, a1, marker='s', color='r', s=50, alpha=0.98)
+#     plt.xlabel('Angles we desire', fontsize=18)
+#     plt.ylabel('Angles we type in', fontsize=18)
+#     plt.grid(True)
+#     plt.tight_layout()
+
+
+def picplot(angle_input_rad):
+    th_test = angle_input_rad  # 使用传入角度
+    a1 = theta_trans(th_test, theta, theta_corrected)
+
     plt.close('all')
     plt.figure(figsize=(12, 6))
 
@@ -215,6 +243,31 @@ def picplot(theta_input=None):
     plt.ylabel('Angles we type in', fontsize=18)
     plt.grid(True)
     plt.tight_layout()
+
+
+def load_sweep_file(filename):
+    """Load sweep file and prepare global interpolation variables."""
+    global theta, y1_norm, theta_corrected
+
+    current_dir = os.path.dirname(__file__)
+    path = os.path.join(current_dir, filename)
+    df = pd.read_csv(path, skiprows=1, header=None)
+
+    if df.iloc[0, 2] > df.iloc[0, 3]:
+        x1, x2 = 2, 3
+    else:
+        x1, x2 = 3, 2
+
+    y1 = df.iloc[:, x1]
+    y2 = df.iloc[:, x2]
+
+    theta = np.linspace(0, 2*np.pi, 200)
+    y1_sim = np.cos(theta/2)**2
+    y1_norm = y1 / (np.abs(y1) + np.abs(y2))
+
+    # 重新生成 theta_corrected
+    theta_corrected = [find_P_aim(theta[i], theta, y1_norm, theta[i]) for i in range(len(theta))]
+
 
 
 
