@@ -18,45 +18,45 @@ from tests.interpolation.data import Reader_interpolation
 
 class Window1Content(ctk.CTkFrame):
     def _on_plot_interpolation(self):
-    """Called when 'Plot' button is clicked in Interpolation tab."""
-    if self.interp_option_a.get() != "enable":
-        self._show_error("Interpolation is disabled.")
-        return
+        """Called when 'Plot' button is clicked in Interpolation tab."""
+        if self.interp_option_a.get() != "enable":
+            self._show_error("Interpolation is disabled.")
+            return
 
-    try:
-        angle_input = float(self.angle_entry.get())
-    except Exception as e:
-        self._show_error(f"Invalid angle input: {e}")
-        return
+        try:
+            angle_input = float(self.angle_entry.get())
+        except Exception as e:
+            self._show_error(f"Invalid angle input: {e}")
+            return
 
-    try:
-        # import picplot function，pls notice that use the global paras theta、theta_corrected
-        from tests.interpolation.data import Reader_interpolation as reader
-        import matplotlib.pyplot as plt
-        import io
-        from PIL import Image
-        from customtkinter import CTkImage
+        try:
+            # import picplot function，pls notice that use the global paras theta、theta_corrected
+            from tests.interpolation.data import Reader_interpolation as reader
+            import matplotlib.pyplot as plt
+            import io
+            from PIL import Image
+            from customtkinter import CTkImage
 
-        plt.close('all')
-        reader.th_test = angle_input
-        reader.a1 = reader.theta_trans(reader.th_test, reader.theta, reader.theta_corrected)
-        reader.picplot()
+            plt.close('all')
+            reader.th_test = angle_input
+            reader.a1 = reader.theta_trans(reader.th_test, reader.theta, reader.theta_corrected)
+            reader.picplot()
 
-        buf = io.BytesIO()
-        plt.savefig(buf, format="png", dpi=100, bbox_inches='tight')
-        buf.seek(0)
-        img = Image.open(buf)
-        buf.close()
+            buf = io.BytesIO()
+            plt.savefig(buf, format="png", dpi=100, bbox_inches='tight')
+            buf.seek(0)
+            img = Image.open(buf)
+            buf.close()
 
-        ctk_img = CTkImage(light_image=img, dark_image=img, size=(300, 180))
-        self.interp_plot_label.configure(image=ctk_img, text="")
-        self._interp_img_ref = ctk_img  # Keep a reference to prevent garbage collection
+            ctk_img = CTkImage(light_image=img, dark_image=img, size=(300, 180))
+            self.interp_plot_label.configure(image=ctk_img, text="")
+            self._interp_img_ref = ctk_img  # Keep a reference to prevent garbage collection
 
-        plt.close()
-    except Exception as e:
-        import traceback
-        self._show_error(f"Failed to plot: {e}")
-        traceback.print_exc()
+            plt.close()
+        except Exception as e:
+            import traceback
+            self._show_error(f"Failed to plot: {e}")
+            traceback.print_exc()
 
 
 
