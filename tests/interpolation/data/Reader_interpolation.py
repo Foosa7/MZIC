@@ -145,44 +145,77 @@ th_test*= np.pi
 a1 = theta_trans(th_test, theta, theta_corrected)  
 print('Initial:', th_test/np.pi, "\u03C0"," "*4, 'Corrected:', f"{a1/np.pi:.5g}", "\u03C0")  
 
-def picplot():
-    plt.close('all')
-    # 1. 创建图形并设置大小
-    plt.figure(figsize=(12, 6)) # figsize 应用于 plt.figure()
+# def picplot():
+#     plt.close('all')
+#     # 1. 创建图形并设置大小
+#     plt.figure(figsize=(12, 6)) # figsize 应用于 plt.figure()
 
-    # --- 第一个子图 ---
+#     # --- 第一个子图 ---
+#     plt.subplot(211)
+#     plt.plot(theta, y1_sim, label='Theoretical')
+#     plt.scatter(theta, y1_norm, label='Tested')
+#     plt.xlabel('Angles', fontsize=18)
+#     plt.ylabel('Ratio', fontsize=18)
+#     plt.title('First Subplot: Theoretical vs Tested Ratio', fontsize=20) # 添加标题
+#     plt.legend(fontsize=14)
+#     plt.grid(True) # 添加网格线，可选
+
+#     # # --- 第二个子图 ---
+#     # plt.subplot(212)
+#     # plt.scatter(theta, y_test, label='Corrected', color='green') # 使用不同颜色区分
+#     # plt.plot(theta, y1_sim, label='Theoretical', linestyle='--') # 使用不同线型区分
+#     # # 为第二个子图添加 xlabel 和 ylabel
+#     # plt.xlabel('Angles', fontsize=18) # 假设 x 轴仍然是 Angles
+#     # plt.ylabel('Value', fontsize=18) #  Y轴标签，根据 y_test 和 y1_sim 的含义确定，这里用 'Value' 作为示例
+#     # plt.title('Second Subplot: Corrected vs Theoretical Value', fontsize=20) # 添加标题
+#     # plt.legend(fontsize=14)
+#     # plt.grid(True) # 添加网格线，可选
+
+#     # 自动调整子图参数，以给定的填充方式填充整个图像区域，防止标签重叠
+
+#     plt.subplot(212)
+#     th_plt = th_test % (2*np.pi)
+#     plt.scatter(theta, theta_corrected, color = 'g')
+#     plt.scatter(th_plt, a1, marker = 's', color = 'r', s = 50, alpha = 0.98)
+#     plt.xlabel('Angles we desire', fontsize = 18)
+#     plt.ylabel('Angles we type in', fontsize = 18)
+#     plt.grid(True)
+#     plt.tight_layout()
+
+#     plt.show()
+
+def picplot(theta_input=None):
+    global th_test, a1  # 新增这行以修改模块外变量
+    if theta_input is not None:
+        th_test = theta_input
+    else:
+        th_test = 1.65 * np.pi
+
+    a1 = theta_trans(th_test, theta, theta_corrected)
+    
+    plt.close('all')
+    plt.figure(figsize=(12, 6))
+
+    # subplot 1
     plt.subplot(211)
     plt.plot(theta, y1_sim, label='Theoretical')
     plt.scatter(theta, y1_norm, label='Tested')
     plt.xlabel('Angles', fontsize=18)
     plt.ylabel('Ratio', fontsize=18)
-    plt.title('First Subplot: Theoretical vs Tested Ratio', fontsize=20) # 添加标题
+    plt.title('First Subplot: Theoretical vs Tested Ratio', fontsize=20)
     plt.legend(fontsize=14)
-    plt.grid(True) # 添加网格线，可选
+    plt.grid(True)
 
-    # # --- 第二个子图 ---
-    # plt.subplot(212)
-    # plt.scatter(theta, y_test, label='Corrected', color='green') # 使用不同颜色区分
-    # plt.plot(theta, y1_sim, label='Theoretical', linestyle='--') # 使用不同线型区分
-    # # 为第二个子图添加 xlabel 和 ylabel
-    # plt.xlabel('Angles', fontsize=18) # 假设 x 轴仍然是 Angles
-    # plt.ylabel('Value', fontsize=18) #  Y轴标签，根据 y_test 和 y1_sim 的含义确定，这里用 'Value' 作为示例
-    # plt.title('Second Subplot: Corrected vs Theoretical Value', fontsize=20) # 添加标题
-    # plt.legend(fontsize=14)
-    # plt.grid(True) # 添加网格线，可选
-
-    # 自动调整子图参数，以给定的填充方式填充整个图像区域，防止标签重叠
-
+    # subplot 2
     plt.subplot(212)
     th_plt = th_test % (2*np.pi)
-    plt.scatter(theta, theta_corrected, color = 'g')
-    plt.scatter(th_plt, a1, marker = 's', color = 'r', s = 50, alpha = 0.98)
-    plt.xlabel('Angles we desire', fontsize = 18)
-    plt.ylabel('Angles we type in', fontsize = 18)
+    plt.scatter(theta, theta_corrected, color='g')
+    plt.scatter(th_plt, a1, marker='s', color='r', s=50, alpha=0.98)
+    plt.xlabel('Angles we desire', fontsize=18)
+    plt.ylabel('Angles we type in', fontsize=18)
     plt.grid(True)
     plt.tight_layout()
 
-    plt.show()
 
 
 
