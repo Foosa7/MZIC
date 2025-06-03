@@ -196,7 +196,7 @@ class Window1Content(ctk.CTkFrame):
 
 
         # Compact notebook for displays
-        notebook = ctk.CTkTabview(inner_frame, height=180, width=300)  # Fixed  height, width
+        notebook = ctk.CTkTabview(inner_frame, height=180, width=400)  # Fixed  height, width
         notebook.grid_propagate(False)
         notebook.grid(row=1, column=0, sticky="nsew", pady=(2, 0))
         inner_frame.grid_columnconfigure(0, weight=1)
