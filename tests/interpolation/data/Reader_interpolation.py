@@ -218,7 +218,7 @@ print('Initial:', th_test/np.pi, "\u03C0"," "*4, 'Corrected:', f"{a1/np.pi:.5g}"
 
 
 def picplot(angle_input_rad):
-    th_test = angle_input_rad  # 使用传入角度
+    th_test = angle_input_rad * np.pi # Use the input angle in radians
     a1 = theta_trans(th_test, theta, theta_corrected)
 
     plt.close('all')

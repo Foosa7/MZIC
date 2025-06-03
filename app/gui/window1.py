@@ -238,6 +238,7 @@ class Window1Content(ctk.CTkFrame):
             values=[
                 "H1_theta_200stps.csv",
                 "G1_theta_200_steps.csv",
+                "G2_theta_200_steps.csv",
                 "F1_theta_200_steps.csv",
                 "E1_theta_200_steps.csv",
                 "E2_theta_200_steps.csv"
