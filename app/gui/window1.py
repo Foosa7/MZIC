@@ -14,6 +14,7 @@ from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mappin
 from collections import defaultdict
 from typing import Dict, Any
 from scipy import optimize
+from tests.interpolation.data import Reader_interpolation
 
 class Window1Content(ctk.CTkFrame):
     def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, phase_selector=None, grid_size="8x8", **kwargs):
@@ -129,6 +130,36 @@ class Window1Content(ctk.CTkFrame):
         notebook.grid_propagate(False)
         notebook.grid(row=1, column=0, sticky="nsew", pady=(2, 0))
         inner_frame.grid_columnconfigure(0, weight=1)
+
+
+        ### Interpolation tab ###
+        interpolation_tab = notebook.add("Interpolation")
+        interpolation_tab.grid_columnconfigure(0, weight=1)
+        interpolation_tab.grid_rowconfigure(0, weight=1)
+
+        # Label for Option A
+        option_a_label = ctk.CTkLabel(interpolation_tab, text="Enable Interpolation:")
+        option_a_label.grid(row=0, column=0, padx=10, pady=(10, 5), sticky="w")
+
+        # OptionMenu for A: "enable" / "disable"
+        self.interp_option_a = ctk.CTkOptionMenu(interpolation_tab,
+                                                values=["enable", "disable"],
+                                                command=self._on_interpolation_option_changed)
+        self.interp_option_a.set("disable")
+        self.interp_option_a.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+
+        # Label for Option B
+        option_b_label = ctk.CTkLabel(interpolation_tab, text="Satisfy sweep files?")
+        option_b_label.grid(row=2, column=0, padx=10, pady=(5, 5), sticky="w")
+
+        # OptionMenu for B: "satisfy with sweep files" / "Not satisfy"
+        self.interp_option_b = ctk.CTkOptionMenu(interpolation_tab,
+                                                values=["satisfy with sweep files", "Not satisfy"],
+                                                command=self._on_interpolation_option_changed)
+        self.interp_option_b.set("Not satisfy")
+        self.interp_option_b.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="ew")
+        ######   
+
 
         ### Graph tab ###
         graph_tab = notebook.add("Graph")
