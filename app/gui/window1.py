@@ -275,6 +275,25 @@ class Window1Content(ctk.CTkFrame):
         self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
         self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
 
+    def _on_interpolation_option_changed(self, value=None):
+        """Handle changes to interpolation tab options."""
+        a = self.interp_option_a.get()
+        b = self.interp_option_b.get()
+
+        print(f"[Interpolation] Option A: {a}, Option B: {b}")
+
+        # Define workflow based on (a, b)
+        if a == "enable" and b == "satisfy with sweep files":
+            print("→ Run workflow: Interpolation + Sweep compatibility")
+            # self._run_interpolation_with_sweep()  # replace with actual method
+        elif a == "enable" and b == "Not satisfy":
+            print("→ Run workflow: Interpolation only")
+            # self._run_interpolation_without_sweep()
+        elif a == "disable":
+            print("→ Interpolation disabled")
+            # self._disable_interpolation()
+
+
     def _on_run_path_sequence(self):
         """
         Handler for the Run Path Sequence button.
