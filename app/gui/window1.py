@@ -45,14 +45,14 @@ class Window1Content(ctk.CTkFrame):
             buf = io.BytesIO()
             plt.savefig(buf, format="png", dpi=100, bbox_inches='tight')
             buf.seek(0)
-            img = Image.open(buf)
+            img = Image.open(buf).copy()
             buf.close()
 
             ctk_img = CTkImage(light_image=img, dark_image=img, size=(300, 180))
             self.interp_plot_label.configure(image=ctk_img, text="")
-            self._interp_img_ref = ctk_img  # Keep a reference to prevent garbage collection
-
+            self._interp_img_ref = ctk_img
             plt.close()
+
         except Exception as e:
             import traceback
             self._show_error(f"Failed to plot: {e}")
