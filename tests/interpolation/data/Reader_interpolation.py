@@ -72,7 +72,7 @@ def find_P_aim(P_initial, A, B, theta):
 
 
 # === Readout of the sweep file ===
-file_path1 = "H1_200stps.csv"
+file_path1 = "H1_theta_200stps.csv"
 #file_path1 = 'G1_theta_200_steps.csv'
 # file_path1 = 'F1_theta_200_steps.csv'
 # file_path1 = 'E1_theta_200_steps.csv'
