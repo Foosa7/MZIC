@@ -17,6 +17,53 @@ from scipy import optimize
 from tests.interpolation.data import Reader_interpolation
 
 class Window1Content(ctk.CTkFrame):
+    def _on_plot_interpolation(self):
+    """Called when 'Plot' button is clicked in Interpolation tab."""
+    if self.interp_option_a.get() != "enable":
+        self._show_error("Interpolation is disabled.")
+        return
+
+    try:
+        angle_input = float(self.angle_entry.get())
+    except Exception as e:
+        self._show_error(f"Invalid angle input: {e}")
+        return
+
+    try:
+        # import picplot function，pls notice that use the global paras theta、theta_corrected
+        from tests.interpolation.data import Reader_interpolation as reader
+        import matplotlib.pyplot as plt
+        import io
+        from PIL import Image
+        from customtkinter import CTkImage
+
+        plt.close('all')
+        reader.th_test = angle_input
+        reader.a1 = reader.theta_trans(reader.th_test, reader.theta, reader.theta_corrected)
+        reader.picplot()
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", dpi=100, bbox_inches='tight')
+        buf.seek(0)
+        img = Image.open(buf)
+        buf.close()
+
+        ctk_img = CTkImage(light_image=img, dark_image=img, size=(300, 180))
+        self.interp_plot_label.configure(image=ctk_img, text="")
+        self._interp_img_ref = ctk_img  # Keep a reference to prevent garbage collection
+
+        plt.close()
+    except Exception as e:
+        import traceback
+        self._show_error(f"Failed to plot: {e}")
+        traceback.print_exc()
+
+
+
+
+
+
+
     def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, phase_selector=None, grid_size="8x8", **kwargs):
         super().__init__(master, **kwargs)
         self.qontrol = qontrol
@@ -158,6 +205,28 @@ class Window1Content(ctk.CTkFrame):
                                                 command=self._on_interpolation_option_changed)
         self.interp_option_b.set("Not satisfy")
         self.interp_option_b.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="ew")
+
+        # --- Phase type in box  ---
+        angle_label = ctk.CTkLabel(interpolation_tab, text="Input angle (rad):")
+        angle_label.grid(row=4, column=0, padx=10, pady=(10, 5), sticky="w")
+
+        self.angle_entry = ctk.CTkEntry(interpolation_tab, placeholder_text="e.g., 1.57")
+        self.angle_entry.grid(row=5, column=0, padx=10, pady=(0, 10), sticky="ew")
+
+        # --- Plot button (for angles vs angles_corrected comparison) ---
+        self.plot_button = ctk.CTkButton(
+            interpolation_tab,
+            text="Plot",
+            command=self._on_plot_interpolation
+        )
+        self.plot_button.grid(row=6, column=0, padx=10, pady=(5, 10), sticky="ew")
+
+        # --- Show the plot ---
+        self.interp_plot_label = ctk.CTkLabel(interpolation_tab, text="No image yet")
+        self.interp_plot_label.grid(row=7, column=0, padx=5, pady=5, sticky="nsew")
+
+        interpolation_tab.grid_rowconfigure(7, weight=1)
+
         ######   
 
 
