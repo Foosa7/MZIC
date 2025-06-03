@@ -72,12 +72,15 @@ def find_P_aim(P_initial, A, B, theta):
 
 
 # === Readout of the sweep file ===
-file_path1 = "H1_theta_200stps.csv"
+#file_path1 = "H1_theta_200stps.csv"
 #file_path1 = 'G1_theta_200_steps.csv'
 # file_path1 = 'F1_theta_200_steps.csv'
 # file_path1 = 'E1_theta_200_steps.csv'
 # file_path1 = 'E2_theta_200_steps.csv'
 file_path1 = 'G2_theta_200_steps.csv'
+
+current_dir = os.path.dirname(__file__)
+file_path1 = os.path.join(current_dir, file_path1)
 df = pd.read_csv(file_path1, skiprows=1, header=None)
 
 if df.iloc[0,2] > df.iloc[0, 3]:
