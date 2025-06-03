@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
+import os
 
 import math
 def find_P_aim(P_initial, A, B, theta):
