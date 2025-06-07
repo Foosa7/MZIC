@@ -135,41 +135,39 @@ class Window1Content(ctk.CTkFrame):
         ### Interpolation tab ###
         interpolation_tab = notebook.add("Interpolation")
         interpolation_tab.grid_columnconfigure(0, weight=1)
-        interpolation_tab.grid_rowconfigure(0, weight=1)
+        interpolation_tab.grid_columnconfigure(1, weight=2)  # Give more space to the dropdown column
+        interpolation_tab.grid_rowconfigure(7, weight=1)  # For the plot area
 
-        # Label for Option A
+        # Row 0: Enable Interpolation
         option_a_label = ctk.CTkLabel(interpolation_tab, text="Enable Interpolation:")
-        option_a_label.grid(row=0, column=0, padx=10, pady=(10, 5), sticky="w")
+        option_a_label.grid(row=0, column=0, padx=(10, 5), pady=(10, 5), sticky="w")
 
-        # OptionMenu for A: "enable" / "disable"
         self.interp_option_a = ctk.CTkOptionMenu(interpolation_tab,
                                                 values=["enable", "disable"],
                                                 command=self._on_interpolation_option_changed)
         self.interp_option_a.set("disable")
-        self.interp_option_a.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+        self.interp_option_a.grid(row=0, column=1, padx=(5, 10), pady=(10, 5), sticky="ew")
 
-        # Label for Option B
+        # Row 1: Satisfy sweep files?
         option_b_label = ctk.CTkLabel(interpolation_tab, text="Satisfy sweep files?")
-        option_b_label.grid(row=2, column=0, padx=10, pady=(5, 5), sticky="w")
+        option_b_label.grid(row=1, column=0, padx=(10, 5), pady=5, sticky="w")
 
-        # OptionMenu for B: "satisfy with sweep files" / "Not satisfy"
         self.interp_option_b = ctk.CTkOptionMenu(interpolation_tab,
                                                 values=["satisfy with sweep files", "Not satisfy"],
                                                 command=self._on_interpolation_option_changed)
         self.interp_option_b.set("Not satisfy")
-        self.interp_option_b.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="ew")
+        self.interp_option_b.grid(row=1, column=1, padx=(5, 10), pady=5, sticky="ew")
 
-        # --- Sweep file choose ---
+        # Row 2: Sweep file
         file_label = ctk.CTkLabel(interpolation_tab, text="Sweep file:")
-        file_label.grid(row=4, column=0, padx=10, pady=(5, 0), sticky="w")
+        file_label.grid(row=2, column=0, padx=(10, 5), pady=5, sticky="w")
 
-        # Get available files from interpolation manager - NO HARDCODING!
+        # Get available files from interpolation manager
         available_files = self.interpolation_manager.get_available_files()
         if not available_files:
             available_files = ["No files available"]
             default_file = "No files available"
         else:
-            # Use the first file in the list as default - completely dynamic
             default_file = available_files[0]
 
         self.sweep_file_menu = ctk.CTkOptionMenu(
@@ -178,33 +176,40 @@ class Window1Content(ctk.CTkFrame):
             command=self._on_sweep_file_changed
         )
         self.sweep_file_menu.set(default_file)
-        self.sweep_file_menu.grid(row=5, column=0, padx=10, pady=(0, 5), sticky="ew")
+        self.sweep_file_menu.grid(row=2, column=1, padx=(5, 10), pady=5, sticky="ew")
 
-        # Explicitly load the default file
-        if default_file != "No files available":
-            self.interpolation_manager.load_sweep_file(default_file)
-            print(f"[Interpolation] Default file loaded: {default_file}")
+        # Row 3: Separator line (optional, for visual clarity)
+        separator = ctk.CTkFrame(interpolation_tab, height=2)
+        separator.grid(row=3, column=0, columnspan=2, sticky="ew", padx=10, pady=(10, 5))
 
-        # --- Phase type in box  ---
-        angle_label = ctk.CTkLabel(interpolation_tab, text="Input angle (rad):")
-        angle_label.grid(row=4, column=0, padx=10, pady=(10, 5), sticky="w")
+        # Row 4: Input angle
+        angle_label = ctk.CTkLabel(interpolation_tab, text="Input angle (π radians):")
+        angle_label.grid(row=4, column=0, padx=(10, 5), pady=5, sticky="w")
 
         self.angle_entry = ctk.CTkEntry(interpolation_tab, placeholder_text="e.g., 1.57")
-        self.angle_entry.grid(row=6, column=0, padx=10, pady=(0, 10), sticky="ew")
+        self.angle_entry.grid(row=4, column=1, padx=(5, 10), pady=5, sticky="ew")
 
-        # --- Plot button (for angles vs angles_corrected comparison) ---
+        # Row 5: Plot button
         self.plot_button = ctk.CTkButton(
             interpolation_tab,
             text="Plot",
             command=self._on_plot_interpolation
         )
-        self.plot_button.grid(row=7, column=0, padx=10, pady=(5, 10), sticky="ew")
+        self.plot_button.grid(row=5, column=0, columnspan=2, padx=10, pady=(10, 5), sticky="ew")
 
-        # --- Show the plot ---
+        # Row 6: Plot area
         self.interp_plot_label = ctk.CTkLabel(interpolation_tab, text="No image yet")
-        self.interp_plot_label.grid(row=8, column=0, padx=5, pady=5, sticky="nsew")
+        self.interp_plot_label.grid(row=6, column=0, columnspan=2, padx=10, pady=(5, 10), sticky="nsew")
 
-        interpolation_tab.grid_rowconfigure(8, weight=1)
+        # Load the default file if it's available
+        if default_file != "No files available":
+            try:
+                self.interpolation_manager.load_sweep_file(default_file)
+                print(f"[Interpolation] Default file loaded: {default_file}")
+                self.interp_plot_label.configure(text=f"File loaded: {default_file}")
+            except Exception as e:
+                print(f"[Interpolation] Failed to load default file: {e}")
+                self.interp_plot_label.configure(text="Failed to load default file")
 
         # Initialize the proper state of controls based on the initial settings
         self._on_interpolation_option_changed()
@@ -386,13 +391,13 @@ class Window1Content(ctk.CTkFrame):
                 # Export results
                 if results:
                     self._export_results_to_csv(results, headers)
-                    print("\nNH experiment complete!")
+                    print("\nPath sequence complete!")
                     # Reset phases to zero
                     zero_config = self._create_zero_config()
                     apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
                     print("All values reset to zero")
                 else:
-                    print("\nNo results collected during experiment")
+                    print("\nNo measurements collected.")
                 return
 
             # Update the global grid config
