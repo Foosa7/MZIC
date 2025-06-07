@@ -1,4 +1,4 @@
-from app.imports import *
+#from app.imports import *
 
 # Mock Qontrol Device
 class MockQontrol:
@@ -14,6 +14,45 @@ class MockQontrol:
 
     def close(self):
         print("MockQontrol: Connection closed.")
+
+class MockSwitch:
+    def __init__(self):
+        self.current_channel = None  # Simulates the currently active channel
+
+    def _checksum(self, data):
+        """
+        Calculate the checksum for the given data.
+        """
+        return sum(data) & 0xFF
+
+    def set_channel(self, channel):
+        """
+        Simulates setting the switch to the specified channel and prints the hex code.
+        """
+        if not (0 <= channel <= 64):
+            raise ValueError("Channel must be between 0 and 64")
+        
+        # Construct the command
+        command = [0xEF, 0xEF, 0x06, 0xFF, 0x0D, 0x00, 0x00, channel]
+        command.append(self._checksum(command))
+
+        # Print the hex code of the command
+        print(f"[MOCK][SWITCH] Sending command: {bytes(command).hex()}")
+
+        # Simulate setting the channel
+        self.current_channel = channel
+        print(f"[MOCK][SWITCH] Channel set to {channel}")
+
+    def get_channel(self):
+        """
+        Simulates querying the switch to find the currently active channel.
+        """
+        if self.current_channel is None:
+            print("[MOCK][SWITCH] No channel set yet.")
+            return None
+        print(f"[MOCK][SWITCH] Current channel is {self.current_channel}")
+        return self.current_channel
+    
 # Mock Thorlabs PM100D Power Meter
 class MockThorlabsPM100:
     """Mock version of Thorlabs PM100D Power Meter for testing."""
@@ -37,7 +76,6 @@ class MockThorlabsPM100:
         if not self.connected:
             print("[WARN][Mock] Trying to read power while disconnected!")
         return self.power
-
 
 class MockDAQ:
     """
@@ -80,8 +118,6 @@ class MockDAQ:
         # Return a fixed value for each sample, e.g., 0.0 volts
         readings = [0.0 for _ in range(samples_per_channel)]
         return readings
-
-
 
     def read_power_in_mW(self, channels=None, samples_per_channel=10,
                      min_val=-10.0, max_val=10.0):

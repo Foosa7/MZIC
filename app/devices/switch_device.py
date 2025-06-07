@@ -20,19 +20,19 @@ class Switch:
         if not (0 <= channel <= 64):
             raise ValueError("Channel must be between 0 and 64")
 
-        command = [0xEF, 0xEF, 0x04, 0xFF, 0x04, channel]
+        command = [0xEF, 0xEF, 0x06, 0xFF, 0x0D, 0x00, 0x00, channel]
         command.append(self._checksum(command))
+
+        print(f"[DEBUG][SWITCH] Sending command to {port}: {bytes(command).hex()}")
 
         with self._open_serial() as ser:
             ser.write(bytes(command))
             response = ser.read(7)
 
-        if len(response) == 7 and response[4] == 0xEE:
-            print(f"[INFO][Switch] channel {channel} set successfully.")
-            return True
+        if response:
+            print(f"[DEBUG][SWITCH] Received response: {response.hex()}")
         else:
-            print(f"[INFO][Switch] Failed to set channel. Response: {response.hex()}")
-            return False
+            print(f"[ERROR][SWITCH] No response received — device may be ignoring command.")
 
     def get_channel(self):
         """
@@ -53,3 +53,7 @@ class Switch:
         else:
             print(f"[INFO][Switch] Failed to get channel. Response: {response.hex()}")
             return None
+
+## ef ef 06 ff 0d 00 00 01 f1 for channel 1
+## ef ef 06 ff 0d 00 00 02 f2 for channel 2
+## ef ef 06 ff 0d 00 00 03 f3 for channel 3

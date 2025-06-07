@@ -14,79 +14,8 @@ from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mappin
 from collections import defaultdict
 from typing import Dict, Any
 from scipy import optimize
-from tests.interpolation.data import Reader_interpolation
 
 class Window1Content(ctk.CTkFrame):
-    def _on_sweep_file_changed(self, selected_file):
-        """Handler to reload sweep file for interpolation"""
-        try:
-            from tests.interpolation.data import Reader_interpolation as reader
-            reader.load_sweep_file(selected_file)
-            print(f"[Interpolation] Loaded file: {selected_file}")
-        except Exception as e:
-            self._show_error(f"Failed to load file: {e}")
-
-
-
-
-
-
-
-    def _on_plot_interpolation(self):
-        """Called when 'Plot' button is clicked in Interpolation tab."""
-        if self.interp_option_a.get() != "enable":
-            self._show_error("Interpolation is disabled.")
-            return
-
-        
-        
-        
-        # Reload file before plotting
-        self._on_sweep_file_changed(self.sweep_file_menu.get())
-
-        
-        
-        
-        try:
-            angle_input = float(self.angle_entry.get())
-        except Exception as e:
-            self._show_error(f"Invalid angle input: {e}")
-            return
-
-        try:
-            # import picplot function，pls notice that use the global paras theta、theta_corrected
-            from tests.interpolation.data import Reader_interpolation as reader
-            import matplotlib.pyplot as plt
-            import io
-            from PIL import Image
-            from customtkinter import CTkImage
-
-            plt.close('all')
-            reader.picplot(angle_input)
-
-
-            buf = io.BytesIO()
-            plt.savefig(buf, format="png", dpi=100, bbox_inches='tight')
-            buf.seek(0)
-            img = Image.open(buf).copy()
-            buf.close()
-
-            ctk_img = CTkImage(light_image=img, dark_image=img, size=(450, 360))  ### define the size of the image
-            self.interp_plot_label.configure(image=ctk_img, text="")
-            self._interp_img_ref = ctk_img
-            plt.close()
-
-        except Exception as e:
-            import traceback
-            self._show_error(f"Failed to plot: {e}")
-            traceback.print_exc()
-
-
-
-
-
-
-
     def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, phase_selector=None, grid_size="8x8", **kwargs):
         super().__init__(master, **kwargs)
         self.qontrol = qontrol
@@ -101,6 +30,9 @@ class Window1Content(ctk.CTkFrame):
         self.phase_selector = phase_selector
         self.app = app  # Store the AppData instance
 
+        # Initialize interpolation manager
+        from app.utils.interpolation import interpolation_manager
+        self.interpolation_manager = interpolation_manager
 
         # Configure main layout
         self.grid_rowconfigure(0, weight=1)
@@ -194,13 +126,11 @@ class Window1Content(ctk.CTkFrame):
             )
             btn.grid(row=0, column=col, padx=1, sticky="nsew")
 
-
         # Compact notebook for displays
         notebook = ctk.CTkTabview(inner_frame, height=180, width=300)  # Fixed  height, width
         notebook.grid_propagate(False)
         notebook.grid(row=1, column=0, sticky="nsew", pady=(2, 0))
         inner_frame.grid_columnconfigure(0, weight=1)
-
 
         ### Interpolation tab ###
         interpolation_tab = notebook.add("Interpolation")
@@ -233,21 +163,27 @@ class Window1Content(ctk.CTkFrame):
         file_label = ctk.CTkLabel(interpolation_tab, text="Sweep file:")
         file_label.grid(row=4, column=0, padx=10, pady=(5, 0), sticky="w")
 
+        # Get available files from interpolation manager - NO HARDCODING!
+        available_files = self.interpolation_manager.get_available_files()
+        if not available_files:
+            available_files = ["No files available"]
+            default_file = "No files available"
+        else:
+            # Use the first file in the list as default - completely dynamic
+            default_file = available_files[0]
+
         self.sweep_file_menu = ctk.CTkOptionMenu(
             interpolation_tab,
-            values=[
-                "H1_theta_200stps.csv",
-                "G1_theta_200_steps.csv",
-                "G2_theta_200_steps.csv",
-                "F1_theta_200_steps.csv",
-                "E1_theta_200_steps.csv",
-                "E2_theta_200_steps.csv"
-            ],
+            values=available_files,
             command=self._on_sweep_file_changed
         )
-        self.sweep_file_menu.set("G2_theta_200_steps.csv")  # 默认值
+        self.sweep_file_menu.set(default_file)
         self.sweep_file_menu.grid(row=5, column=0, padx=10, pady=(0, 5), sticky="ew")
 
+        # Explicitly load the default file
+        if default_file != "No files available":
+            self.interpolation_manager.load_sweep_file(default_file)
+            print(f"[Interpolation] Default file loaded: {default_file}")
 
         # --- Phase type in box  ---
         angle_label = ctk.CTkLabel(interpolation_tab, text="Input angle (rad):")
@@ -270,8 +206,8 @@ class Window1Content(ctk.CTkFrame):
 
         interpolation_tab.grid_rowconfigure(8, weight=1)
 
-        ######   
-
+        # Initialize the proper state of controls based on the initial settings
+        self._on_interpolation_option_changed()
 
         ### Graph tab ###
         graph_tab = notebook.add("Graph")
@@ -1195,7 +1131,6 @@ class Window1Content(ctk.CTkFrame):
         # Check if phase is within valid range
         if phase_value < c/np.pi:
             print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
-            # Multiply phase_value by 2 and continue with calculation
             phase_value = phase_value + 2
             print(f"Using adjusted phase value: {phase_value}π")
 
@@ -1235,8 +1170,6 @@ class Window1Content(ctk.CTkFrame):
         else:
             # No resistance parameters, use default
             return float(round(1000 * np.sqrt(P/(50.0*1000)), 2))
-
-
 
     def _show_full_status(self):
         """Display detailed device status"""
@@ -1614,7 +1547,6 @@ class Window1Content(ctk.CTkFrame):
 
         return fig
 
-
     def _update_calibration_display_P(self, channel, io_config):
         """Update UI with calibration results"""
         print("Updating calibration display...")
@@ -1755,6 +1687,131 @@ class Window1Content(ctk.CTkFrame):
             print(f"Results saved to {path}")
         except Exception as e:
             print(f"Failed to save results: {e}")
+
+    def _on_sweep_file_changed(self, selected_file):
+        """Handler to reload sweep file for interpolation"""
+        try:
+            self.interpolation_manager.load_sweep_file(selected_file)
+            print(f"[Interpolation] Loaded file: {selected_file}")
+            
+            # Update UI to show file is loaded
+            self.interp_plot_label.configure(text=f"File loaded: {selected_file}")
+            
+        except FileNotFoundError as e:
+            self._show_error(f"File not found: {selected_file}")
+        except Exception as e:
+            self._show_error(f"Failed to load file: {e}")
+
+    def _on_plot_interpolation(self):
+        """Called when 'Plot' button is clicked in Interpolation tab."""
+        if self.interp_option_a.get() != "enable":
+            self._show_error("Interpolation is disabled.")
+            return
+
+        # Ensure file is loaded
+        if self.interpolation_manager.current_file is None:
+            self._on_sweep_file_changed(self.sweep_file_menu.get())
+
+        try:
+            angle_input = float(self.angle_entry.get())
+        except ValueError:
+            self._show_error("Please enter a valid number for the angle.")
+            return
+        except Exception as e:
+            self._show_error(f"Invalid angle input: {e}")
+            return
+
+        try:
+            # Create plot using interpolation manager
+            import matplotlib.pyplot as plt
+            from PIL import Image
+            from customtkinter import CTkImage
+            import io
+            
+            plt.close('all')
+            fig = self.interpolation_manager.create_plot(angle_input)
+            
+            # Convert matplotlib figure to CTkImage
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", dpi=100, bbox_inches='tight')
+            buf.seek(0)
+            img = Image.open(buf).copy()
+            buf.close()
+
+            # Display the image
+            ctk_img = CTkImage(light_image=img, dark_image=img, size=(450, 360))
+            self.interp_plot_label.configure(image=ctk_img, text="")
+            self._interp_img_ref = ctk_img  # Keep reference to prevent garbage collection
+            
+            plt.close(fig)
+            
+            # Get corrected angle info and display it
+            angle_info = self.interpolation_manager.get_corrected_angle(angle_input * np.pi)
+            status_text = f"Input: {angle_info['input_pi']:.3f}π → Output: {angle_info['output_pi']:.3f}π"
+            if angle_info['interpolated']:
+                status_text += " (interpolated)"
+            else:
+                status_text += " (no interpolation)"
+            print(f"[Interpolation] {status_text}")
+
+        except ValueError as e:
+            self._show_error(str(e))
+        except Exception as e:
+            import traceback
+            self._show_error(f"Failed to plot: {e}")
+            traceback.print_exc()
+
+    def _on_interpolation_option_changed(self, value=None):
+        """Handle changes to interpolation tab options."""
+        a = self.interp_option_a.get()
+        b = self.interp_option_b.get()
+
+        print(f"[Interpolation] Option A: {a}, Option B: {b}")
+
+        # Define workflow based on (a, b)
+        if a == "enable" and b == "satisfy with sweep files":
+            print("→ Run workflow: Interpolation + Sweep compatibility")
+            # Enable file selection and angle input
+            self.sweep_file_menu.configure(state="normal")
+            self.angle_entry.configure(state="normal")
+            self.plot_button.configure(state="normal")
+            
+        elif a == "enable" and b == "Not satisfy":
+            print("→ Run workflow: Interpolation only")
+            # Enable controls
+            self.sweep_file_menu.configure(state="normal")
+            self.angle_entry.configure(state="normal")
+            self.plot_button.configure(state="normal")
+            
+        elif a == "disable":
+            print("→ Interpolation disabled")
+            # Disable controls
+            self.sweep_file_menu.configure(state="disabled")
+            self.angle_entry.configure(state="disabled")
+            self.plot_button.configure(state="disabled")
+            self.interp_plot_label.configure(image=None, text="Interpolation disabled")
+            
+    def apply_phase_with_interpolation(self, phase_value: float, channel: int) -> float:
+        """
+        Apply interpolation to phase value if enabled.
+        
+        Args:
+            phase_value: Original phase value in radians
+            channel: Channel number
+            
+        Returns:
+            Corrected phase value if interpolation is enabled, otherwise original value
+        """
+        if self.interp_option_a.get() == "enable" and self.interpolation_manager.current_file:
+            try:
+                corrected, interpolated = self.interpolation_manager.theta_trans(phase_value)
+                print(f"[Interpolation] Channel {channel}: {phase_value/np.pi:.3f}π → {corrected/np.pi:.3f}π")
+                return corrected
+            except Exception as e:
+                print(f"[Interpolation] Error for channel {channel}: {e}")
+                return phase_value
+        else:
+            return phase_value
 
     # def apply_phase_sweep(self):
     #     """
