@@ -127,7 +127,7 @@ class Window1Content(ctk.CTkFrame):
             btn.grid(row=0, column=col, padx=1, sticky="nsew")
 
         # Compact notebook for displays
-        notebook = ctk.CTkTabview(inner_frame, height=180, width=300)  # Fixed  height, width
+        notebook = ctk.CTkTabview(inner_frame, height=180, width=300)  # Fixed height, width
         notebook.grid_propagate(False)
         notebook.grid(row=1, column=0, sticky="nsew", pady=(2, 0))
         inner_frame.grid_columnconfigure(0, weight=1)
@@ -214,54 +214,27 @@ class Window1Content(ctk.CTkFrame):
         # Initialize the proper state of controls based on the initial settings
         self._on_interpolation_option_changed()
 
-        ### Graph tab ###
-        graph_tab = notebook.add("Graph")
-        self.graph_frame = ctk.CTkFrame(graph_tab)
-        self.graph_frame.grid(row=0, column=0, sticky="nsew")
-        
-        graph_tab.grid_rowconfigure(0, weight=1)
-        graph_tab.grid_columnconfigure(0, weight=1)
-        
-        self.graph_frame.grid_rowconfigure(0, weight=1) # Plot 1
-        self.graph_frame.grid_rowconfigure(1, weight=1) # Plot 2
-        self.graph_frame.grid_columnconfigure(0, weight=1)
-
-        self.graph_image_label1 = ctk.CTkLabel(
-            self.graph_frame, text="No plot to display", anchor="n"
-        )
-        self.graph_image_label1.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
-
-        self.graph_image_label2 = ctk.CTkLabel(
-            self.graph_frame, text="No plot to display", anchor="n" 
-        )
-        self.graph_image_label2.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
-
         ### Mapping tab ###
         self.mapping_display = ctk.CTkTextbox(notebook.add("Mapping"))
         self.mapping_display.pack(fill="both", expand=True)
-        
 
-        ### Status tab ###
-        self.status_display = ctk.CTkTextbox(notebook.add("Status"), state="disabled")
-        self.status_display.pack(fill="both", expand=True)
-        
-        ### Measure tab ###
-        measure_tab = notebook.add("Measure")
-        measure_tab.grid_columnconfigure(0, weight=1)
-        measure_tab.grid_rowconfigure(0, weight=1)  # Row for the live graph
-        measure_tab.grid_rowconfigure(1, weight=0)  # Row for the text box
-        measure_tab.grid_rowconfigure(2, weight=0)  # Row for the buttons
+        ### Monitor tab ###
+        monitor_tab = notebook.add("Monitor")
+        monitor_tab.grid_columnconfigure(0, weight=1)
+        monitor_tab.grid_rowconfigure(0, weight=1)  # Row for the live graph
+        monitor_tab.grid_rowconfigure(1, weight=0)  # Row for the text box
+        monitor_tab.grid_rowconfigure(2, weight=0)  # Row for the buttons
 
-        # Live Graph Frame (top part of Measure tab)
-        self.live_graph_frame = ctk.CTkFrame(measure_tab, height=300)
+        # Live Graph Frame (top part of Monitor tab)
+        self.live_graph_frame = ctk.CTkFrame(monitor_tab, height=300)
         self.live_graph_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
         # Shared Textbox for both DAQ + Thorlabs readings (middle part of Measure tab)
-        self.measurement_text_box = ctk.CTkTextbox(measure_tab, state="disabled")
+        self.measurement_text_box = ctk.CTkTextbox(monitor_tab, state="disabled")
         self.measurement_text_box.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
-        # Button + Sample Entry Frame (bottom part of Measure tab) - Approach 3: Two-row layout
-        measure_button_frame = ctk.CTkFrame(measure_tab)
+        # Button + Sample Entry Frame (bottom part of Monitor tab) - Approach 3: Two-row layout
+        measure_button_frame = ctk.CTkFrame(monitor_tab)
         measure_button_frame.grid(row=2, column=0, sticky="ew")
 
         # First row: Read Devices, Start/Stop
@@ -323,6 +296,36 @@ class Window1Content(ctk.CTkFrame):
             command=self._on_run_path_sequence
         )
         self.run_path_sequence_button.pack(side="left", padx=5, pady=5)
+
+        ### Graph tab ###
+        graph_tab = notebook.add("R/P Graph")
+        self.graph_frame = ctk.CTkFrame(graph_tab)
+        self.graph_frame.grid(row=0, column=0, sticky="nsew")
+        
+        graph_tab.grid_rowconfigure(0, weight=1)
+        graph_tab.grid_columnconfigure(0, weight=1)
+        
+        self.graph_frame.grid_rowconfigure(0, weight=1) # Plot 1
+        self.graph_frame.grid_rowconfigure(1, weight=1) # Plot 2
+        self.graph_frame.grid_columnconfigure(0, weight=1)
+
+        self.graph_image_label1 = ctk.CTkLabel(
+            self.graph_frame, text="No plot to display", anchor="n"
+        )
+        self.graph_image_label1.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+
+        self.graph_image_label2 = ctk.CTkLabel(
+            self.graph_frame, text="No plot to display", anchor="n" 
+        )
+        self.graph_image_label2.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
+
+        ### Status tab ###
+        self.status_display = ctk.CTkTextbox(notebook.add("Status"), state="disabled")
+        self.status_display.pack(fill="both", expand=True)
+                
+        ### Sweep tab ###
+        sweep_tab = notebook.add("Sweep")
+        sweep_tab.grid_columnconfigure(0, weight=1)
 
         # Compact error display in inner_frame
         self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
@@ -1794,7 +1797,7 @@ class Window1Content(ctk.CTkFrame):
             self.sweep_file_menu.configure(state="disabled")
             self.angle_entry.configure(state="disabled")
             self.plot_button.configure(state="disabled")
-            self.interp_plot_label.configure(image=None, text="Interpolation disabled")
+            self.interp_plot_label.configure(image=None, text="No plot available.")
             
     def apply_phase_with_interpolation(self, phase_value: float, channel: int) -> float:
         """
