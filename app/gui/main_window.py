@@ -109,6 +109,7 @@ class MainWindow(ctk.CTk):
                 qontrol=self.qontrol,
                 thorlabs = self.thorlabs,
                 daq = self.daq,
+                switch = None,
                 grid_size=mesh_size,
                 phase_selector=self.calibration_control,  # Pass the existing widget
 

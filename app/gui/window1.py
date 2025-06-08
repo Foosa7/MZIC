@@ -14,13 +14,15 @@ from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mappin
 from collections import defaultdict
 from typing import Dict, Any
 from scipy import optimize
+from app.devices.switch_device import Switch
 
 class Window1Content(ctk.CTkFrame):
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, phase_selector=None, grid_size="8x8", **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, switch=None, phase_selector=None, grid_size="8x8", **kwargs):
         super().__init__(master, **kwargs)
         self.qontrol = qontrol
         self.thorlabs = thorlabs
-        self.daq = daq        
+        self.daq = daq   
+        self.switch = switch     
         self.grid_size = grid_size
         self.after_id = None
         self.control_panel = None  
@@ -326,10 +328,303 @@ class Window1Content(ctk.CTkFrame):
         ### Sweep tab ###
         sweep_tab = notebook.add("Sweep")
         sweep_tab.grid_columnconfigure(0, weight=1)
+        sweep_tab.grid_columnconfigure(1, weight=1)
+        
+        # Row 0: Target MZI entry
+        target_label = ctk.CTkLabel(sweep_tab, text="Target MZI:")
+        target_label.grid(row=0, column=0, padx=(10, 5), pady=(10, 5), sticky="w")
+        
+        self.sweep_target_entry = ctk.CTkEntry(sweep_tab, placeholder_text="e.g. A1")
+        self.sweep_target_entry.grid(row=0, column=1, padx=(5, 10), pady=(10, 5), sticky="ew")
+        
+        # Row 1: Theta/Phi selection
+        parameter_label = ctk.CTkLabel(sweep_tab, text="Parameter:")
+        parameter_label.grid(row=1, column=0, padx=(10, 5), pady=5, sticky="w")
+        
+        self.sweep_parameter_menu = ctk.CTkOptionMenu(
+            sweep_tab,
+            values=["theta", "phi"]
+        )
+        self.sweep_parameter_menu.set("theta")
+        self.sweep_parameter_menu.grid(row=1, column=1, padx=(5, 10), pady=5, sticky="ew")
+        
+        # Row 2: Start value
+        start_label = ctk.CTkLabel(sweep_tab, text="Start (π):")
+        start_label.grid(row=2, column=0, padx=(10, 5), pady=5, sticky="w")
+        
+        self.sweep_start_entry = ctk.CTkEntry(sweep_tab, placeholder_text="0.0")
+        self.sweep_start_entry.insert(0, "0.0")
+        self.sweep_start_entry.grid(row=2, column=1, padx=(5, 10), pady=5, sticky="ew")
+        
+        # Row 3: End value
+        end_label = ctk.CTkLabel(sweep_tab, text="End (π):")
+        end_label.grid(row=3, column=0, padx=(10, 5), pady=5, sticky="w")
+        
+        self.sweep_end_entry = ctk.CTkEntry(sweep_tab, placeholder_text="2.0")
+        self.sweep_end_entry.insert(0, "2.0")
+        self.sweep_end_entry.grid(row=3, column=1, padx=(5, 10), pady=5, sticky="ew")
+        
+        # Row 4: Number of steps
+        steps_label = ctk.CTkLabel(sweep_tab, text="Steps:")
+        steps_label.grid(row=4, column=0, padx=(10, 5), pady=5, sticky="w")
+        
+        self.sweep_steps_entry = ctk.CTkEntry(sweep_tab, placeholder_text="20")
+        self.sweep_steps_entry.insert(0, "20")
+        self.sweep_steps_entry.grid(row=4, column=1, padx=(5, 10), pady=5, sticky="ew")
+        
+        # Row 5: Dwell time
+        dwell_label = ctk.CTkLabel(sweep_tab, text="Dwell time (ms):")
+        dwell_label.grid(row=5, column=0, padx=(10, 5), pady=5, sticky="w")
+        
+        self.sweep_dwell_entry = ctk.CTkEntry(sweep_tab, placeholder_text="1e3")
+        self.sweep_dwell_entry.insert(0, "1e3")  # Default to 1000 ms (1 second)
+        self.sweep_dwell_entry.grid(row=5, column=1, padx=(5, 10), pady=5, sticky="ew")
+
+        # Row 6: Measure using switch
+        measure_label = ctk.CTkLabel(sweep_tab, text="Measure using switch:")
+        measure_label.grid(row=6, column=0, padx=(10, 5), pady=5, sticky="w")
+        
+        self.measure_switch_menu = ctk.CTkOptionMenu(
+            sweep_tab,
+            values=["Yes", "No"],
+            command=lambda value: setattr(self, 'measure_using_switch', value)
+        )
+        self.measure_switch_menu.set("No")  # Default to "No"
+        self.measure_switch_menu.grid(row=6, column=1, padx=(5, 10), pady=5, sticky="ew")
+
+        # Row 7: Run button
+        self.sweep_run_button = ctk.CTkButton(
+            sweep_tab,
+            text="Run Sweep",
+            command=self._run_sweep
+        )
+        self.sweep_run_button.grid(row=7, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
 
         # Compact error display in inner_frame
         self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
         self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
+    
+    def _run_sweep(self):
+        """Run MZI Sweep"""
+        try:
+            # Get parameters
+            target_mzi = self.sweep_target_entry.get().strip().upper()
+            parameter = self.sweep_parameter_menu.get()
+            start_val = float(self.sweep_start_entry.get())
+            end_val = float(self.sweep_end_entry.get())
+            num_steps = int(self.sweep_steps_entry.get())
+            dwell_time = float(self.sweep_dwell_entry.get()) / 1000  # Convert ms to seconds
+            use_switch = True if self.measure_switch_menu.get() == "Yes" else False
+            
+            # Validate MZI format (e.g., A1, B2, etc.)
+            if not re.match(r"^[A-Z][0-9]+$", target_mzi):
+                raise ValueError("Invalid MZI format. Use format like 'A1'")
+            
+            if num_steps <= 0:
+                raise ValueError("Number of steps must be positive")
+            
+            # Check if switch is available when needed
+            if use_switch and not self.switch:
+                raise ValueError("Switch device not available but 'Measure using switch' is selected")
+            
+            # Get the current grid configuration as JSON
+            base_json = self.custom_grid.export_paths_json()
+            
+            # Update status
+            self.sweep_run_button.configure(state="disabled")
+            
+            # Generate sweep values
+            sweep_values = np.linspace(start_val, end_val, num_steps)
+            
+            print(f"\nStarting sweep:")
+            print(f"  Target MZI: {target_mzi}")
+            print(f"  Parameter: {parameter}")
+            print(f"  Range: {start_val}π to {end_val}π")
+            print(f"  Steps: {num_steps}")
+            print(f"  Dwell time: {dwell_time} seconds")
+            print(f"  Using switch: {use_switch}")
+            
+            # Initialize results storage
+            self.sweep_results = []
+            headers = self._create_sweep_headers(parameter, use_switch)
+            
+            for i, value in enumerate(sweep_values):
+                print(f"  Step {i+1}/{num_steps}: {parameter} = {value:.3f}π")
+                
+                # Update the json for the target MZI
+                updated_json = self.update_mzi_in_json(base_json, target_mzi, parameter, str(value))
+                print(updated_json)
+                
+                self.update()  # Allow Tkinter to process GUI updates
+                
+                self.custom_grid.import_paths_json(updated_json)
+                
+                # Apply the phase configuration
+                self.apply_phase_new()
+                
+                time.sleep(dwell_time)  # Dwell time for system to settle
+                
+                # Take measurements after dwell time
+                measurements = self._take_sweep_measurements(use_switch)
+                
+                # Store results
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                result_row = [timestamp, i + 1, f"{value:.6f}"]
+                result_row.extend([f"{m:.6f}" for m in measurements])
+                self.sweep_results.append(result_row)
+                
+                # Print current measurements
+                self._print_sweep_measurements(measurements, use_switch)
+            
+            # Export results
+            if self.sweep_results:
+                self._export_results_to_csv(self.sweep_results, headers)
+            
+            # Reset UI
+            self.sweep_run_button.configure(state="normal")
+            print("\nSweep complete!")
+            
+        except ValueError as e:
+            self._show_error(str(e))
+            self.sweep_run_button.configure(state="normal")
+        except Exception as e:
+            self._show_error(f"Sweep failed: {str(e)}")
+            self.sweep_run_button.configure(state="normal")
+
+    def _create_sweep_headers(self, parameter, use_switch):
+        """Create headers for sweep results based on measurement type"""
+        headers = ["timestamp", "step", f"{parameter}_pi_units"]
+        
+        if use_switch:
+            # Define which switch channels to measure (customize as needed)
+            self.switch_channels = list(range(1, 9))  # Channels 1-8
+            for ch in self.switch_channels:
+                headers.append(f"ch{ch}_{self.selected_unit}")
+        else:
+            # Headers for direct Thorlabs measurements
+            if self.thorlabs:
+                devices = self.thorlabs if isinstance(self.thorlabs, list) else [self.thorlabs]
+                for i in range(len(devices)):
+                    headers.append(f"thorlabs{i}_{self.selected_unit}")
+        
+        return headers
+
+    def _take_sweep_measurements(self, use_switch):
+        """
+        Take measurements using either switch or direct Thorlabs readings
+        
+        Args:
+            use_switch (bool): Whether to use the optical switch
+            
+        Returns:
+            list: Power measurements
+        """
+        if use_switch:
+            return self._measure_with_switch()
+        else:
+            return self._measure_thorlabs_direct()
+
+    def _measure_with_switch(self):
+        """Measure power using the optical switch"""
+        measurements = []
+        
+        if not self.switch or not self.thorlabs:
+            print("    Error: Switch or Thorlabs device not available")
+            return measurements
+        
+        # Get the first Thorlabs device (connected to switch output)
+        thorlabs_device = self.thorlabs[0] if isinstance(self.thorlabs, list) else self.thorlabs
+        
+        # Measure each switch channel
+        for channel in range(1,13): # channels 1-12
+            try:
+                # Set switch to channel
+                self.switch.set_channel(channel)
+                
+                # Small delay to allow switch to settle
+                time.sleep(0.05)  # 50ms settling time
+                
+                # Read power
+                power = thorlabs_device.read_power(unit=self.selected_unit)
+                measurements.append(power)
+                
+            except Exception as e:
+                print(f"    Error measuring channel {channel}: {e}")
+                measurements.append(0.0)
+        
+        return measurements
+
+    def _measure_thorlabs_direct(self):
+        """Measure power directly from Thorlabs devices (no switch)"""
+        measurements = []
+        
+        if not self.thorlabs:
+            print("    Error: No Thorlabs devices available")
+            return measurements
+        
+        devices = self.thorlabs if isinstance(self.thorlabs, list) else [self.thorlabs]
+        
+        for i, device in enumerate(devices):
+            try:
+                power = device.read_power(unit=self.selected_unit)
+                measurements.append(power)
+            except Exception as e:
+                print(f"    Error reading Thorlabs {i}: {e}")
+                measurements.append(0.0)
+        
+        return measurements
+
+    def _print_sweep_measurements(self, measurements, use_switch):
+        """Print measurements to console"""
+        if use_switch:
+            print("    Switch measurements:")
+            for i, (ch, power) in enumerate(zip(self.switch_channels, measurements)):
+                print(f"      Channel {ch}: {power:.3f} {self.selected_unit}")
+        else:
+            print("    Thorlabs measurements:")
+            for i, power in enumerate(measurements):
+                print(f"      Device {i}: {power:.3f} {self.selected_unit}")
+
+    def update_mzi_in_json(self, json_string, target_mzi, parameter, value):
+        """
+        Update the target MZI in the JSON string while leaving everything else unchanged.
+
+        Args:
+            json_string (str): The original JSON string.
+            target_mzi (str): The MZI label to update (e.g., "A1").
+            parameter (str): The parameter to update (e.g., "theta" or "phi").
+            value (str): The new value for the parameter.
+
+        Returns:
+            str: The updated JSON string.
+        """
+        try:
+            # Parse the JSON string into a dictionary
+            grid_config = json.loads(json_string)
+
+            # Check if the target MZI exists in the dictionary
+            if target_mzi not in grid_config:
+                print(f"[INFO] Target MZI '{target_mzi}' not found. Adding it with default values.")
+                # Add the target MZI with default values
+                grid_config[target_mzi] = {
+                    "arms": ["TL", "BR"],  
+                    "theta": "0.0",       # placeholder
+                    "phi": "0.0"          # placeholder
+            }
+
+            # Update the specified parameter for the target MZI
+            if parameter in grid_config[target_mzi]:
+                grid_config[target_mzi][parameter] = value
+            else:
+                raise ValueError(f"Parameter '{parameter}' not found in MZI '{target_mzi}'.")
+
+            # Convert the dictionary back into a JSON string
+            updated_json_string = json.dumps(grid_config, indent=4)
+            return updated_json_string
+        except Exception as e:
+            print(f"[ERROR] Failed to update target MZI: {e}")
+            return json_string  # Return the original JSON string if an error occurs
 
     def _on_interpolation_option_changed(self, value=None):
         """Handle changes to interpolation tab options."""
@@ -348,7 +643,6 @@ class Window1Content(ctk.CTkFrame):
         elif a == "disable":
             print("→ Interpolation disabled")
             # self._disable_interpolation()
-
 
     def _on_run_path_sequence(self):
         """
