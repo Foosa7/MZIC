@@ -23,7 +23,7 @@ class Switch:
         command = [0xEF, 0xEF, 0x06, 0xFF, 0x0D, 0x00, 0x00, channel]
         command.append(self._checksum(command))
 
-        print(f"[DEBUG][SWITCH] Sending command to {port}: {bytes(command).hex()}")
+        print(f"[DEBUG][SWITCH] Sending command to {self.port}: {bytes(command).hex()}")  # Fixed: port -> self.port
 
         with self._open_serial() as ser:
             ser.write(bytes(command))
@@ -46,13 +46,18 @@ class Switch:
             ser.write(bytes(command))
             response = ser.read(7)
 
-        if len(response) == 7 and response[3] == 0x02:
-            current_channel = response[5]
-            print(f"[INFO][Switch] Current active channel: {current_channel}")
-            return current_channel
-        else:
-            print(f"[INFO][Switch] Failed to get channel. Response: {response.hex()}")
-            return None
+        # Fixed: Check for valid response with either header format
+        if len(response) == 7:
+            # Response format appears to be: ED FA 04 FF 02 01 ED
+            # where response[5] is the current channel
+            if (response[0] == 0xED and response[1] == 0xFA and response[4] == 0x02) or \
+               (response[0] == 0xEF and response[1] == 0xEF and response[4] == 0x02):
+                current_channel = response[5]
+                print(f"[INFO][Switch] Current active channel: {current_channel}")
+                return current_channel
+        
+        print(f"[INFO][Switch] Failed to get channel. Response: {response.hex()}")
+        return None
 
 ## ef ef 06 ff 0d 00 00 01 f1 for channel 1
 ## ef ef 06 ff 0d 00 00 02 f2 for channel 2
