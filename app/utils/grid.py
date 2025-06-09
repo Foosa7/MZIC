@@ -913,8 +913,8 @@ class Example(Frame):
         output_pin = next(iter(AppData.selected_output_pins), None)
 
         export_data = {
-            "input_pin": input_pin,
-            "output_pin": output_pin
+            #"input_pin": input_pin,
+            #"output_pin": output_pin
         }
 
         for path in self.paths:
