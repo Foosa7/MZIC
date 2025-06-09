@@ -23,14 +23,14 @@ class Switch:
         command = [0xEF, 0xEF, 0x06, 0xFF, 0x0D, 0x00, 0x00, channel]
         command.append(self._checksum(command))
 
-        print(f"[DEBUG][SWITCH] Sending command to {self.port}: {bytes(command).hex()}")  # Fixed: port -> self.port
+        print(f"[INFO][SWITCH] Sending command to {self.port}: {bytes(command).hex()}")  # Fixed: port -> self.port
 
         with self._open_serial() as ser:
             ser.write(bytes(command))
             response = ser.read(7)
 
         if response:
-            print(f"[DEBUG][SWITCH] Received response: {response.hex()}")
+            print(f"[INFO][SWITCH] Received response: {response.hex()}")
         else:
             print(f"[ERROR][SWITCH] No response received — device may be ignoring command.")
 

@@ -3,8 +3,38 @@ from app.imports import *
 from app.utils.utils import import_pickle
 import ctypes
 from nidaqmx.errors import DaqNotFoundError 
+from app.devices.switch_device import Switch
+import serial.tools.list_ports
 
 SETTINGS_PATH = os.path.join(os.path.dirname(__file__), "config", "settings.json")
+
+def initialize_switch(port=None):
+    """Initialize switch device with auto-detection or specified port"""
+    if port:
+        try:
+            switch = Switch(port)
+            # Test connection
+            channel = switch.get_channel()
+            if channel is not None:
+                print(f"[INFO][Switch] Connected to {port}, current channel: {channel}")
+                return switch
+        except Exception as e:
+            print(f"[ERROR][Switch] Failed to connect to {port}: {e}")
+            return None
+    else:
+        # Auto-detect switch
+        ports = serial.tools.list_ports.comports()
+        for port_info in ports:
+            try:
+                switch = Switch(port_info.device)
+                channel = switch.get_channel()
+                if channel is not None:
+                    print(f"[INFO][Switch] Auto-detected on {port_info.device}")
+                    return switch
+            except:
+                continue
+        print("[WARNING][Switch] No switch device detected")
+        return None
 
 def main():
 
@@ -83,8 +113,11 @@ def main():
         print("[INFO][DAQ] NI-DAQmx not found, using mock NI-DAQ device.")
         daq = MockDAQ()
 
+    # Initialize switch - try auto-detect first, then specific port
+    switch = initialize_switch() or initialize_switch("COM5")
+
     # Start the GUI application (you'll need to modify your MainWindow to handle multiple power meters)
-    app = MainWindow(qontrol, thorlabs_devices, daq, config)
+    app = MainWindow(qontrol, thorlabs_devices, daq, switch, config)
     app.mainloop()
 
     # Disconnect devices on exit

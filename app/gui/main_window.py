@@ -16,12 +16,13 @@ from app.utils.appdata import AppData   # Import the AppData class
 # from app.utils import utils            # This module contains apply_phase
 
 class MainWindow(ctk.CTk):
-    def __init__(self, qontrol, thorlabs, daq, config):
+    def __init__(self, qontrol, thorlabs, daq, switch, config):
         super().__init__()
         self.qontrol = qontrol
         self.thorlabs = thorlabs
         self.config = config
         self.daq = daq
+        self.switch = switch
 
         self.current_content = None  # Important: so we can check it safely switch tabs
         screen_width = self.winfo_screenwidth()
@@ -109,7 +110,7 @@ class MainWindow(ctk.CTk):
                 qontrol=self.qontrol,
                 thorlabs = self.thorlabs,
                 daq = self.daq,
-                switch = None,
+                switch = self.switch,
                 grid_size=mesh_size,
                 phase_selector=self.calibration_control,  # Pass the existing widget
 
@@ -184,7 +185,6 @@ class MainWindow(ctk.CTk):
                     params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
                     self.device_control.update_device_info(params, "qontrol")
 
-
         # Handle Thorlabs connection(s)
         if isinstance(self.thorlabs, list):
             # Multiple Thorlabs devices
@@ -233,6 +233,24 @@ class MainWindow(ctk.CTk):
                     print("[INFO][DAQ] Connection failed.")
                     self.device_control.update_device_info(None, "daq")
 
+        if self.switch:
+            try:
+                # Test connection by reading current channel
+                current_channel = self.switch.get_channel()
+                if current_channel is not None:
+                    print(f"[INFO][Switch] Already connected. Current channel: {current_channel}")
+                    params = {
+                        "Switch Port": self.switch.port,
+                        "Current Channel": str(current_channel)
+                    }
+                    self.device_control.update_device_info(params, "switch")
+                else:
+                    print("[INFO][Switch] Connection test failed")
+                    self.device_control.update_device_info(None, "switch")
+            except Exception as e:
+                print(f"[ERROR][Switch] Connection error: {e}")
+                self.device_control.update_device_info(None, "switch")
+
     def disconnect_devices(self):
         if self.qontrol:
             self.qontrol.disconnect()
@@ -253,6 +271,9 @@ class MainWindow(ctk.CTk):
             # Single Thorlabs device
             self.thorlabs.disconnect()
             self.device_control.update_device_info(None, "thorlabs")
+        
+        if self.switch:
+            self.device_control.update_device_info(None, "switch")
         
         # Clear Qontrol display
         self.device_control.update_device_info(None, "qontrol")

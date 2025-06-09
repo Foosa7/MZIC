@@ -44,6 +44,9 @@ class DeviceControlWidget(ctk.CTkFrame):
         self.daq_label = ctk.CTkLabel(self.info_frame, text="NI USB-6000: -", anchor="w")
         #self.daq_channels_label = ctk.CTkLabel(self.info_frame, text="DAQ Channels: -", anchor="w")
 
+        # Switch Device Parameters
+        self.switch_label = ctk.CTkLabel(self.info_frame, text="Switch: -", anchor="w")
+        self.switch_channel_label = ctk.CTkLabel(self.info_frame, text="Active Channel: -", anchor="w")
 
         # Packing order
         self.device_label.pack(fill="x", padx=10, pady=(0, 2))
@@ -60,6 +63,10 @@ class DeviceControlWidget(ctk.CTkFrame):
         # DAQ labels
         self.daq_label.pack(fill="x", padx=10, pady=(0, 2))
         #self.daq_channels_label.pack(fill="x", padx=10, pady=(0, 10))
+
+        # Switch labels
+        self.switch_label.pack(fill="x", padx=10, pady=(0, 2))
+        self.switch_channel_label.pack(fill="x", padx=10, pady=(0, 2))
 
         self.device_label.pack(fill="x", padx=10, pady=(0, 2))
         self.firmware_label.pack(fill="x", padx=10, pady=(0, 2))
@@ -149,6 +156,16 @@ class DeviceControlWidget(ctk.CTkFrame):
             self.daq_label.configure(text="NI USB-6000: -")
             #self.daq_channels_label.configure(text="DAQ Channels: -")
 
+        elif params and device_type == "switch":
+            # Update Switch parameters
+            self.switch_label.configure(text=f"Switch: {params.get('Switch Port', '-')}")
+            self.switch_channel_label.configure(text=f"Active Channel: {params.get('Current Channel', '-')}")
+            
+        elif device_type == "switch":
+            # params is None => Switch disconnected or not available
+            self.switch_label.configure(text="Switch: -")
+            self.switch_channel_label.configure(text="Active Channel: -")
+
         else:
             # We might do nothing or clear labels if unrecognized device_type
             self._clear_all_labels()
@@ -159,6 +176,8 @@ class DeviceControlWidget(ctk.CTkFrame):
         self.channels_label.configure(text="Channels: -")
         self.current_limit_label.configure(text="Current limit: -")
         self.thorlabs_model_label.configure(text="Thorlabs Model: -")
+        self.switch_label.configure(text="Switch: -")
+        self.switch_channel_label.configure(text="Active Channel: -")
         
         for attr_name in dir(self):
             if attr_name.startswith("thorlabs_model_label") and attr_name != "thorlabs_model_label":

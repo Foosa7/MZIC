@@ -17,7 +17,7 @@ from scipy import optimize
 from app.devices.switch_device import Switch
 
 class Window1Content(ctk.CTkFrame):
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, switch=None, phase_selector=None, grid_size="8x8", **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, switch, phase_selector=None, grid_size="8x8", **kwargs):
         super().__init__(master, **kwargs)
         self.qontrol = qontrol
         self.thorlabs = thorlabs
@@ -400,10 +400,125 @@ class Window1Content(ctk.CTkFrame):
         )
         self.sweep_run_button.grid(row=7, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
 
+        ### Switch tab ###
+        switch_tab = notebook.add("Switch")
+        switch_tab.grid_columnconfigure(0, weight=1)
+        switch_tab.grid_columnconfigure(1, weight=1)
+
+        # Row 0: Channel selection
+        channel_label = ctk.CTkLabel(switch_tab, text="Channel:")
+        channel_label.grid(row=0, column=0, padx=(10, 5), pady=(10, 5), sticky="w")
+
+        self.switch_channel_entry = ctk.CTkEntry(switch_tab, placeholder_text="1-12")
+        self.switch_channel_entry.grid(row=0, column=1, padx=(5, 10), pady=(10, 5), sticky="ew")
+
+        # Row 1: Set channel button
+        self.switch_set_button = ctk.CTkButton(
+            switch_tab,
+            text="Set Channel",
+            command=self._set_switch_channel
+        )
+        self.switch_set_button.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
+
+        # Row 2: Get current channel button
+        self.switch_get_button = ctk.CTkButton(
+            switch_tab,
+            text="Get Current Channel",
+            command=self._get_switch_channel
+        )
+        self.switch_get_button.grid(row=2, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
+
+        # Row 3: Current channel display
+        self.switch_status_label = ctk.CTkLabel(
+            switch_tab, 
+            text="Current Channel: Unknown",
+            font=("TkDefaultFont", 12, "bold")
+        )
+        self.switch_status_label.grid(row=3, column=0, columnspan=2, padx=10, pady=(10, 5), sticky="ew")
+
+        # Row 4: Quick channel buttons (1-8)
+        quick_frame = ctk.CTkFrame(switch_tab, fg_color="transparent")
+        quick_frame.grid(row=4, column=0, columnspan=2, padx=10, pady=(10, 5), sticky="ew")
+
+        quick_label = ctk.CTkLabel(quick_frame, text="Quick Select:")
+        quick_label.pack(side="left", padx=(0, 10))
+
+        for i in range(1, 9):
+            btn = ctk.CTkButton(
+                quick_frame,
+                text=str(i),
+                width=30,
+                command=lambda ch=i: self._quick_set_channel(ch)
+            )
+            btn.pack(side="left", padx=2)
+
         # Compact error display in inner_frame
         self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
         self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
     
+    def _set_switch_channel(self):
+        """Set the switch to the specified channel"""
+        if not self.switch:
+            self._show_error("Switch device not connected")
+            return
+            
+        try:
+            channel = int(self.switch_channel_entry.get())
+            if not (1 <= channel <= 12):  # Adjust range based on your switch
+                raise ValueError("Channel must be between 1 and 12")
+                
+            # Set the channel
+            self.switch.set_channel(channel)
+            
+            # Verify it was set
+            time.sleep(0.1)  # Small delay
+            current = self.switch.get_channel()
+            
+            if current == channel:
+                self.switch_status_label.configure(
+                    text=f"Current Channel: {current} ✓",
+                    text_color="green"
+                )
+            else:
+                self.switch_status_label.configure(
+                    text=f"Current Channel: {current} (Failed to set {channel})",
+                    text_color="red"
+                )
+                
+        except ValueError as e:
+            self._show_error(f"Invalid channel: {e}")
+        except Exception as e:
+            self._show_error(f"Failed to set channel: {e}")
+
+    def _get_switch_channel(self):
+        """Get the current channel from the switch"""
+        if not self.switch:
+            self._show_error("Switch device not connected")
+            return
+            
+        try:
+            channel = self.switch.get_channel()
+            if channel is not None:
+                self.switch_status_label.configure(
+                    text=f"Current Channel: {channel}",
+                    text_color="white"
+                )
+                self.switch_channel_entry.delete(0, "end")
+                self.switch_channel_entry.insert(0, str(channel))
+            else:
+                self.switch_status_label.configure(
+                    text="Failed to read channel",
+                    text_color="red"
+                )
+        except Exception as e:
+            self._show_error(f"Failed to read channel: {e}")
+
+    def _quick_set_channel(self, channel):
+        """Quick set channel using numbered buttons"""
+        self.switch_channel_entry.delete(0, "end")
+        self.switch_channel_entry.insert(0, str(channel))
+        self._set_switch_channel()
+
     def _run_sweep(self):
         """Run MZI Sweep"""
         try:
