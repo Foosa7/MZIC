@@ -1,73 +1,216 @@
-# MZIC project structure
+# MZIC - Mach-Zehnder Interferometer Controller
 
-Always a good idea to create a new environment with [Anaconda](https://www.anaconda.com/download/success) 
+Photonic mesh network control system with integrated Qontrol, Thorlabs, NI DAQ, and optical switch support.
 
-### Step 1
-```
+## Quick Start
+
+```bash
+# Install
 git clone https://github.com/Foosa7/MZIC.git
-```
-### Step 2
-```
-cd /project directory
-```
+cd MZIC
+conda create -n mzic python=3.8
+conda activate mzic
+pip install -r requirements.txt
 
-### Step 3 
-```
-pip install -r /path/to/requirements.txt
-```
-
-### Step 4
-```
+# Run
 python main.py
 ```
 
+## Features
+
+- **Multi-device Control**: Qontrol (64ch), Thorlabs power meters, NI USB-6000 DAQ, 1×12 optical switch
+- **Interactive Grid UI**: Click-and-drag MZI path selection with real-time phase control
+- **Automated Calibration**: Resistance (cubic+linear fit) and phase (cosine fit) characterization
+- **Advanced Operations**: Parameter sweeps, unitary decomposition, phase interpolation
+- **Remote Control**: MQTT interface for distributed experiments
+
+## Main Interface
+
+### Mesh Tab
+- **Grid**: Select MZI paths and set θ/φ values
+- **Buttons**: Import/Export | Current | Clear | R | P | Phase
+- **Panels**: Interpolation | Mapping | Monitor | Graphs | Status | Sweep | Switch
+
+### Calibrate Tab
+- Individual channel control with real-time monitoring
+- Calibration data visualization
+
+### Unitary Tab
+- Matrix decomposition (Clements/Reck algorithms)
+- Automated unitary cycling experiments
+
+## Key Operations
+
+### Basic Usage
+1. Select MZI crosspoint (e.g., A1)
+2. Enter theta/phi values
+3. Click "Phase" to apply
+
+### Calibration
+```python
+# Resistance: Select crosspoint → Choose θ/φ → Click "R"
+# Phase: Connect Thorlabs → Select crosspoint → Click "P"
+```
+
+### Sweep Example
+```
+Target: A1
+Parameter: theta
+Range: 0π to 2π
+Steps: 20
+Dwell: 1000ms
+```
+
+### Configuration Format
+```json
+{
+    "A1": {"arms": ["TL", "BR"], "theta": "1.57", "phi": "0.785"},
+    "B2": {"arms": ["TR", "BL"], "theta": "0", "phi": "3.14"}
+}
+```
+
+## Hardware Setup
+
+| Device | Connection | Notes |
+|--------|------------|-------|
+| Qontrol | USB/FTDI | 64 channels, 20mA limit |
+| Thorlabs | USB | Multiple devices supported |
+| NI DAQ | USB | Channels ai0-ai7, 1kHz default |
+| Switch | Serial COM | 115200 baud, 1×12 config |
+
+## Advanced Features
+
+### Unitary Decomposition
+```python
+U = np.load('unitary.npy')
+I = unitary.decomposition(U, global_phase=True)
+json_output = mzi_lut.get_json_output(n, I.BS_list, input_pin, output_pin)
+```
+
+### Path Sequencing
+```bash
+# Paste JSON sequence → Set delay → Run
+[{"A1": {"theta": "0", "phi": "0"}}, {"A1": {"theta": "1.57", "phi": "0"}}]
+```
+
+### Phase Interpolation
+- Load sweep CSV files
+- Enable interpolation
+- Automatic phase correction
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Device not detected | Check USB/drivers |
+| Switch error | Verify COM port, 115200 baud |
+| Calibration fails | Check optical power levels |
+| Phase < offset | System auto-adds 2π |
+
+## Project Structure
+
 ```
 MZIC/
-├── .git/                           # Git repository files.
-│   └── .gitignore                  # Files/folders to ignore in version control.
-├── .vscode/                        # VSCode workspace settings.
-│   └── settings.json               # Workspace-specific settings for VSCode.
-├── README.md                       # Project documentation.
-├── config/                         # Application configuration files.
-│   └── settings.json               # Application settings.
-├── docs/                           # Project documentation and manuals.
-├── main.py                         # Main entry point for the application.
-├── requirements.txt                # Python dependencies.
-├── app/                            # Main application code.
-│   ├── __init__.py                 # Initializes the app package.
-│   ├── imports.py                  # Common module imports.
-│   ├── devices/                    # Modules for interfacing with hardware devices.
-│   │   ├── __init__.py             # Initializes the devices subpackage.
-│   │   ├── daq_device.py           # Interface for the DAQ device.
-│   │   ├── mock_devices.py         # Mock implementations for testing.
-│   │   ├── qontrol_device.py       # Interface for the Qontrol device.
-│   │   ├── switch_device.py        # Interface for the optical switch device.
-│   │   └── thorlabs_device.py      # Interface for the Thorlabs device.
-│   ├── gui/                        # Graphical User Interface (GUI) components.
-│   │   ├── __init__.py             # Initializes the gui subpackage.
-│   │   ├── main_window.py          # Main window of the application.
-│   │   ├── widgets.py              # Custom widgets for the GUI.
-│   │   ├── window1.py              # Layout for "Window 1".
-│   │   ├── window2.py              # Layout for "Window 2".
-│   │   └── window3.py              # Layout for "Window 3".
-│   ├── mqtt/                       # Modules for MQTT communication.
-│   │   ├── client.py               # Base MQTT client implementation.
-│   │   ├── desktop_subscriber.py   # MQTT subscriber for desktop usage.
-│   │   └── pi_publisher.py         # MQTT publisher for Raspberry Pi.
-│   ├── utils/                      # Utility functions and helper modules.
-│   │   ├── appdata.py              # Application data and configuration parameters.
-│   │   ├── exportfunc.py           # Functions to export data (e.g., to pickle or CSV).
-│   │   ├── grid.py                 # Functions to build and manage the grid view.
-│   │   ├── importfunc.py           # Functions to import data (e.g., from a pickle file).
-│   │   ├── qontrol/                # Qontrol-specific helpers.
-│   │   │   ├── __init__.py         # Initializes the qontrol subpackage.
-│   │   │   ├── qmapper8x8.py       # Maps from the Clements mesh layout to the chip pin number.
-│   │   │   └── qset.py             # Sets current values to the qontrol module from qmapper.
-│   │   ├── unitary/                # Modules for unitary transformations and MZI mappings.
-│   │   │   ├── __init__.py         # Initializes the unitary subpackage.
-│   │   │   ├── mzi_convention.py   # Converts the BS angles from Clements convention to chip convention.
-│   │   │   └── mzi_lut.py          # Lookup table for mapping angles to MZIs.
-│   │   └── utils.py                # Miscellaneous utility functions.
-│   └── __pycache__/                # Compiled Python files (ignored in version control).
-└── tests/                          # Automated tests for the project.
+├── .vscode/                        # VSCode workspace settings
+│   └── settings.json               # VSCode configuration
+├── app/                            # Main application code
+│   ├── devices/                    # Hardware device interfaces
+│   │   ├── __init__.py             # Package initializer
+│   │   ├── daq_device.py           # NI DAQ interface
+│   │   ├── mock_devices.py         # Mock device implementations for testing
+│   │   ├── qontrol_device.py       # Qontrol phase shifter interface
+│   │   ├── switch_device.py        # Optical switch interface
+│   │   └── thorlabs_device.py      # Thorlabs power meter interface
+│   ├── gui/                        # Graphical User Interface components
+│   │   ├── __init__.py             # Package initializer
+│   │   ├── main_window.py          # Main application window
+│   │   ├── widgets.py              # Custom GUI widgets
+│   │   ├── window1.py              # Mesh control interface
+│   │   ├── window2.py              # Calibration interface
+│   │   └── window3.py              # Unitary transformation interface
+│   ├── mqtt/                       # MQTT communication modules
+│   │   └── control_app.py          # MQTT control application
+│   ├── utils/                      # Utility functions and helpers
+│   │   ├── calibrate/              # Calibration utilities
+│   │   ├── gui/                    # GUI utility functions
+│   │   ├── interpolation/          # Phase interpolation system
+│   │   │   ├── data/               # Interpolation data files
+│   │   │   │   ├── E1_theta_200_steps.csv    # E1 theta sweep data
+│   │   │   │   ├── E2_theta_200_steps.csv    # E2 theta sweep data
+│   │   │   │   ├── F1_theta_200_steps.csv    # F1 theta sweep data
+│   │   │   │   ├── G1_theta_200_steps.csv    # G1 theta sweep data
+│   │   │   │   ├── G2_theta_200_steps.csv    # G2 theta sweep data
+│   │   │   │   └── H1_theta_200_steps.csv    # H1 theta sweep data
+│   │   │   ├── __init__.py         # Package initializer
+│   │   │   └── Reader_interpolation.py    # Interpolation reader/processor
+│   │   ├── qontrol/                # Qontrol-specific utilities
+│   │   │   ├── qmapper8x8.py       # Clements mesh to chip pin mapping
+│   │   │   └── qset.py             # Current value setter for Qontrol
+│   │   ├── switch/                 # Switch-specific utilities
+│   │   ├── unitary/                # Unitary transformation modules
+│   │   │   ├── mzi_convention.py   # BS angle convention conversion
+│   │   │   ├── mzi_lut.py          # MZI lookup tables
+│   │   │   └── unitary.py          # Unitary decomposition
+│   │   ├── appdata.py              # Application data management
+│   │   ├── config_manager.py       # Configuration file manager
+│   │   ├── grid.py                 # Grid view management
+│   │   ├── map.json                # Channel mapping configuration
+│   │   └── utils.py                # General utility functions
+│   ├── __init__.py                 # Package initializer
+│   └── imports.py                  # Common module imports
+├── config/                         # Configuration and calibration files
+│   ├── 8_modechip_20241212_25deg_3mWinput_1550nm/    # Calibration dataset
+│   │   └── 8_modechip_20241212_25deg_3mWinput_1550nm.pkl
+│   ├── 8_modechip_20250116_25deg_25mWinput_1550nm.pkl    # Calibration data
+│   ├── 8_modechip_20250514_25deg_1550.pkl                # Calibration data
+│   ├── export.json                 # Exported configuration
+│   ├── newcal.pkl                  # Calibration data
+│   └── settings.json               # Application settings
+├── docs/                           # Documentation
+│   └── README.md                   # Documentation readme
+├── tests/                          # Test suite
+│   ├── interpolation/              # Interpolation tests
+│   │   └── data/                   # Test data for interpolation
+│   ├── daq-calibration.py          # DAQ calibration test
+│   ├── daq-test.py                 # DAQ functionality test
+│   ├── labelmap.py                 # Label mapping test
+│   ├── qontrol-log.py              # Qontrol logging test
+│   ├── qontrol_test.py             # Qontrol functionality test
+│   ├── switch-test.py              # Optical switch test utility
+│   └── thorlabs-test.py            # Thorlabs device test
+├── .gitignore                      # Git ignore patterns
+├── main.py                         # Main entry point for the application
+├── README.md                       # Project documentation
+└── requirements.txt                # Python dependencies
 ```
+
+## Development
+
+```bash
+# Test devices
+python tests/switch-test.py
+python tests/qontrol_test.py
+```
+
+## API Reference
+
+```python
+# Core classes
+QontrolDevice.set_current(channel, current)
+Switch.set_channel(channel)
+Window1Content.apply_phase_new()
+Window3Content.cycle_unitaries()
+```
+
+## Requirements
+
+- Python 3.8+
+- NI-DAQmx drivers
+- FTDI drivers
+- Thorlabs drivers
+
+```
+
+## Acknowledgments
+- Clements et al. for the optimal interferometer design algorithm
+- The unitary decomposition (`unitary.py`) is based on the [interferometer package](https://github.com/clementsw/interferometer) by William Clements

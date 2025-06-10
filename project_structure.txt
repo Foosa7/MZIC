@@ -1,0 +1,72 @@
+MZIC/
+├── .vscode/
+│   └── settings.json
+├── app/
+│   ├── devices/
+│   │   ├── __init__.py
+│   │   ├── daq_device.py
+│   │   ├── mock_devices.py
+│   │   ├── qontrol_device.py
+│   │   ├── switch_device.py
+│   │   └── thorlabs_device.py
+│   ├── gui/
+│   │   ├── __init__.py
+│   │   ├── main_window.py
+│   │   ├── widgets.py
+│   │   ├── window1.py
+│   │   ├── window2.py
+│   │   └── window3.py
+│   ├── mqtt/
+│   │   └── control_app.py
+│   ├── utils/
+│   │   ├── calibrate/
+│   │   ├── gui/
+│   │   ├── interpolation/
+│   │   │   ├── data/
+│   │   │   │   ├── E1_theta_200_steps.csv
+│   │   │   │   ├── E2_theta_200_steps.csv
+│   │   │   │   ├── F1_theta_200_steps.csv
+│   │   │   │   ├── G1_theta_200_steps.csv
+│   │   │   │   ├── G2_theta_200_steps.csv
+│   │   │   │   └── H1_theta_200_steps.csv
+│   │   │   ├── __init__.py
+│   │   │   └── Reader_interpolation.py
+│   │   ├── qontrol/
+│   │   │   ├── qmapper8x8.py
+│   │   │   └── qset.py
+│   │   ├── switch/
+│   │   ├── unitary/
+│   │   │   ├── mzi_convention.py
+│   │   │   ├── mzi_lut.py
+│   │   │   └── unitary.py
+│   │   ├── appdata.py
+│   │   ├── config_manager.py
+│   │   ├── grid.py
+│   │   ├── map.json
+│   │   └── utils.py
+│   ├── __init__.py
+│   └── imports.py
+├── config/
+│   ├── 8_modechip_20241212_25deg_3mWinput_1550nm/
+│   │   └── 8_modechip_20241212_25deg_3mWinput_1550nm.pkl
+│   ├── 8_modechip_20250116_25deg_25mWinput_1550nm.pkl
+│   ├── 8_modechip_20250514_25deg_1550.pkl
+│   ├── export.json
+│   ├── newcal.pkl
+│   └── settings.json
+├── docs/
+│   └── README.md
+├── tests/
+│   ├── interpolation/
+│   │   └── data/
+│   ├── daq-calibration.py
+│   ├── daq-test.py
+│   ├── labelmap.py
+│   ├── qontrol-log.py
+│   ├── qontrol_test.py
+│   ├── switch-test.py
+│   └── thorlabs-test.py
+├── .gitignore
+├── main.py
+├── README.md
+└── requirements.txt
