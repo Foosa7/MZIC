@@ -440,13 +440,34 @@ class Window1Content(ctk.CTkFrame):
         self.measure_switch_menu.set("No")  # Default to "No"
         self.measure_switch_menu.grid(row=6, column=1, padx=(5, 10), pady=5, sticky="ew")
 
-        # Row 7: Run button
+        # Row 7: Switch channels entry (only shown when "Yes" is selected)
+        self.switch_channels_label = ctk.CTkLabel(sweep_tab, text="Switch channels (comma-separated):")
+        self.switch_channels_label.grid(row=7, column=0, padx=(10, 5), pady=5, sticky="w")
+
+        self.switch_channels_entry = ctk.CTkEntry(sweep_tab, placeholder_text="e.g., 1,2,3,4 or 1-8")
+        self.switch_channels_entry.insert(0, "1,2,3,4,5,6,7,8")  # Default to channels 1-8
+        self.switch_channels_entry.grid(row=7, column=1, padx=(5, 10), pady=5, sticky="ew")
+
+        # Initially hide the channel selection
+        self.switch_channels_label.grid_remove()
+        self.switch_channels_entry.grid_remove()
+
+        # Update the measure_switch_menu callback to show/hide channel selection
+        self.measure_switch_menu = ctk.CTkOptionMenu(
+            sweep_tab,
+            values=["Yes", "No"],
+            command=self._on_measure_switch_changed
+        )
+        self.measure_switch_menu.set("No")  # Default to "No"
+        self.measure_switch_menu.grid(row=6, column=1, padx=(5, 10), pady=5, sticky="ew")
+
+        # Row 8: Run button (update row number)
         self.sweep_run_button = ctk.CTkButton(
             sweep_tab,
             text="Run Sweep",
             command=self._run_sweep
         )
-        self.sweep_run_button.grid(row=7, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
+        self.sweep_run_button.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
 
         ### Switch tab ###
         switch_tab = notebook.add("Switch")
@@ -504,6 +525,55 @@ class Window1Content(ctk.CTkFrame):
         self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
         self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
     
+    def _on_measure_switch_changed(self, value):
+        """Show/hide switch channel selection based on measure option"""
+        if value == "Yes":
+            self.switch_channels_label.grid()
+            self.switch_channels_entry.grid()
+        else:
+            self.switch_channels_label.grid_remove()
+            self.switch_channels_entry.grid_remove()
+
+    def _parse_switch_channels(self, channel_string):
+        """
+        Parse channel string input to get list of channel numbers.
+        Supports formats like "1,2,3,4" or "1-4" or "1-4,7,9-12"
+        
+        Args:
+            channel_string (str): User input for channels
+            
+        Returns:
+            list: List of channel numbers
+        """
+        channels = []
+        
+        try:
+            # Split by comma first
+            parts = channel_string.replace(" ", "").split(",")
+            
+            for part in parts:
+                if "-" in part:
+                    # Handle range like "1-4"
+                    start, end = part.split("-")
+                    channels.extend(range(int(start), int(end) + 1))
+                else:
+                    # Handle single channel
+                    channels.append(int(part))
+            
+            # Remove duplicates and sort
+            channels = sorted(list(set(channels)))
+            
+            # Validate channel numbers (assuming 1-12 for your switch)
+            valid_channels = [ch for ch in channels if 1 <= ch <= 12]
+            
+            if len(valid_channels) != len(channels):
+                print(f"Warning: Some channels were out of range (1-12). Using: {valid_channels}")
+                
+            return valid_channels
+            
+        except Exception as e:
+            raise ValueError(f"Invalid channel format: {channel_string}. Use format like '1,2,3,4' or '1-8'")
+
     def _set_switch_channel(self):
         """Set the switch to the specified channel"""
         if not self.switch:
@@ -568,7 +638,7 @@ class Window1Content(ctk.CTkFrame):
         self._set_switch_channel()
 
     def _run_sweep(self):
-        """Run MZI Sweep"""
+        """Run MZI Sweep with configurable switch channel measurement"""
         try:
             # Get parameters
             target_mzi = self.sweep_target_entry.get().strip().upper()
@@ -586,9 +656,19 @@ class Window1Content(ctk.CTkFrame):
             if num_steps <= 0:
                 raise ValueError("Number of steps must be positive")
             
-            # Check if switch is available when needed
-            if use_switch and not self.switch:
-                raise ValueError("Switch device not available but 'Measure using switch' is selected")
+            # Get switch channels if using switch
+            if use_switch:
+                if not self.switch:
+                    raise ValueError("Switch device not available but 'Measure using switch' is selected")
+                
+                # Parse user-specified channels
+                channel_string = self.switch_channels_entry.get()
+                self.switch_channels = self._parse_switch_channels(channel_string)
+                
+                if not self.switch_channels:
+                    raise ValueError("No valid switch channels specified")
+                    
+                print(f"  Using switch channels: {self.switch_channels}")
             
             # Get the current grid configuration as JSON
             base_json = self.custom_grid.export_paths_json()
@@ -660,8 +740,7 @@ class Window1Content(ctk.CTkFrame):
         headers = ["timestamp", "step", f"{parameter}_pi_units"]
         
         if use_switch:
-            # Define which switch channels to measure (customize as needed)
-            self.switch_channels = list(range(1, 9))  # Channels 1-8
+            # Use the user-specified channels stored in self.switch_channels
             for ch in self.switch_channels:
                 headers.append(f"ch{ch}_{self.selected_unit}")
         else:
@@ -689,7 +768,7 @@ class Window1Content(ctk.CTkFrame):
             return self._measure_thorlabs_direct()
 
     def _measure_with_switch(self):
-        """Measure power using the optical switch"""
+        """Measure power using the optical switch for specified channels only"""
         measurements = []
         
         if not self.switch or not self.thorlabs:
@@ -699,8 +778,8 @@ class Window1Content(ctk.CTkFrame):
         # Get the first Thorlabs device (connected to switch output)
         thorlabs_device = self.thorlabs[0] if isinstance(self.thorlabs, list) else self.thorlabs
         
-        # Measure each switch channel
-        for channel in range(1,13): # channels 1-12
+        # Measure only the specified switch channels
+        for channel in self.switch_channels:
             try:
                 # Set switch to channel
                 self.switch.set_channel(channel)
