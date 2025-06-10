@@ -63,20 +63,26 @@ class InterpolationManager:
         try:
             df = pd.read_csv(path, skiprows=1, header=None)
             
-            # Determine which columns to use based on values
-            if df.iloc[0, 2] > df.iloc[0, 3]:
-                x1, x2 = 2, 3
+            # 计算倒数第二列和最后一列的索引
+            col_y2 = df.shape[1] - 2
+            col_y1 = df.shape[1] - 1
+
+            # 比较第0行这两列的值
+            if df.iloc[0, col_y2] > df.iloc[0, col_y1]:
+                x1 = col_y2
+                x2 = col_y1
             else:
-                x1, x2 = 3, 2
-                
+                x1 = col_y1
+                x2 = col_y2
+
             y1 = df.iloc[:, x1]
             y2 = df.iloc[:, x2]
             
             # Generate theta array
             self.theta = np.linspace(0, 2*np.pi, 200)
             
-            # Normalize the data
-            self.y1_norm = y1 / (np.abs(y1) + np.abs(y2))
+            #y1_sim = np.cos(self.theta/2)**2
+            self.y1_norm = np.abs(y1)/(np.abs(y1)+np.abs(y2))
             
             # Generate corrected theta values
             self._generate_theta_corrected()
