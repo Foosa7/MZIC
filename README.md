@@ -141,7 +141,7 @@ MZIC/
 │   │   │   │   ├── G1_theta_200_steps.csv    # G1 theta sweep data
 │   │   │   │   ├── G2_theta_200_steps.csv    # G2 theta sweep data
 │   │   │   │   └── H1_theta_200_steps.csv    # H1 theta sweep data
-│   │   │   ├── __init__.py         # Package initializer
+│   │   │   ├── __init__.py                 # Package initializer
 │   │   │   └── Reader_interpolation.py    # Interpolation reader/processor
 │   │   ├── qontrol/                # Qontrol-specific utilities
 │   │   │   ├── qmapper8x8.py       # Clements mesh to chip pin mapping
@@ -204,12 +204,23 @@ Window3Content.cycle_unitaries()
 
 ## Requirements
 
-- Python 3.8+
-- NI-DAQmx drivers
-- FTDI drivers
-- Thorlabs drivers
 
-```
+### Software
+- Python 3.8+ (see requirements.txt for a list of modules)
+- Operating System:
+  - **Windows**: Fully supported (all devices tested)
+  - **Linux**: Partial support (Thorlabs tested; DAQ requires proper NI-DAQmx driver installation)
+  - **macOS**: Untested
+
+### Hardware Drivers
+- **Windows**: 
+  - NI-DAQmx drivers (for DAQ functionality)
+  - FTDI drivers (for Qontrol device)
+  - Thorlabs power meter (PM100D) drivers 
+- **Linux**:
+  - Thorlabs drivers (confirmed working)
+  - NI-DAQmx drivers (requires manual installation from NI)
+  - FTDI drivers (confirmed working, typically included in kernel)
 
 ## Acknowledgments
 - Clements et al. for the optimal interferometer design algorithm
