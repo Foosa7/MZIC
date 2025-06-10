@@ -94,6 +94,7 @@ json_output = mzi_lut.get_json_output(n, I.BS_list, input_pin, output_pin)
 ```
 
 ### Phase Interpolation
+The method is based on the heatingpower--opticalpower curve would change along time but not so far away from the initial cablibration file. A quick and realistic idea shall be sweep the certain nodes, and do the interpolation to get the slightly changed new phase.
 - Load sweep CSV files
 - Enable interpolation
 - Automatic phase correction
