@@ -84,19 +84,32 @@ current_dir = os.path.dirname(__file__)
 file_path1 = os.path.join(current_dir, file_path1)
 df = pd.read_csv(file_path1, skiprows=1, header=None)
 
-if df.iloc[0,2] > df.iloc[0, 3]:
-    x1 = 2
-    x2 = 3
+# if df.iloc[0,2] > df.iloc[0, 3]:
+#     x1 = 2
+#     x2 = 3
+# else:
+#     x1 = 3
+#     x2 = 2
+
+# 计算倒数第二列和最后一列的索引
+col_y2 = df.shape[1] - 2
+col_y1 = df.shape[1] - 1
+
+# 比较第0行这两列的值
+if df.iloc[0, col_y2] > df.iloc[0, col_y1]:
+    x1 = col_y2
+    x2 = col_y1
 else:
-    x1 = 3
-    x2 = 2
+    x1 = col_y1
+    x2 = col_y2
+
 y1 = df.iloc[:, x1]
 y2 = df.iloc[:, x2]
 
 theta = np.linspace(0, 2*np.pi, 200)
 
 y1_sim = np.cos(theta/2)**2
-y1_norm = y1/(np.abs(y1)+np.abs(y2))
+y1_norm = np.abs(y1)/(np.abs(y1)+np.abs(y2))
 
 ### A testing angle
 theta1 = find_P_aim(0.5*np.pi, theta, y1_norm, 0.5*np.pi)
@@ -113,19 +126,19 @@ for i in range(len(theta)):
 
 
 
-
+### Function to find the corrected angle based on the input angle The first is the angle, the second is the theta array, the third is the corrected theta array
 def theta_trans(the, theta, theta_corrected):
     x = the % (2*np.pi)
-    print(x)
+    #print(x)
     #searchsorted
     i_lo = np.searchsorted(theta, x, side='right')-1  # Find the first >= x position
     i_hi = i_lo + 1   # Find the last <= x position
-    print(i_hi, i_lo)
+    #print(i_hi, i_lo)
     
     th_l = theta[i_lo]
     th_h = theta[i_hi]
     th_l2 = theta_corrected[i_lo]
-    print(th_l2)
+    #print(th_l2)
     th_h2 = theta_corrected[i_hi]
     
     if abs(th_h2 - th_l2) <= 0.5:
@@ -253,17 +266,29 @@ def load_sweep_file(filename):
     path = os.path.join(current_dir, filename)
     df = pd.read_csv(path, skiprows=1, header=None)
 
-    if df.iloc[0, 2] > df.iloc[0, 3]:
-        x1, x2 = 2, 3
+    # if df.iloc[0, 2] > df.iloc[0, 3]:
+    #     x1, x2 = 2, 3
+    # else:
+    #     x1, x2 = 3, 2
+
+    # 计算倒数第二列和最后一列的索引
+    col_y2 = df.shape[1] - 2
+    col_y1 = df.shape[1] - 1
+
+    # 比较第0行这两列的值
+    if df.iloc[0, col_y2] > df.iloc[0, col_y1]:
+        x1 = col_y2
+        x2 = col_y1
     else:
-        x1, x2 = 3, 2
+        x1 = col_y1
+        x2 = col_y2
 
     y1 = df.iloc[:, x1]
     y2 = df.iloc[:, x2]
 
     theta = np.linspace(0, 2*np.pi, 200)
     y1_sim = np.cos(theta/2)**2
-    y1_norm = y1 / (np.abs(y1) + np.abs(y2))
+    y1_norm = np.abs(y1) / (np.abs(y1) + np.abs(y2))
 
     # 重新生成 theta_corrected
     theta_corrected = [find_P_aim(theta[i], theta, y1_norm, theta[i]) for i in range(len(theta))]

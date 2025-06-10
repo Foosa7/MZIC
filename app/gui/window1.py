@@ -17,6 +17,34 @@ from scipy import optimize
 from tests.interpolation.data import Reader_interpolation
 
 class Window1Content(ctk.CTkFrame):
+    
+    ### Define the callbacks for the interpolation functionality and update the label###
+    def _on_interpolate_theta_toggle(self):
+        """Enable/disable interpolation and update theta values for 6 nodes."""
+        self.interpolation_enabled = self.interpolate_theta_var.get()
+        if self.interpolation_enabled:
+            # List of 6 special nodes
+            special_nodes = ["E1", "F1", "G1", "H1", "E2", "G2"]
+            from tests.interpolation.data import Reader_interpolation as reader
+            updated = []
+            for node in special_nodes:
+                # Get current theta value from the grid
+                try:
+                    theta_val = float(self.custom_grid.input_boxes[node]['theta_entry'].get())
+                except Exception:
+                    continue
+                # Do interpolation (replace with your actual logic)
+                reader.load_sweep_file(f"{node}_theta_200_steps.csv")
+                interpolated = reader.theta_trans(theta_val * np.pi, reader.theta, reader.theta_corrected) / np.pi
+                self.interpolated_theta[node] = interpolated
+                updated.append(f"{node}: {interpolated:.3f}")
+            # Show updated values
+            self.interpolated_theta_label.configure(text="; ".join(updated) if updated else "No valid theta found")
+        else:
+            self.interpolated_theta.clear()
+            self.interpolated_theta_label.configure(text="")
+
+
     def _on_sweep_file_changed(self, selected_file):
         """Handler to reload sweep file for interpolation"""
         try:
@@ -98,6 +126,9 @@ class Window1Content(ctk.CTkFrame):
         self.resistance_params: Dict[int, Dict[str, Any]] = {}
         self.calibration_params = {'cross': {}, 'bar': {}}
         self.phase_params = {}
+        #### Add the interpolation functionality ####
+        self.interpolation_enabled = False
+        self.interpolated_theta = {}  # e.g., {"E1": 0.987, ...}
         self.phase_selector = phase_selector
         self.app = app  # Store the AppData instance
 
@@ -194,6 +225,20 @@ class Window1Content(ctk.CTkFrame):
             )
             btn.grid(row=0, column=col, padx=1, sticky="nsew")
 
+        # Interpolate Theta toggle
+        self.interpolate_theta_var = ctk.BooleanVar(value=False)
+        self.interpolate_theta_button = ctk.CTkCheckBox(
+            btn_frame,
+            text="Interpolate Theta (6 nodes)",
+            variable=self.interpolate_theta_var,
+            command=self._on_interpolate_theta_toggle
+        )
+        self.interpolate_theta_button.grid(row=1, column=0, columnspan=7, sticky="ew", pady=(5, 0))
+
+        # Label to show updated values
+        self.interpolated_theta_label = ctk.CTkLabel(btn_frame, text="")
+        self.interpolated_theta_label.grid(row=2, column=0, columnspan=7, sticky="ew")
+
 
         # Compact notebook for displays
         notebook = ctk.CTkTabview(inner_frame, height=180, width=400)  # Fixed  height, width
@@ -236,7 +281,7 @@ class Window1Content(ctk.CTkFrame):
         self.sweep_file_menu = ctk.CTkOptionMenu(
             interpolation_tab,
             values=[
-                "H1_theta_200stps.csv",
+                "H1_theta_200_steps.csv",
                 "G1_theta_200_steps.csv",
                 "G2_theta_200_steps.csv",
                 "F1_theta_200_steps.csv",
@@ -1082,7 +1127,11 @@ class Window1Content(ctk.CTkFrame):
                     continue
                     
                 theta_ch, phi_ch = label_map[cross_label]
-                theta_val = data.get("theta", "0")
+                if self.interpolation_enabled and cross_label in self.interpolated_theta:
+                    theta_val = self.interpolated_theta[cross_label]
+                else:
+                    theta_val = data.get("theta", "0")
+                
                 phi_val = data.get("phi", "0")
 
                 # Process theta channel
