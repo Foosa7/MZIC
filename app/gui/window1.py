@@ -1458,37 +1458,36 @@ class Window1Content(ctk.CTkFrame):
         """
         try:
             # Get current grid configuration
-            # print(AppData.default_json_grid)
             grid_config = json.loads(self.custom_grid.export_paths_json())
-            # grid_config = AppData.default_json_grid
-            print(grid_config)
             if not grid_config:
-                self._show_error("No grid configuration found W1")
+                self._show_error("No grid configuration found")
                 return
-                
+
             # Create label mapping for channel assignments
             label_map = create_label_mapping(8)  # Assuming 8x8 grid
-            
+
             # Create a new configuration with current values
             phase_grid_config = copy.deepcopy(grid_config)
-            
+
             # Track successful and failed applications
             applied_channels = []
             failed_channels = []
-            
+
             # Process each cross in the grid
             for cross_label, data in grid_config.items():
                 # Skip if this cross isn't in our mapping
                 if cross_label not in label_map:
                     continue
 
+                # Retrieve theta_ch and phi_ch from the label map
+                theta_ch, phi_ch = label_map.get(cross_label, (None, None))
+
+                # Handle interpolation for theta
                 if self.interpolation_enabled and cross_label in self.interpolated_theta:
                     theta_val = self.interpolated_theta[cross_label]
                 else:
                     theta_val = data.get("theta", "0")
-                  
-                # theta_ch, phi_ch = label_map[cross_label]
-                # theta_val = data.get("theta", "0")
+
                 phi_val = data.get("phi", "0")
 
                 # Process theta channel
@@ -1500,7 +1499,7 @@ class Window1Content(ctk.CTkFrame):
                             # Quantize to 5 decimal places
                             current_theta = round(current_theta, 5)
                             # Update the phase_grid_config with current value
-                            phase_grid_config[cross_label]["theta"] = str(current_theta)  # Store in A
+                            phase_grid_config[cross_label]["theta"] = str(current_theta)  # Store in mA
                             applied_channels.append(f"{cross_label}:θ = {current_theta:.5f} mA")
                         else:
                             failed_channels.append(f"{cross_label}:θ (no calibration)")
@@ -1516,22 +1515,21 @@ class Window1Content(ctk.CTkFrame):
                             # Quantize to 5 decimal places
                             current_phi = round(current_phi, 5)
                             # Update the phase_grid_config with current value
-                            phase_grid_config[cross_label]["phi"] = str(current_phi)  # Store in A
+                            phase_grid_config[cross_label]["phi"] = str(current_phi)  # Store in mA
                             applied_channels.append(f"{cross_label}:φ = {current_phi:.5f} mA")
                         else:
                             failed_channels.append(f"{cross_label}:φ (no calibration)")
                     except Exception as e:
                         failed_channels.append(f"{cross_label}:φ ({str(e)})")
-            
+
             # Store the phase grid config for later use
             self.phase_grid_config = phase_grid_config
-            
+
             # Only show error message if there are failures
             if failed_channels:
                 result_message = f"Failed to apply to {len(failed_channels)} channels"
-                # messagebox.showinfo("Phase Application", result_message)
                 print(result_message)
-                
+
             # Update the mapping display with detailed results
             self.mapping_display.configure(state="normal")
             self.mapping_display.delete("1.0", "end")
@@ -1544,19 +1542,17 @@ class Window1Content(ctk.CTkFrame):
                 for channel in failed_channels:
                     self.mapping_display.insert("end", f"• {channel}\n")
             self.mapping_display.configure(state="disabled")
-            
+
             print(phase_grid_config)
             self._capture_output(self.qontrol.show_status, self.status_display)
 
             try:
-                # config = self.custom_grid.export_paths_json()
+                # Apply the updated configuration to the device
                 config_json = json.dumps(phase_grid_config)
                 apply_grid_mapping(self.qontrol, config_json, self.grid_size)
             except Exception as e:
-                self._show_error(f"Device update failed: {str(e)}")        
+                self._show_error(f"Device update failed: {str(e)}")
 
-            return phase_grid_config
-            
         except Exception as e:
             self._show_error(f"Failed to apply phases: {str(e)}")
             import traceback
@@ -1592,10 +1588,10 @@ class Window1Content(ctk.CTkFrame):
         
         '''
         # Find the positive phase the heater must add 
-        delta_phase = (phase_value % 2) * np.pi
+        delta_phase = (phase_value % 2) * np.pi;
 
         # Calculate the heating power for this phase shift
-        P = delta_phase / b
+        P = delta_phase / b;
         '''
         
         # Check if phase is within valid range
