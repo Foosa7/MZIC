@@ -569,7 +569,7 @@ class Window3Content(ctk.CTkFrame):
 
                 # c) measure power
                 self.update_status("  • Measuring power...", "info")
-                
+
                 if use_switch:
                     thorlabs_device = self.thorlabs[0] if isinstance(self.thorlabs, list) else self.thorlabs
                     measurement_values = SwitchMeasurements.measure_with_switch(
@@ -605,9 +605,27 @@ class Window3Content(ctk.CTkFrame):
                             self.thorlabs, "uW"
                         )
 
-                # Update measurement display
+                # Update measurement display (for the live view)
                 self.update_measurements(measurement_values, measurement_labels)
                 self.update_status("  ✓ Measurement complete", "success")
+
+                # Add measurements to the status log
+                if measurement_values and measurement_labels:
+                    # Format measurements inline
+                    formatted_measurements = []
+                    for label, value in zip(measurement_labels, measurement_values):
+                        formatted_measurements.append(f"{label}: {value:.3f} µW")
+                    
+                    # Display measurements in the log
+                    if len(formatted_measurements) <= 4:
+                        # Single line for up to 4 measurements
+                        self.update_status(f"  📊 {' | '.join(formatted_measurements)}", "info")
+                    else:
+                        # Multiple lines for more measurements
+                        self.update_status("  📊 Measurements:", "info")
+                        for i in range(0, len(formatted_measurements), 4):
+                            line_items = formatted_measurements[i:i+4]
+                            self.update_status(f"     {' | '.join(line_items)}", "info")
 
                 # d) collect results
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
