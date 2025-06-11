@@ -14,7 +14,7 @@ from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mappin
 from collections import defaultdict
 from typing import Dict, Any
 from scipy import optimize
-from app.devices.switch_device import Switch
+from app.utils.switch_measurements import SwitchMeasurements
 
 class Window1Content(ctk.CTkFrame):
     ### Define the callbacks for the interpolation functionality and update the label###
@@ -43,9 +43,6 @@ class Window1Content(ctk.CTkFrame):
             self.interpolated_theta.clear()
             self.interpolated_theta_label.configure(text="")
         ######
-
-
-
 
     def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, switch, phase_selector=None, grid_size="8x8", **kwargs):
         super().__init__(master, **kwargs)
@@ -535,44 +532,8 @@ class Window1Content(ctk.CTkFrame):
             self.switch_channels_entry.grid_remove()
 
     def _parse_switch_channels(self, channel_string):
-        """
-        Parse channel string input to get list of channel numbers.
-        Supports formats like "1,2,3,4" or "1-4" or "1-4,7,9-12"
-        
-        Args:
-            channel_string (str): User input for channels
-            
-        Returns:
-            list: List of channel numbers
-        """
-        channels = []
-        
-        try:
-            # Split by comma first
-            parts = channel_string.replace(" ", "").split(",")
-            
-            for part in parts:
-                if "-" in part:
-                    # Handle range like "1-4"
-                    start, end = part.split("-")
-                    channels.extend(range(int(start), int(end) + 1))
-                else:
-                    # Handle single channel
-                    channels.append(int(part))
-            
-            # Remove duplicates and sort
-            channels = sorted(list(set(channels)))
-            
-            # Validate channel numbers (assuming 1-12 for your switch)
-            valid_channels = [ch for ch in channels if 1 <= ch <= 12]
-            
-            if len(valid_channels) != len(channels):
-                print(f"Warning: Some channels were out of range (1-12). Using: {valid_channels}")
-                
-            return valid_channels
-            
-        except Exception as e:
-            raise ValueError(f"Invalid channel format: {channel_string}. Use format like '1,2,3,4' or '1-8'")
+        """Parse channel string input to get list of channel numbers."""
+        return SwitchMeasurements.parse_switch_channels(channel_string)
 
     def _set_switch_channel(self):
         """Set the switch to the specified channel"""
@@ -740,15 +701,17 @@ class Window1Content(ctk.CTkFrame):
         headers = ["timestamp", "step", f"{parameter}_pi_units"]
         
         if use_switch:
-            # Use the user-specified channels stored in self.switch_channels
-            for ch in self.switch_channels:
-                headers.append(f"ch{ch}_{self.selected_unit}")
+            # Use the shared module to create headers
+            headers.extend(SwitchMeasurements.create_headers_with_switch(
+                self.switch_channels, self.selected_unit
+            ))
         else:
             # Headers for direct Thorlabs measurements
             if self.thorlabs:
                 devices = self.thorlabs if isinstance(self.thorlabs, list) else [self.thorlabs]
-                for i in range(len(devices)):
-                    headers.append(f"thorlabs{i}_{self.selected_unit}")
+                headers.extend(SwitchMeasurements.create_headers_thorlabs(
+                    len(devices), self.selected_unit
+                ))
         
         return headers
 
@@ -769,53 +732,16 @@ class Window1Content(ctk.CTkFrame):
 
     def _measure_with_switch(self):
         """Measure power using the optical switch for specified channels only"""
-        measurements = []
-        
-        if not self.switch or not self.thorlabs:
-            print("    Error: Switch or Thorlabs device not available")
-            return measurements
-        
         # Get the first Thorlabs device (connected to switch output)
         thorlabs_device = self.thorlabs[0] if isinstance(self.thorlabs, list) else self.thorlabs
         
-        # Measure only the specified switch channels
-        for channel in self.switch_channels:
-            try:
-                # Set switch to channel
-                self.switch.set_channel(channel)
-                
-                # Small delay to allow switch to settle
-                time.sleep(0.05)  # 50ms settling time
-                
-                # Read power
-                power = thorlabs_device.read_power(unit=self.selected_unit)
-                measurements.append(power)
-                
-            except Exception as e:
-                print(f"    Error measuring channel {channel}: {e}")
-                measurements.append(0.0)
-        
-        return measurements
+        return SwitchMeasurements.measure_with_switch(
+            self.switch, thorlabs_device, self.switch_channels, self.selected_unit
+    )
 
     def _measure_thorlabs_direct(self):
         """Measure power directly from Thorlabs devices (no switch)"""
-        measurements = []
-        
-        if not self.thorlabs:
-            print("    Error: No Thorlabs devices available")
-            return measurements
-        
-        devices = self.thorlabs if isinstance(self.thorlabs, list) else [self.thorlabs]
-        
-        for i, device in enumerate(devices):
-            try:
-                power = device.read_power(unit=self.selected_unit)
-                measurements.append(power)
-            except Exception as e:
-                print(f"    Error reading Thorlabs {i}: {e}")
-                measurements.append(0.0)
-        
-        return measurements
+        return SwitchMeasurements.measure_thorlabs_direct(self.thorlabs, self.selected_unit)
 
     def _print_sweep_measurements(self, measurements, use_switch):
         """Print measurements to console"""

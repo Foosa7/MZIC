@@ -6,11 +6,12 @@ import copy
 from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
 from app.utils.unitary import unitary, mzi_lut, mzi_convention
 from app.utils.appdata import AppData
+from app.utils.switch_measurements import SwitchMeasurements
 from datetime import datetime
 
 class Window3Content(ctk.CTkFrame):
     
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, grid_size = "8x8", **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, switch, grid_size = "8x8", **kwargs):
         super().__init__(master, **kwargs)
         self.channel = channel
         self.fit = fit
@@ -19,6 +20,7 @@ class Window3Content(ctk.CTkFrame):
         self.qontrol = qontrol
         self.thorlabs = thorlabs
         self.daq = daq
+        self.switch = switch
 
         # NxN dimension
         self.n = int(grid_size.split('x')[0])
@@ -144,7 +146,7 @@ class Window3Content(ctk.CTkFrame):
         # ─────────────────────  row 3 – measurement source
         self.measurement_source = ctk.StringVar(value="DAQ")
 
-        ctk.CTkLabel(self.cycle_frame, text="Measure with:")\
+        ctk.CTkLabel(self.cycle_frame, text="Measurement source:")\
             .grid(row=3, column=0, sticky="e", padx=10, pady=4)
 
         measure_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
@@ -175,76 +177,37 @@ class Window3Content(ctk.CTkFrame):
         )
         self.global_phase_checkbox.grid(row=5, column=1, sticky="w", padx=10, pady=4)
 
-        # ─────────────────────  row 6 – site selection
-        ctk.CTkLabel(self.cycle_frame, text="Record sites:")\
-            .grid(row=6, column=0, sticky="ne", padx=10, pady=(4, 10))
+        # ─────────────────────  row 6 – Measure using switch
+        ctk.CTkLabel(self.cycle_frame, text="Measure using switch:")\
+            .grid(row=6, column=0, sticky="e", padx=10, pady=4)
 
-        sites_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
-        sites_frame.grid(row=6, column=1, sticky="w", padx=10, pady=(4, 10))
-        self.site_vars = []
-        max_per_row = 4
-
-        try:
-            if self.n == 8:
-                site_range = [str(i) for i in range(7, 15)]  # range 7-14
-            elif self.n == 12:
-                site_range = [str(i) for i in range(3, 15)]  # range 3-14
-            else:
-                site_range = [str(i) for i in range(1, self.n + 1)]  # Default range
-        except Exception as e:
-            print(f"Error generating site range: {e}")
-            site_range = [str(i) for i in range(1, 9)]  # Fallback to a default range (1-8)
-
-        for idx, site in enumerate(site_range):
-            var = ctk.BooleanVar(value=(idx < 2))
-            self.site_vars.append(var)
-            chk = ctk.CTkCheckBox(sites_frame, text=site, variable=var)
-            chk.grid(row=idx // max_per_row, column=idx % max_per_row,
-                 padx=3, pady=3, sticky="w")
-            var.trace_add("write", lambda *_: self._update_cycle_button_state())
-
-        self._update_cycle_button_state()
-
-        # ─────────────────────  row 5 – Switch I/O
-        ctk.CTkLabel(self.cycle_frame, text="Pin I/O:")\
-            .grid(row=7, column=0, sticky="e", padx=10, pady=4)
-
-        switch_io_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
-        switch_io_frame.grid(row=7, column=1, sticky="w", padx=10, pady=4)
-
-        try:
-            if self.n == 8:
-                pin_range = [str(i) for i in range(7, 15)]  # range 7-14
-            elif self.n == 12:
-                pin_range = [str(i) for i in range(3, 15)]  # range 3-14
-            else:
-                pin_range = [str(i) for i in range(1, self.n + 1)]  # Default range
-        except Exception as e:
-            print(f"Error generating pin range: {e}")
-            pin_range = [str(i) for i in range(1, 9)]  # Fallback to a default range (1-8)
-
-        # Input selection
-        ctk.CTkLabel(switch_io_frame, text="Input:").pack(side="left", padx=5)
-        self.input_var = ctk.StringVar(value=pin_range[-1])  # Default input value
-
-        self.input_dropdown = ctk.CTkOptionMenu(
-            switch_io_frame,
-            variable=self.input_var,
-            values=pin_range,
-            width=60  # Adjust the width to make it narrower
+        self.measure_switch_var = ctk.StringVar(value="No")
+        self.measure_switch_menu = ctk.CTkOptionMenu(
+            self.cycle_frame,
+            variable=self.measure_switch_var,
+            values=["Yes", "No"],
+            command=self._on_measure_switch_changed
         )
-        self.input_dropdown.pack(side="left", padx=10)  # Increased padx for more space
+        self.measure_switch_menu.grid(row=6, column=1, sticky="w", padx=10, pady=4)
 
-        # Output selection
-        ctk.CTkLabel(switch_io_frame, text="Output:").pack(side="left", padx=10)  # Increased padx for more space
-        self.output_var = ctk.StringVar(value=pin_range[0])  # Default output value
-        self.output_dropdown = ctk.CTkOptionMenu(
-            switch_io_frame,
-            variable=self.output_var,
-            values=pin_range,  # Output range 1–12
-            width=60  # Adjust the width to make it narrower
+        # ─────────────────────  row 7 – Switch channels (initially hidden)
+        self.switch_channels_label = ctk.CTkLabel(
+            self.cycle_frame, 
+            text="Switch channels:"
         )
-        self.output_dropdown.pack(side="left", padx=5)
+        self.switch_channels_label.grid(row=7, column=0, sticky="e", padx=10, pady=4)
+
+        self.switch_channels_entry = ctk.CTkEntry(
+            self.cycle_frame,
+            placeholder_text="e.g., 1,2,3,4 or 1-8"
+        )
+        self.switch_channels_entry.insert(0, "1,2,3,4,5,6,7,8")  # Default
+        self.switch_channels_entry.grid(row=7, column=1, sticky="ew", padx=10, pady=4)
+
+        # Initially hide the channel selection
+        self.switch_channels_label.grid_remove()
+        self.switch_channels_entry.grid_remove()
+
         # ──────────────────────────────────────────────────────────────
         # Load any saved unitary into the entry grid
         # ──────────────────────────────────────────────────────────────
@@ -255,6 +218,16 @@ class Window3Content(ctk.CTkFrame):
             self.right_frame, width=600, height=300, wrap="none"
         )
         self.unitary_textbox.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+
+    # Method to handle switch option changes
+    def _on_measure_switch_changed(self, value):
+        """Show/hide switch channel selection based on measure option"""
+        if value == "Yes":
+            self.switch_channels_label.grid()
+            self.switch_channels_entry.grid()
+        else:
+            self.switch_channels_label.grid_remove()
+            self.switch_channels_entry.grid_remove()
 
     def _read_all_daq_channels(self):
         """
@@ -324,7 +297,7 @@ class Window3Content(ctk.CTkFrame):
             – decompose → apply phases
             – wait/measure for <dwell> ms
             – record power from the selected measurement source
-        3) Save a CSV with one column per *checked* site.
+        3) Save a CSV with measurements from either switch channels or devices directly
         """
         try:
             # ───────────────────────────────────────────────────────
@@ -333,19 +306,57 @@ class Window3Content(ctk.CTkFrame):
             dwell_ms = float(self.dwell_entry.get())          # milliseconds
             dwell_s  = dwell_ms / 1000.0
             sample_rate          = 1_000                      # 1 kHz
-            samples_per_channel  = int(dwell_s*sample_rate)              # total samples to collect during dwell
+            samples_per_channel  = int(dwell_s*sample_rate)  # total samples to collect during dwell
 
             use_source = self.measurement_source.get()        # "DAQ" or "Thorlabs"
+            use_global_phase = self.global_phase_var.get()    # True or False
+            use_switch = self.measure_switch_var.get() == "Yes"  # check if using switch
 
-            use_global_phase = self.global_phase_var.get() # True or False
+            # Get switch channels if using switch
+            switch_channels = []
+            if use_switch:
+                if not self.switch:
+                    raise ValueError("Switch device not available but 'Measure using switch' is selected")
+                
+                # Parse user-specified channels
+                channel_string = self.switch_channels_entry.get()
+                switch_channels = SwitchMeasurements.parse_switch_channels(channel_string)
+                
+                if not switch_channels:
+                    raise ValueError("No valid switch channels specified")
+                    
+                print(f"Using switch channels: {switch_channels}")
 
-            selected_sites = [i for i, var in enumerate(self.site_vars) if var.get()]
-            if not selected_sites:
-                print("No sites selected – aborting.")
-                return
-
-            # label for CSV columns → ["timestamp", "step", "site1", ...]
-            headers = ["timestamp", "step"] + [f"site{idx+1}" for idx in selected_sites]
+            # Prepare headers based on measurement configuration
+            headers = ["timestamp", "step"]
+            
+            if use_switch:
+                # Use switch channel headers
+                headers.extend(SwitchMeasurements.create_headers_with_switch(switch_channels, "uW"))
+                num_measurements = len(switch_channels)
+            else:
+                # Headers for direct device measurements
+                if use_source == "DAQ":
+                    # For DAQ, we'll measure all available channels
+                    if self.daq:
+                        daq_channels = self.daq.list_ai_channels()
+                        headers.extend([f"{ch}_uW" for ch in daq_channels])
+                        num_measurements = len(daq_channels)
+                    else:
+                        print("No DAQ device available")
+                        return
+                else:  # Thorlabs
+                    if self.thorlabs:
+                        # Check if thorlabs is a list or single device
+                        if isinstance(self.thorlabs, list):
+                            num_devices = len(self.thorlabs)
+                        else:
+                            num_devices = 1
+                        headers.extend(SwitchMeasurements.create_headers_thorlabs(num_devices, "uW"))
+                        num_measurements = num_devices
+                    else:
+                        print("No Thorlabs device available")
+                        return
 
             # ───────────────────────────────────────────────────────
             # 1.  Location for the .npy step files
@@ -381,11 +392,7 @@ class Window3Content(ctk.CTkFrame):
                     I      = unitary.decomposition(U_step, global_phase=use_global_phase)
                     bs     = I.BS_list
                     mzi_convention.clements_to_chip(bs)
-                    
-                    input_pin = self.input_var.get() if isinstance(self.input_var, ctk.StringVar) else self.input_var
-                    output_pin = self.output_var.get() if isinstance(self.output_var, ctk.StringVar) else self.output_var
-                    json_output = mzi_lut.get_json_output(self.n, bs, input_pin, output_pin)
-                    
+                    json_output = mzi_lut.get_json_output(self.n, bs)
                     setattr(AppData, 'default_json_grid', json_output)
                     print(AppData.default_json_grid)
                 except Exception as e:
@@ -399,59 +406,68 @@ class Window3Content(ctk.CTkFrame):
                 time.sleep(dwell_s)
 
                 # c) measure power
-                site_values = [0.0] * len(selected_sites)
-
-                if use_source == "DAQ":
-                    if self.daq and self.daq.list_ai_channels():
-                        # map site index → DAQ channel; extend if you have more than 8
-                        daq_channels_map = [f"Dev1/ai{ch}" for ch in range(8)]
-                        channels = [daq_channels_map[idx] for idx in selected_sites]
-
-                        try:
-                            readings = self.daq.read_power(
-                                channels=channels,
-                                samples_per_channel=samples_per_channel,
-                                sample_rate=sample_rate,
-                                unit="uW",
-                            )
-                            # average samples if necessary
-                            if isinstance(readings[0], list):
-                                site_values = [sum(s)/len(s) for s in readings]
-                            else:
-                                site_values = readings
-                        except Exception as e:
-                            print(f"  ✖  DAQ read error: {e}")
-                        finally:
+                if use_switch:
+                    # Use switch-based measurements
+                    thorlabs_device = self.thorlabs[0] if isinstance(self.thorlabs, list) else self.thorlabs
+                    measurement_values = SwitchMeasurements.measure_with_switch(
+                        self.switch, thorlabs_device, switch_channels, "uW"
+                    )
+                else:
+                    # Direct device measurements
+                    if use_source == "DAQ":
+                        if self.daq:
+                            daq_channels = self.daq.list_ai_channels()
                             try:
-                                self.daq.clear_task()
-                            except Exception:
-                                pass
-                    else:
-                        print("  ⚠  No DAQ connected.")
-                else:   # ───── Thorlabs ───────────────────────────
-                    if not self.thorlabs:
-                        print("  ⚠  No Thorlabs device connected.")
-                    else:
-                        device_list = (
-                            self.thorlabs if isinstance(self.thorlabs, list)
-                            else [self.thorlabs]
-                        )
-                        for k, _ in enumerate(site_values):
-                            device = device_list[k] if k < len(device_list) else device_list[0]
-                            try:
-                                site_values[k] = device.read_power(unit="uW")
+                                readings = self.daq.read_power(
+                                    channels=daq_channels,
+                                    samples_per_channel=samples_per_channel,
+                                    sample_rate=sample_rate,
+                                    unit="uW",
+                                )
+                                # Average samples if necessary
+                                if readings and isinstance(readings[0], list):
+                                    measurement_values = [sum(s)/len(s) for s in readings]
+                                else:
+                                    measurement_values = readings if readings else []
                             except Exception as e:
-                                print(f"  ✖  Thorlabs read error (site {selected_sites[k]+1}): {e}")
+                                print(f"  ✖  DAQ read error: {e}")
+                                measurement_values = [0.0] * num_measurements
+                            finally:
+                                try:
+                                    self.daq.clear_task()
+                                except Exception:
+                                    pass
+                        else:
+                            print("  ⚠  No DAQ connected.")
+                            measurement_values = [0.0] * num_measurements
+                    else:  # Thorlabs
+                        measurement_values = SwitchMeasurements.measure_thorlabs_direct(
+                            self.thorlabs, "uW"
+                        )
 
                 # d) collect + show results
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                row       = [timestamp, step_idx] + site_values
+                row       = [timestamp, step_idx] + measurement_values
                 results.append(row)
 
-                summary = "  ".join(
-                    f"Site {s+1}: {v:.3f} µW"
-                    for s, v in zip(selected_sites, site_values)
-                )
+                # Print summary based on measurement type
+                if use_switch:
+                    summary = "  ".join(
+                        f"Ch{ch}: {v:.3f} µW"
+                        for ch, v in zip(switch_channels, measurement_values)
+                    )
+                else:
+                    if use_source == "DAQ":
+                        daq_channels = self.daq.list_ai_channels() if self.daq else []
+                        summary = "  ".join(
+                            f"{ch}: {v:.3f} µW"
+                            for ch, v in zip(daq_channels[:len(measurement_values)], measurement_values)
+                        )
+                    else:  # Thorlabs
+                        summary = "  ".join(
+                            f"Thorlabs{i}: {v:.3f} µW"
+                            for i, v in enumerate(measurement_values)
+                        )
                 print("  " + summary)
 
             # ───────────────────────────────────────────────────────
@@ -512,8 +528,6 @@ class Window3Content(ctk.CTkFrame):
             print(f"Results successfully saved to: {path}")
         except Exception as e:
             print(f"Failed to write CSV: {e}")
-
-
 
     def _create_zero_config(self):
         """Create a configuration with all theta and phi values set to zero"""

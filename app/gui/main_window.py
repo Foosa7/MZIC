@@ -139,6 +139,7 @@ class MainWindow(ctk.CTk):
                 qontrol=self.qontrol,
                 thorlabs=self.thorlabs,
                 daq = self.daq,
+                switch=self.switch,
                 grid_size=mesh_size
             )            
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)

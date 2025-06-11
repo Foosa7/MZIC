@@ -147,7 +147,6 @@ MZIC/
 │   │   ├── qontrol/                # Qontrol-specific utilities
 │   │   │   ├── qmapper8x8.py       # Clements mesh to chip pin mapping
 │   │   │   └── qset.py             # Current value setter for Qontrol
-│   │   ├── switch/                 # Switch-specific utilities
 │   │   ├── unitary/                # Unitary transformation modules
 │   │   │   ├── mzi_convention.py   # BS angle convention conversion
 │   │   │   ├── mzi_lut.py          # MZI lookup tables
@@ -156,6 +155,7 @@ MZIC/
 │   │   ├── config_manager.py       # Configuration file manager
 │   │   ├── grid.py                 # Grid view management
 │   │   ├── map.json                # Channel mapping configuration
+│   │   ├── switch_measurements.py  # Switch measurement utilities
 │   │   └── utils.py                # General utility functions
 │   ├── __init__.py                 # Package initializer
 │   └── imports.py                  # Common module imports
