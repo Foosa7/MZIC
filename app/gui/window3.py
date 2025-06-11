@@ -276,8 +276,17 @@ class Window3Content(ctk.CTkFrame):
 
     def update_status(self, message, tag="info"):
         """Update the status display with a new message"""
+        # Check if we're currently at the bottom before inserting
+        current_position = self.status_textbox.yview()[1]  # Get bottom position of view
+        was_at_bottom = current_position >= 0.99  # Check if we're near the bottom
+        
+        # Insert the new message
         self.status_textbox.insert("end", f"{message}\n", tag)
-        self.status_textbox.see("end")  # Auto-scroll to bottom
+        
+        # Only auto-scroll if we were already at the bottom
+        if was_at_bottom:
+            self.status_textbox.see("end")
+        
         self.update()
         
     def clear_status(self):
