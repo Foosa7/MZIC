@@ -206,7 +206,7 @@ class InterpolationManager:
         a1, interpolated = self.theta_trans(th_test)
         
         # Create figure with dark theme support
-        fig = plt.figure(figsize=(12, 6))
+        fig = plt.figure(figsize=(10, 6))
         fig.patch.set_facecolor('white')
         
         # First subplot: Theoretical vs Tested Ratio
@@ -235,7 +235,7 @@ class InterpolationManager:
                    label=f'Input: {angle_input_rad:.3f}π → Output: {a1/np.pi:.3f}π')
         
         # Add diagonal reference line
-        ax2.plot([0, 2*np.pi], [0, 2*np.pi], 'k--', alpha=0.3, label='Identity')
+        #ax2.plot([0, 2*np.pi], [0, 2*np.pi], 'k--', alpha=0.3, label='Identity')
         
         ax2.set_xlabel('Desired Angles (rad)', fontsize=14)
         ax2.set_ylabel('Corrected Angles (rad)', fontsize=14)
@@ -252,10 +252,10 @@ class InterpolationManager:
         ax2.set_yticklabels(pi_labels)
         
         # Add interpolation status
-        status_text = "Interpolation: " + ("Yes" if interpolated else "No")
-        ax2.text(0.02, 0.98, status_text, transform=ax2.transAxes, 
-                verticalalignment='top', fontsize=10,
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+        #status_text = "Interpolation: " + ("Yes" if interpolated else "No")
+        # ax2.text(0.02, 0.98, status_text, transform=ax2.transAxes, 
+        #         verticalalignment='top', fontsize=10,
+        #         bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
         
         plt.tight_layout()
         return fig
