@@ -614,9 +614,12 @@ class Window3Content(ctk.CTkFrame):
             # ───────────────────────────────────────────────────────
             if results:
                 self.update_status("\n💾 Saving results...", "header")
-                self._export_results_to_csv(results, headers)
-                self.update_status("✅ Results saved successfully!", "success")
-
+                saved_path = self._export_results_to_csv(results, headers)
+                if saved_path: 
+                    self.update_status("✅ Results saved successfully!", "success")
+                    self.update_status(f"📁 Saved to: {saved_path}", "info")
+                else:
+                    self.update_status("\n⚠️ Results were not saved.", "warning")
                 self.update_status("\n🔄 Resetting chip to zero...", "info")
                 zero_cfg = self._create_zero_config()
                 apply_grid_mapping(self.qontrol, zero_cfg, self.grid_size)
@@ -651,7 +654,7 @@ class Window3Content(ctk.CTkFrame):
         """
         if not rows:
             print("Nothing to export – no rows provided.")
-            return
+            return None
 
         # default file name: cycle_results_YYYYmmdd_HHMMSS.csv
         default_name = f"cycle_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
@@ -664,7 +667,7 @@ class Window3Content(ctk.CTkFrame):
         )
         if not path:        # user pressed Cancel
             print("Export cancelled.")
-            return
+            return None
 
         try:
             import csv
@@ -673,8 +676,10 @@ class Window3Content(ctk.CTkFrame):
                 writer.writerow(headers)
                 writer.writerows(rows)
             print(f"Results successfully saved to: {path}")
+            return path
         except Exception as e:
             print(f"Failed to write CSV: {e}")
+            return None
 
     def _create_zero_config(self):
         """Create a configuration with all theta and phi values set to zero"""
