@@ -421,8 +421,8 @@ class Window1Content(ctk.CTkFrame):
         dwell_label = ctk.CTkLabel(sweep_tab, text="Dwell time (ms):")
         dwell_label.grid(row=5, column=0, padx=(10, 5), pady=5, sticky="w")
         
-        self.sweep_dwell_entry = ctk.CTkEntry(sweep_tab, placeholder_text="1e3")
-        self.sweep_dwell_entry.insert(0, "1e3")  # Default to 1000 ms (1 second)
+        self.sweep_dwell_entry = ctk.CTkEntry(sweep_tab, placeholder_text="1e2")
+        self.sweep_dwell_entry.insert(0, "1e2")  # Default to 100 ms 
         self.sweep_dwell_entry.grid(row=5, column=1, padx=(5, 10), pady=5, sticky="ew")
 
         # Row 6: Measure using switch
