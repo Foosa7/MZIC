@@ -4,6 +4,7 @@ import math
 import json
 import numpy as np
 import sympy as sp
+import math
 from tkinter import messagebox
 import os
 import pickle
@@ -103,6 +104,64 @@ def importfunc(obj):
 
     # messagebox.showinfo("Import Complete",
     #                     f"{import_file}")
+
+
+
+def find_P_aim(P_initial, A, B, theta):
+    
+    ### We shall keep the fitting method, to get a good initial guess of the heating power.
+    ### Then we use this module to extract the precise heating power for the splitting ratio we require.
+    ### Pls notice that we need the input from the pkl file, with xdatalist_IObar/cross as the heating power,
+    ### ydatalist_IObar/cross as the optical power. We shall modify the importfunc module.
+    
+    # sorted_pairs = sorted(zip(A, B), key=lambda x: x[0])
+    # if not sorted_pairs:
+    #     raise ValueError("Arrays A and B must not be empty.")
+    
+    # A_sorted, B_sorted = zip(*sorted_pairs)
+    # A_sorted = list(A_sorted)
+    # B_sorted = list(B_sorted)
+    
+    A_sorted = list(A)
+    B_sorted = list(B)
+    
+    max_OP = max(B_sorted)
+    if max_OP == 0:
+        raise ValueError("All optical powers are zero.")
+    
+    
+    ratio_target = np.cos(theta/2)**2
+    
+    
+    R = [op / max_OP for op in B_sorted]
+    
+    
+    candidates = []
+    for j in range(len(R) - 1):
+        r_lo, r_hi = R[j], R[j+1]
+        if (r_lo <= ratio_target <= r_hi) or (r_hi <= ratio_target <= r_lo):
+            
+            p_mid = (A_sorted[j] + A_sorted[j+1]) / 2
+            distance = abs(p_mid - P_initial)
+            candidates.append((distance, j))
+    
+    if not candidates:
+        return P_initial
+    
+    
+    candidates.sort()
+    j = candidates[0][1]
+    P_lo, P_hi = A_sorted[j], A_sorted[j+1]
+    R_lo, R_hi = R[j], R[j+1]
+    
+    
+    delta = R_hi - R_lo
+    if delta == 0:
+        return (P_lo + P_hi) / 2
+    else:
+        t = (ratio_target - R_lo) / delta
+        return P_lo + t * (P_hi - P_lo)  ### Find the final target power
+
 
 
 # def apply_phase(custom_grid, qontrol, app):
