@@ -7,7 +7,6 @@ from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mappin
 from app.utils.unitary import unitary, mzi_lut, mzi_convention
 from app.utils.appdata import AppData
 from app.utils.switch_measurements import SwitchMeasurements
-from datetime import datetime
 
 class Window3Content(ctk.CTkFrame):
     
@@ -169,7 +168,7 @@ class Window3Content(ctk.CTkFrame):
 
         # ─────────────────────  row 5 – Global Phase option
         ctk.CTkLabel(self.cycle_frame, text="Global Phase:").grid(row=5, column=0, sticky="e", padx=10, pady=4)
-        self.global_phase_var = ctk.BooleanVar(value=True)  # Default: enabled
+        self.global_phase_var = ctk.BooleanVar(value=False)  # Default: disabled
         self.global_phase_checkbox = ctk.CTkCheckBox(
             self.cycle_frame,
             text="Enable",
@@ -201,7 +200,7 @@ class Window3Content(ctk.CTkFrame):
             self.cycle_frame,
             placeholder_text="e.g., 1,2,3,4 or 1-8"
         )
-        self.switch_channels_entry.insert(0, "1,2,3,4,5,6,7,8")  # Default
+        self.switch_channels_entry.insert(0, "1,2,3")  # Default
         self.switch_channels_entry.grid(row=7, column=1, sticky="ew", padx=10, pady=4)
 
         # Initially hide the channel selection
@@ -238,15 +237,15 @@ class Window3Content(ctk.CTkFrame):
         self.status_textbox.tag_config("warning", foreground="#FFA726")
         self.status_textbox.tag_config("info", foreground="#E0E0E0")
         
-        # Progress bar
-        self.progress_var = ctk.DoubleVar(value=0)
-        self.progress_bar = ctk.CTkProgressBar(
+        # Simple text progress bar
+        self.progress_label = ctk.CTkLabel(
             self.status_frame,
-            variable=self.progress_var,
-            height=20,
-            corner_radius=10
+            text="Progress: [░░░░░░░░░░] 0/0 (0%)",
+            font=("Consolas", 12),
+            anchor="w",
+            text_color="#4CAF50"  
         )
-        self.progress_bar.pack(fill="x", padx=10, pady=(0, 10))
+        self.progress_label.pack(fill="x", padx=10, pady=(0, 10))
         
         # Current measurement display
         self.measurement_frame = ctk.CTkFrame(
@@ -262,7 +261,7 @@ class Window3Content(ctk.CTkFrame):
             font=("Segoe UI", 11),
             anchor="w"
         )
-        self.measurement_label.pack(fill="x", padx=10, pady=0)
+        self.measurement_label.pack(fill="x", padx=10, pady=8)
 
         # ──────────────────────────────────────────────────────────────
         # Load any saved unitary into the entry grid
@@ -286,10 +285,27 @@ class Window3Content(ctk.CTkFrame):
         self.status_textbox.delete("1.0", "end")
         
     def update_progress(self, current, total):
-        """Update the progress bar"""
+        """Update the progress bar with arrow style"""
         if total > 0:
-            progress = (current / total) * 100
-            self.progress_var.set(progress)
+            # Calculate progress
+            percentage = int((current / total) * 100)
+            bar_width = 20  # Total width of the progress bar
+            filled_width = int((current / total) * bar_width)
+            
+            # Create the arrow-style progress bar
+            if filled_width == 0:
+                # No progress yet
+                bar = " " * bar_width
+            elif filled_width >= bar_width:
+                # Complete
+                bar = "=" * bar_width
+            else:
+                # In progress - show arrow
+                bar = "=" * (filled_width - 1) + ">" + " " * (bar_width - filled_width)
+            
+            # Update label
+            progress_text = f"Progress: [{bar}] {percentage}% ({current}/{total})"
+            self.progress_label.configure(text=progress_text)
             self.update()
             
     def update_measurements(self, measurements, labels):
@@ -394,7 +410,7 @@ class Window3Content(ctk.CTkFrame):
         try:
             # Clear previous status and reset progress
             self.clear_status()
-            self.progress_var.set(0)
+            self.progress_label.configure(text="Progress: [░░░░░░░░░░] 0/0 (0%)")  # Reset progress
             self.measurement_label.configure(text="Latest Measurements: Starting...")
             
             # Change button to show it's running
@@ -483,11 +499,12 @@ class Window3Content(ctk.CTkFrame):
                 self.cycle_unitaries_button.configure(text="Cycle Unitaries", state="normal")
                 return
 
+            # Use regex to extract numeric suffix from filenames
             npy_files = sorted(
-                [f for f in os.listdir(folder_path)
-                if f.startswith("step_") and f.endswith(".npy")],
-                key=lambda x: int(x.split("_")[1].split(".")[0])
+                [f for f in os.listdir(folder_path) if f.endswith(".npy") and re.search(r"_(\d+)\.npy$", f)],
+                key=lambda x: int(re.search(r"_(\d+)\.npy$", x).group(1))
             )
+
             if not npy_files:
                 self.update_status("❌ No unitary step files found in selected folder.", "error")
                 self.cycle_unitaries_button.configure(text="Cycle Unitaries", state="normal")
@@ -505,11 +522,10 @@ class Window3Content(ctk.CTkFrame):
             
             for step_idx, npy_file in enumerate(npy_files, start=1):
                 file_path = os.path.join(folder_path, npy_file)
-                
-                # Update progress
-                self.update_progress(step_idx - 1, total_steps)
+
+                # Current step status
                 self.update_status(f"\n📍 Step {step_idx}/{total_steps}: {npy_file}", "info")
-                
+
                 # Update button to show progress
                 self.cycle_unitaries_button.configure(text=f"Step {step_idx}/{total_steps}")
                 self.update()
@@ -589,8 +605,9 @@ class Window3Content(ctk.CTkFrame):
                 row = [timestamp, step_idx] + measurement_values
                 results.append(row)
 
-            # Update final progress
-            self.update_progress(total_steps, total_steps)
+                # e) update progress bar
+                self.update_progress(step_idx, total_steps)
+                self.update()
 
             # ───────────────────────────────────────────────────────
             # 3.  Save CSV & reset chip
@@ -978,9 +995,7 @@ class Window3Content(ctk.CTkFrame):
             mzi_convention.clements_to_chip(bs_list)
 
             # Update the AppData with the new JSON output
-            input_pin = int(self.input_var.get())
-            output_pin = int(self.output_var.get())
-            json_output = mzi_lut.get_json_output(self.n, bs_list, input_pin, output_pin)
+            json_output = mzi_lut.get_json_output(self.n, bs_list)
             print(json_output)
 
             # Save the updated JSON to AppData
