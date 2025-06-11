@@ -471,38 +471,27 @@ class Window1Content(ctk.CTkFrame):
         switch_tab = notebook.add("Switches")  
         switch_tab.grid_columnconfigure(0, weight=1)
         switch_tab.grid_columnconfigure(1, weight=1)
-        
+
         # Create frames for each switch
         output_frame = ctk.CTkFrame(switch_tab)
         output_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        
+
         input_frame = ctk.CTkFrame(switch_tab)
         input_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
-        
+
         # OUTPUT SWITCH CONTROLS
         output_header = ctk.CTkLabel(output_frame, text="Output Switch", 
-                                   font=("TkDefaultFont", 14, "bold"))
+                                font=("TkDefaultFont", 14, "bold"))
         output_header.pack(pady=(5, 10))
-        
-        # Channel entry for output
-        self.output_channel_entry = ctk.CTkEntry(output_frame, placeholder_text="1-12")
-        self.output_channel_entry.pack(pady=5)
-        
+
         # Buttons for output switch
-        self.output_set_button = ctk.CTkButton(
-            output_frame,
-            text="Set Channel",
-            command=lambda: self._set_switch_channel("output")
-        )
-        self.output_set_button.pack(pady=5)
-        
         self.output_get_button = ctk.CTkButton(
             output_frame,
             text="Get Current Channel",
             command=lambda: self._get_switch_channel("output")
         )
         self.output_get_button.pack(pady=5)
-        
+
         # Status label for output
         self.output_status_label = ctk.CTkLabel(
             output_frame, 
@@ -510,44 +499,25 @@ class Window1Content(ctk.CTkFrame):
             font=("TkDefaultFont", 11, "bold")
         )
         self.output_status_label.pack(pady=(10, 5))
-        
-        # Quick buttons for output (1-8)
-        output_quick_frame = ctk.CTkFrame(output_frame)
-        output_quick_frame.pack(pady=5)
-        
-        for i in range(1, 9):
-            btn = ctk.CTkButton(
-                output_quick_frame,
-                text=str(i),
-                width=30,
-                command=lambda ch=i: self._quick_set_channel(ch, "output")
-            )
-            btn.pack(side="left", padx=2)
-        
+
+        # OUTPUT QUICK BUTTONS
+        self.output_quick_frame = ctk.CTkFrame(output_frame)
+        self.output_quick_frame.pack(pady=5)
+        self._build_quick_buttons(self.output_quick_frame, "output", "12x12")  # Always 12 buttons
+
         # INPUT SWITCH CONTROLS
         input_header = ctk.CTkLabel(input_frame, text="Input Switch", 
-                                  font=("TkDefaultFont", 14, "bold"))
+                                font=("TkDefaultFont", 14, "bold"))
         input_header.pack(pady=(5, 10))
-        
-        # Channel entry for input
-        self.input_channel_entry = ctk.CTkEntry(input_frame, placeholder_text="1-12")
-        self.input_channel_entry.pack(pady=5)
-        
+
         # Buttons for input switch
-        self.input_set_button = ctk.CTkButton(
-            input_frame,
-            text="Set Channel",
-            command=lambda: self._set_switch_channel("input")
-        )
-        self.input_set_button.pack(pady=5)
-        
         self.input_get_button = ctk.CTkButton(
             input_frame,
             text="Get Current Channel",
             command=lambda: self._get_switch_channel("input")
         )
         self.input_get_button.pack(pady=5)
-        
+
         # Status label for input
         self.input_status_label = ctk.CTkLabel(
             input_frame, 
@@ -555,24 +525,33 @@ class Window1Content(ctk.CTkFrame):
             font=("TkDefaultFont", 11, "bold")
         )
         self.input_status_label.pack(pady=(10, 5))
-        
-        # Quick buttons for input (1-8)
-        input_quick_frame = ctk.CTkFrame(input_frame)
-        input_quick_frame.pack(pady=5)
-        
-        for i in range(1, 9):
-            btn = ctk.CTkButton(
-                input_quick_frame,
-                text=str(i),
-                width=30,
-                command=lambda ch=i: self._quick_set_channel(ch, "input")
-            )
-            btn.pack(side="left", padx=2)
 
+        # INPUT QUICK BUTTONS
+        self.input_quick_frame = ctk.CTkFrame(input_frame)
+        self.input_quick_frame.pack(pady=5)
+        self._build_quick_buttons(self.input_quick_frame, "input", "12x12")  # Always 12 buttons
         # Compact error display in inner_frame
         self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
         self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
     
+    def _build_quick_buttons(self, parent_frame, switch_type, mesh_size=None):
+        """Build quick buttons - always 12 buttons, 4 per row"""
+        # Remove any existing buttons
+        for widget in parent_frame.winfo_children():
+            widget.destroy()
+        
+        # Always create 12 buttons
+        for i in range(1, 13):  # 1 to 12
+            row = (i - 1) // 4  # 4 buttons per row
+            col = (i - 1) % 4
+            btn = ctk.CTkButton(
+                parent_frame,
+                text=str(i),
+                width=30,
+                command=lambda ch=i: self._quick_set_channel(ch, switch_type)
+            )
+            btn.grid(row=row, column=col, padx=2, pady=2)
+
     def _on_measure_switch_changed(self, value):
         """Show/hide switch channel selection based on measure option"""
         if value == "Yes":
@@ -586,15 +565,13 @@ class Window1Content(ctk.CTkFrame):
         """Parse channel string input to get list of channel numbers."""
         return SwitchMeasurements.parse_switch_channels(channel_string)
 
-    def _set_switch_channel(self, switch_type):
-        """Set the specified switch to the specified channel"""
+    def _get_switch_channel(self, switch_type):
+        """Get the current channel from the specified switch"""
         if switch_type == "output":
             switch = self.switch_output
-            entry = self.output_channel_entry
             status_label = self.output_status_label
         else:  # input
             switch = self.switch_input
-            entry = self.input_channel_entry
             status_label = self.input_status_label
             
         if not switch:
@@ -602,10 +579,34 @@ class Window1Content(ctk.CTkFrame):
             return
             
         try:
-            channel = int(entry.get())
-            if not (1 <= channel <= 12):  # Adjust range based on your switch
-                raise ValueError("Channel must be between 1 and 12")
-                
+            channel = switch.get_channel()
+            if channel is not None:
+                status_label.configure(
+                    text=f"Current Channel: {channel}",
+                    text_color="white"
+                )
+            else:
+                status_label.configure(
+                    text="Failed to read channel",
+                    text_color="red"
+                )
+        except Exception as e:
+            self._show_error(f"Failed to read channel: {e}")
+
+    def _quick_set_channel(self, channel, switch_type):
+        """Quick set channel using numbered buttons"""
+        if switch_type == "output":
+            switch = self.switch_output
+            status_label = self.output_status_label
+        else:  # input
+            switch = self.switch_input
+            status_label = self.input_status_label
+            
+        if not switch:
+            self._show_error(f"{switch_type.capitalize()} switch device not connected")
+            return
+            
+        try:
             # Set the channel
             switch.set_channel(channel)
             
@@ -624,52 +625,8 @@ class Window1Content(ctk.CTkFrame):
                     text_color="red"
                 )
                 
-        except ValueError as e:
-            self._show_error(f"Invalid channel: {e}")
         except Exception as e:
             self._show_error(f"Failed to set channel: {e}")
-
-    def _get_switch_channel(self, switch_type):
-        """Get the current channel from the specified switch"""
-        if switch_type == "output":
-            switch = self.switch_output
-            entry = self.output_channel_entry
-            status_label = self.output_status_label
-        else:  # input
-            switch = self.switch_input
-            entry = self.input_channel_entry
-            status_label = self.input_status_label
-            
-        if not switch:
-            self._show_error(f"{switch_type.capitalize()} switch device not connected")
-            return
-            
-        try:
-            channel = switch.get_channel()
-            if channel is not None:
-                status_label.configure(
-                    text=f"Current Channel: {channel}",
-                    text_color="white"
-                )
-                entry.delete(0, "end")
-                entry.insert(0, str(channel))
-            else:
-                status_label.configure(
-                    text="Failed to read channel",
-                    text_color="red"
-                )
-        except Exception as e:
-            self._show_error(f"Failed to read channel: {e}")
-
-    def _quick_set_channel(self, channel, switch_type):
-        """Quick set channel using numbered buttons"""
-        if switch_type == "output":
-            self.output_channel_entry.delete(0, "end")
-            self.output_channel_entry.insert(0, str(channel))
-        else:  # input
-            self.input_channel_entry.delete(0, "end")
-            self.input_channel_entry.insert(0, str(channel))
-        self._set_switch_channel(switch_type)
 
     def _run_sweep(self):
         """Run MZI Sweep with configurable switch channel measurement"""
