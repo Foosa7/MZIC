@@ -6,11 +6,11 @@ import copy
 from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
 from app.utils.unitary import unitary, mzi_lut, mzi_convention
 from app.utils.appdata import AppData
-from datetime import datetime
+from app.utils.switch_measurements import SwitchMeasurements
 
 class Window3Content(ctk.CTkFrame):
     
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, grid_size = "8x8", **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, switch, grid_size = "8x8", **kwargs):
         super().__init__(master, **kwargs)
         self.channel = channel
         self.fit = fit
@@ -19,6 +19,7 @@ class Window3Content(ctk.CTkFrame):
         self.qontrol = qontrol
         self.thorlabs = thorlabs
         self.daq = daq
+        self.switch = switch
 
         # NxN dimension
         self.n = int(grid_size.split('x')[0])
@@ -122,7 +123,7 @@ class Window3Content(ctk.CTkFrame):
             number_of_steps=_SLIDER_MAX_MS - _SLIDER_MIN_MS,
             command=_slider_moved,
         )
-        self.dwell_slider.set(500)                  # default 500 ms
+        self.dwell_slider.set(1e2)                  # default 100 ms
         self.dwell_slider.grid(row=0, column=0, sticky="ew")
 
         # entry bound to the same StringVar
@@ -142,9 +143,9 @@ class Window3Content(ctk.CTkFrame):
         self.cycle_frame.grid_columnconfigure(1, weight=1)
 
         # ─────────────────────  row 3 – measurement source
-        self.measurement_source = ctk.StringVar(value="DAQ")
+        self.measurement_source = ctk.StringVar(value="Thorlabs")
 
-        ctk.CTkLabel(self.cycle_frame, text="Measure with:")\
+        ctk.CTkLabel(self.cycle_frame, text="Measurement source:")\
             .grid(row=3, column=0, sticky="e", padx=10, pady=4)
 
         measure_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
@@ -167,7 +168,7 @@ class Window3Content(ctk.CTkFrame):
 
         # ─────────────────────  row 5 – Global Phase option
         ctk.CTkLabel(self.cycle_frame, text="Global Phase:").grid(row=5, column=0, sticky="e", padx=10, pady=4)
-        self.global_phase_var = ctk.BooleanVar(value=True)  # Default: enabled
+        self.global_phase_var = ctk.BooleanVar(value=False)  # Default: disabled
         self.global_phase_checkbox = ctk.CTkCheckBox(
             self.cycle_frame,
             text="Enable",
@@ -175,76 +176,93 @@ class Window3Content(ctk.CTkFrame):
         )
         self.global_phase_checkbox.grid(row=5, column=1, sticky="w", padx=10, pady=4)
 
-        # ─────────────────────  row 6 – site selection
-        ctk.CTkLabel(self.cycle_frame, text="Record sites:")\
-            .grid(row=6, column=0, sticky="ne", padx=10, pady=(4, 10))
+        # ─────────────────────  row 6 – Measure using switch
+        ctk.CTkLabel(self.cycle_frame, text="Measure using switch:")\
+            .grid(row=6, column=0, sticky="e", padx=10, pady=4)
 
-        sites_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
-        sites_frame.grid(row=6, column=1, sticky="w", padx=10, pady=(4, 10))
-        self.site_vars = []
-        max_per_row = 4
-
-        try:
-            if self.n == 8:
-                site_range = [str(i) for i in range(7, 15)]  # range 7-14
-            elif self.n == 12:
-                site_range = [str(i) for i in range(3, 15)]  # range 3-14
-            else:
-                site_range = [str(i) for i in range(1, self.n + 1)]  # Default range
-        except Exception as e:
-            print(f"Error generating site range: {e}")
-            site_range = [str(i) for i in range(1, 9)]  # Fallback to a default range (1-8)
-
-        for idx, site in enumerate(site_range):
-            var = ctk.BooleanVar(value=(idx < 2))
-            self.site_vars.append(var)
-            chk = ctk.CTkCheckBox(sites_frame, text=site, variable=var)
-            chk.grid(row=idx // max_per_row, column=idx % max_per_row,
-                 padx=3, pady=3, sticky="w")
-            var.trace_add("write", lambda *_: self._update_cycle_button_state())
-
-        self._update_cycle_button_state()
-
-        # ─────────────────────  row 5 – Switch I/O
-        ctk.CTkLabel(self.cycle_frame, text="Pin I/O:")\
-            .grid(row=7, column=0, sticky="e", padx=10, pady=4)
-
-        switch_io_frame = ctk.CTkFrame(self.cycle_frame, fg_color="transparent")
-        switch_io_frame.grid(row=7, column=1, sticky="w", padx=10, pady=4)
-
-        try:
-            if self.n == 8:
-                pin_range = [str(i) for i in range(7, 15)]  # range 7-14
-            elif self.n == 12:
-                pin_range = [str(i) for i in range(3, 15)]  # range 3-14
-            else:
-                pin_range = [str(i) for i in range(1, self.n + 1)]  # Default range
-        except Exception as e:
-            print(f"Error generating pin range: {e}")
-            pin_range = [str(i) for i in range(1, 9)]  # Fallback to a default range (1-8)
-
-        # Input selection
-        ctk.CTkLabel(switch_io_frame, text="Input:").pack(side="left", padx=5)
-        self.input_var = ctk.StringVar(value=pin_range[-1])  # Default input value
-
-        self.input_dropdown = ctk.CTkOptionMenu(
-            switch_io_frame,
-            variable=self.input_var,
-            values=pin_range,
-            width=60  # Adjust the width to make it narrower
+        self.measure_switch_var = ctk.StringVar(value="No")
+        self.measure_switch_menu = ctk.CTkOptionMenu(
+            self.cycle_frame,
+            variable=self.measure_switch_var,
+            values=["Yes", "No"],
+            command=self._on_measure_switch_changed
         )
-        self.input_dropdown.pack(side="left", padx=10)  # Increased padx for more space
+        self.measure_switch_menu.grid(row=6, column=1, sticky="w", padx=10, pady=4)
 
-        # Output selection
-        ctk.CTkLabel(switch_io_frame, text="Output:").pack(side="left", padx=10)  # Increased padx for more space
-        self.output_var = ctk.StringVar(value=pin_range[0])  # Default output value
-        self.output_dropdown = ctk.CTkOptionMenu(
-            switch_io_frame,
-            variable=self.output_var,
-            values=pin_range,  # Output range 1–12
-            width=60  # Adjust the width to make it narrower
+        # ─────────────────────  row 7 – Switch channels (initially hidden)
+        self.switch_channels_label = ctk.CTkLabel(
+            self.cycle_frame, 
+            text="Switch channels:"
         )
-        self.output_dropdown.pack(side="left", padx=5)
+        self.switch_channels_label.grid(row=7, column=0, sticky="e", padx=10, pady=4)
+
+        self.switch_channels_entry = ctk.CTkEntry(
+            self.cycle_frame,
+            placeholder_text="e.g., 1,2,3,4 or 1-8"
+        )
+        self.switch_channels_entry.insert(0, "1,2,3")  # Default
+        self.switch_channels_entry.grid(row=7, column=1, sticky="ew", padx=10, pady=4)
+
+        # Initially hide the channel selection
+        self.switch_channels_label.grid_remove()
+        self.switch_channels_entry.grid_remove()
+
+        # ──────────────────────────────────────────────────────────────
+        # 3) STATUS DISPLAY
+        # ──────────────────────────────────────────────────────────────
+        self.status_frame = ctk.CTkFrame(
+            self.right_frame, fg_color="#1E1E1E", corner_radius=8
+        )
+        self.status_frame.grid(row=3, column=0, sticky="nsew", padx=10, pady=(0, 10))
+        
+        # Title
+        ctk.CTkLabel(
+            self.status_frame, text="📊 Experiment Status",
+            font=("Segoe UI", 14, "bold")
+        ).pack(anchor="w", padx=10, pady=(8, 4))
+        
+        # Status text display
+        self.status_textbox = ctk.CTkTextbox(
+            self.status_frame,
+            height=150,
+            font=("Consolas", 10),
+            fg_color="#2B2B2B"
+        )
+        self.status_textbox.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        
+        # Configure text tags for colored output
+        self.status_textbox.tag_config("header", foreground="#4A9EFF")
+        self.status_textbox.tag_config("success", foreground="#4CAF50")
+        self.status_textbox.tag_config("error", foreground="#FF5252")
+        self.status_textbox.tag_config("warning", foreground="#FFA726")
+        self.status_textbox.tag_config("info", foreground="#E0E0E0")
+        
+        # Simple text progress bar
+        self.progress_label = ctk.CTkLabel(
+            self.status_frame,
+            text="Progress: [░░░░░░░░░░] 0/0 (0%)",
+            font=("Consolas", 12),
+            anchor="w",
+            text_color="#4CAF50"  
+        )
+        self.progress_label.pack(fill="x", padx=10, pady=(0, 10))
+        
+        # Current measurement display
+        self.measurement_frame = ctk.CTkFrame(
+            self.status_frame,
+            fg_color="#363636",
+            corner_radius=6
+        )
+        self.measurement_frame.pack(fill="x", padx=10, pady=(0, 10))
+        
+        self.measurement_label = ctk.CTkLabel(
+            self.measurement_frame,
+            text="Latest Measurements: Waiting to start...",
+            font=("Segoe UI", 11),
+            anchor="w"
+        )
+        self.measurement_label.pack(fill="x", padx=10, pady=8)
+
         # ──────────────────────────────────────────────────────────────
         # Load any saved unitary into the entry grid
         # ──────────────────────────────────────────────────────────────
@@ -255,6 +273,78 @@ class Window3Content(ctk.CTkFrame):
             self.right_frame, width=600, height=300, wrap="none"
         )
         self.unitary_textbox.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+
+    def update_status(self, message, tag="info"):
+        """Update the status display with a new message"""
+        # Check if we're currently at the bottom before inserting
+        current_position = self.status_textbox.yview()[1]  # Get bottom position of view
+        was_at_bottom = current_position >= 0.99  # Check if we're near the bottom
+        
+        # Insert the new message
+        self.status_textbox.insert("end", f"{message}\n", tag)
+        
+        # Only auto-scroll if we were already at the bottom
+        if was_at_bottom:
+            self.status_textbox.see("end")
+        
+        self.update()
+        
+    def clear_status(self):
+        """Clear the status display"""
+        self.status_textbox.delete("1.0", "end")
+        
+    def update_progress(self, current, total):
+        """Update the progress bar with arrow style"""
+        if total > 0:
+            # Calculate progress
+            percentage = int((current / total) * 100)
+            bar_width = 20  # Total width of the progress bar
+            filled_width = int((current / total) * bar_width)
+            
+            # Create the arrow-style progress bar
+            if filled_width == 0:
+                # No progress yet
+                bar = " " * bar_width
+            elif filled_width >= bar_width:
+                # Complete
+                bar = "=" * bar_width
+            else:
+                # In progress - show arrow
+                bar = "=" * (filled_width - 1) + ">" + " " * (bar_width - filled_width)
+            
+            # Update label
+            progress_text = f"Progress: [{bar}] {percentage}% ({current}/{total})"
+            self.progress_label.configure(text=progress_text)
+            self.update()
+            
+    def update_measurements(self, measurements, labels):
+        """Update the measurement display with latest values"""
+        if measurements and labels:
+            # Format measurements with 3 decimal places
+            formatted = []
+            for label, value in zip(labels, measurements):
+                formatted.append(f"{label}: {value:.3f} µW")
+            
+            # Show up to 4 measurements per line
+            lines = []
+            for i in range(0, len(formatted), 4):
+                lines.append("  |  ".join(formatted[i:i+4]))
+            
+            display_text = "\n".join(lines)
+            self.measurement_label.configure(text=f"Latest Measurements:\n{display_text}")
+        else:
+            self.measurement_label.configure(text="Latest Measurements: No data")
+        self.update()
+
+    # Method to handle switch option changes
+    def _on_measure_switch_changed(self, value):
+        """Show/hide switch channel selection based on measure option"""
+        if value == "Yes":
+            self.switch_channels_label.grid()
+            self.switch_channels_entry.grid()
+        else:
+            self.switch_channels_label.grid_remove()
+            self.switch_channels_entry.grid_remove()
 
     def _read_all_daq_channels(self):
         """
@@ -324,153 +414,256 @@ class Window3Content(ctk.CTkFrame):
             – decompose → apply phases
             – wait/measure for <dwell> ms
             – record power from the selected measurement source
-        3) Save a CSV with one column per *checked* site.
+        3) Save a CSV with measurements from either switch channels or devices directly
         """
         try:
+            # Clear previous status and reset progress
+            self.clear_status()
+            self.progress_label.configure(text="Progress: [░░░░░░░░░░] 0/0 (0%)")  # Reset progress
+            self.measurement_label.configure(text="Latest Measurements: Starting...")
+            
+            # Change button to show it's running
+            self.cycle_unitaries_button.configure(text="Running...", state="disabled")
+            self.update()
+            
+            # Log start
+            self.update_status("🚀 Starting Unitary Cycling Experiment", "header")
+            self.update_status(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", "info")
+            
             # ───────────────────────────────────────────────────────
             # 0.  Read user-selected parameters
             # ───────────────────────────────────────────────────────
-            dwell_ms = float(self.dwell_entry.get())          # milliseconds
+            dwell_ms = float(self.dwell_entry.get())
             dwell_s  = dwell_ms / 1000.0
-            sample_rate          = 1_000                      # 1 kHz
-            samples_per_channel  = int(dwell_s*sample_rate)              # total samples to collect during dwell
+            sample_rate = 1_000
+            samples_per_channel = int(dwell_s*sample_rate)
 
-            use_source = self.measurement_source.get()        # "DAQ" or "Thorlabs"
+            use_source = self.measurement_source.get()
+            use_global_phase = self.global_phase_var.get()
+            use_switch = self.measure_switch_var.get() == "Yes"
+            
+            # Log configuration
+            self.update_status(f"\n⚙️ Configuration:", "header")
+            self.update_status(f"  • Dwell time: {dwell_ms} ms", "info")
+            self.update_status(f"  • Measurement source: {use_source}", "info")
+            self.update_status(f"  • Global phase: {'Enabled' if use_global_phase else 'Disabled'}", "info")
+            self.update_status(f"  • Using switch: {'Yes' if use_switch else 'No'}", "info")
 
-            use_global_phase = self.global_phase_var.get() # True or False
+            # Get switch channels if using switch
+            switch_channels = []
+            measurement_labels = []  # For display
+            
+            if use_switch:
+                if not self.switch:
+                    raise ValueError("Switch device not available but 'Measure using switch' is selected")
+                
+                channel_string = self.switch_channels_entry.get()
+                switch_channels = SwitchMeasurements.parse_switch_channels(channel_string)
+                
+                if not switch_channels:
+                    raise ValueError("No valid switch channels specified")
+                    
+                self.update_status(f"  • Switch channels: {switch_channels}", "info")
+                measurement_labels = [f"Ch{ch}" for ch in switch_channels]
 
-            selected_sites = [i for i, var in enumerate(self.site_vars) if var.get()]
-            if not selected_sites:
-                print("No sites selected – aborting.")
-                return
-
-            # label for CSV columns → ["timestamp", "step", "site1", ...]
-            headers = ["timestamp", "step"] + [f"site{idx+1}" for idx in selected_sites]
+            # Prepare headers based on measurement configuration
+            headers = ["timestamp", "step"]
+            
+            if use_switch:
+                headers.extend(SwitchMeasurements.create_headers_with_switch(switch_channels, "uW"))
+                num_measurements = len(switch_channels)
+            else:
+                # Headers for direct device measurements
+                if use_source == "DAQ":
+                    if self.daq:
+                        daq_channels = self.daq.list_ai_channels()
+                        headers.extend([f"{ch}_uW" for ch in daq_channels])
+                        num_measurements = len(daq_channels)
+                        measurement_labels = daq_channels
+                    else:
+                        self.update_status("❌ No DAQ device available", "error")
+                        return
+                else:  # Thorlabs
+                    if self.thorlabs:
+                        if isinstance(self.thorlabs, list):
+                            num_devices = len(self.thorlabs)
+                        else:
+                            num_devices = 1
+                        headers.extend(SwitchMeasurements.create_headers_thorlabs(num_devices, "uW"))
+                        num_measurements = num_devices
+                        measurement_labels = [f"Thorlabs{i}" for i in range(num_devices)]
+                    else:
+                        self.update_status("❌ No Thorlabs device available", "error")
+                        return
 
             # ───────────────────────────────────────────────────────
             # 1.  Location for the .npy step files
             # ───────────────────────────────────────────────────────
+            self.update_status("\n📁 Select folder with unitary files...", "info")
             folder_path = filedialog.askdirectory(
                 title="Select Folder Containing Unitary Step Files"
             )
             if not folder_path:
-                print("No folder selected. Aborting.")
+                self.update_status("❌ No folder selected. Aborting.", "error")
+                self.cycle_unitaries_button.configure(text="Cycle Unitaries", state="normal")
                 return
 
+            # Use regex to extract numeric suffix from filenames
             npy_files = sorted(
-                [f for f in os.listdir(folder_path)
-                if f.startswith("step_") and f.endswith(".npy")],
-                key=lambda x: int(x.split("_")[1].split(".")[0])
+                [f for f in os.listdir(folder_path) if f.endswith(".npy") and re.search(r"_(\d+)\.npy$", f)],
+                key=lambda x: int(re.search(r"_(\d+)\.npy$", x).group(1))
             )
+
             if not npy_files:
-                print("No unitary step files found in selected folder.")
+                self.update_status("❌ No unitary step files found in selected folder.", "error")
+                self.cycle_unitaries_button.configure(text="Cycle Unitaries", state="normal")
                 return
 
-            results = []   # rows for CSV
+            self.update_status(f"✅ Found {len(npy_files)} unitary files", "success")
+            
+            results = []
+            total_steps = len(npy_files)
 
             # ───────────────────────────────────────────────────────
             # 2.  Iterate through every step_*.npy
             # ───────────────────────────────────────────────────────
+            self.update_status(f"\n🔄 Processing {total_steps} steps...", "header")
+            
             for step_idx, npy_file in enumerate(npy_files, start=1):
                 file_path = os.path.join(folder_path, npy_file)
-                print(f"\n► Processing step {step_idx}: {npy_file}")
+
+                # Current step status
+                self.update_status(f"\n📍 Step {step_idx}/{total_steps}: {npy_file}", "info")
+
+                # Update button to show progress
+                self.cycle_unitaries_button.configure(text=f"Step {step_idx}/{total_steps}")
+                self.update()
 
                 # a) load the unitary + decompose → set heaters
                 try:
+                    self.update_status("  • Loading and decomposing unitary...", "info")
                     U_step = np.load(file_path)
-                    I      = unitary.decomposition(U_step, global_phase=use_global_phase)
-                    bs     = I.BS_list
+                    I = unitary.decomposition(U_step, global_phase=use_global_phase)
+                    bs = I.BS_list
                     mzi_convention.clements_to_chip(bs)
-                    
-                    input_pin = self.input_var.get() if isinstance(self.input_var, ctk.StringVar) else self.input_var
-                    output_pin = self.output_var.get() if isinstance(self.output_var, ctk.StringVar) else self.output_var
-                    json_output = mzi_lut.get_json_output(self.n, bs, input_pin, output_pin)
-                    
+                    json_output = mzi_lut.get_json_output(self.n, bs)
                     setattr(AppData, 'default_json_grid', json_output)
-                    print(AppData.default_json_grid)
+                    self.update_status("  ✓ Decomposition complete", "success")
                 except Exception as e:
-                    print(f"  ✖  Decomposition failed: {e}")
+                    self.update_status(f"  ✖ Decomposition failed: {e}", "error")
                     continue              
 
                 # b) push phases to the chip
+                self.update_status("  • Applying phases to chip...", "info")
                 self.apply_phase_new()
+                self.update_status("  ✓ Phases applied", "success")
+                self.update()
 
-                ### APPLY DWELL TIME 
-                time.sleep(dwell_s)
+                # Dwell time with status
+                self.update_status(f"  • Waiting {dwell_ms} ms...", "info")
+                num_updates = max(1, int(dwell_s * 10))
+                sleep_per_update = dwell_s / num_updates
+                for i in range(num_updates):
+                    time.sleep(sleep_per_update)
+                    self.update()
 
                 # c) measure power
-                site_values = [0.0] * len(selected_sites)
+                self.update_status("  • Measuring power...", "info")
 
-                if use_source == "DAQ":
-                    if self.daq and self.daq.list_ai_channels():
-                        # map site index → DAQ channel; extend if you have more than 8
-                        daq_channels_map = [f"Dev1/ai{ch}" for ch in range(8)]
-                        channels = [daq_channels_map[idx] for idx in selected_sites]
-
-                        try:
-                            readings = self.daq.read_power(
-                                channels=channels,
-                                samples_per_channel=samples_per_channel,
-                                sample_rate=sample_rate,
-                                unit="uW",
-                            )
-                            # average samples if necessary
-                            if isinstance(readings[0], list):
-                                site_values = [sum(s)/len(s) for s in readings]
-                            else:
-                                site_values = readings
-                        except Exception as e:
-                            print(f"  ✖  DAQ read error: {e}")
-                        finally:
+                if use_switch:
+                    thorlabs_device = self.thorlabs[0] if isinstance(self.thorlabs, list) else self.thorlabs
+                    measurement_values = SwitchMeasurements.measure_with_switch(
+                        self.switch, thorlabs_device, switch_channels, "uW"
+                    )
+                else:
+                    if use_source == "DAQ":
+                        if self.daq:
+                            daq_channels = self.daq.list_ai_channels()
                             try:
-                                self.daq.clear_task()
-                            except Exception:
-                                pass
-                    else:
-                        print("  ⚠  No DAQ connected.")
-                else:   # ───── Thorlabs ───────────────────────────
-                    if not self.thorlabs:
-                        print("  ⚠  No Thorlabs device connected.")
-                    else:
-                        device_list = (
-                            self.thorlabs if isinstance(self.thorlabs, list)
-                            else [self.thorlabs]
-                        )
-                        for k, _ in enumerate(site_values):
-                            device = device_list[k] if k < len(device_list) else device_list[0]
-                            try:
-                                site_values[k] = device.read_power(unit="uW")
+                                readings = self.daq.read_power(
+                                    channels=daq_channels,
+                                    samples_per_channel=samples_per_channel,
+                                    sample_rate=sample_rate,
+                                    unit="uW",
+                                )
+                                if readings and isinstance(readings[0], list):
+                                    measurement_values = [sum(s)/len(s) for s in readings]
+                                else:
+                                    measurement_values = readings if readings else []
                             except Exception as e:
-                                print(f"  ✖  Thorlabs read error (site {selected_sites[k]+1}): {e}")
+                                self.update_status(f"  ✖ DAQ read error: {e}", "error")
+                                measurement_values = [0.0] * num_measurements
+                            finally:
+                                try:
+                                    self.daq.clear_task()
+                                except:
+                                    pass
+                        else:
+                            measurement_values = [0.0] * num_measurements
+                    else:  # Thorlabs
+                        measurement_values = SwitchMeasurements.measure_thorlabs_direct(
+                            self.thorlabs, "uW"
+                        )
 
-                # d) collect + show results
+                # Update measurement display (for the live view)
+                self.update_measurements(measurement_values, measurement_labels)
+                self.update_status("  ✓ Measurement complete", "success")
+
+                # Add measurements to the status log
+                if measurement_values and measurement_labels:
+                    # Format measurements inline
+                    formatted_measurements = []
+                    for label, value in zip(measurement_labels, measurement_values):
+                        formatted_measurements.append(f"{label}: {value:.3f} µW")
+                    
+                    # Display measurements in the log
+                    if len(formatted_measurements) <= 4:
+                        # Single line for up to 4 measurements
+                        self.update_status(f"  📊 {' | '.join(formatted_measurements)}", "info")
+                    else:
+                        # Multiple lines for more measurements
+                        self.update_status("  📊 Measurements:", "info")
+                        for i in range(0, len(formatted_measurements), 4):
+                            line_items = formatted_measurements[i:i+4]
+                            self.update_status(f"     {' | '.join(line_items)}", "info")
+
+                # d) collect results
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                row       = [timestamp, step_idx] + site_values
+                row = [timestamp, step_idx] + measurement_values
                 results.append(row)
 
-                summary = "  ".join(
-                    f"Site {s+1}: {v:.3f} µW"
-                    for s, v in zip(selected_sites, site_values)
-                )
-                print("  " + summary)
+                # e) update progress bar
+                self.update_progress(step_idx, total_steps)
+                self.update()
 
             # ───────────────────────────────────────────────────────
             # 3.  Save CSV & reset chip
             # ───────────────────────────────────────────────────────
             if results:
-                self._export_results_to_csv(results, headers)
-                print("\n✔  Finished cycling unitaries.")
-
+                self.update_status("\n💾 Saving results...", "header")
+                saved_path = self._export_results_to_csv(results, headers)
+                if saved_path: 
+                    self.update_status("✅ Results saved successfully!", "success")
+                    self.update_status(f"📁 Saved to: {saved_path}", "info")
+                else:
+                    self.update_status("\n⚠️ Results were not saved.", "warning")
+                self.update_status("\n🔄 Resetting chip to zero...", "info")
                 zero_cfg = self._create_zero_config()
                 apply_grid_mapping(self.qontrol, zero_cfg, self.grid_size)
-                print("✔  All heaters reset to zero.")
-
+                self.update_status("✅ Chip reset complete", "success")
+                
+                self.update_status(f"\n🎉 Experiment complete! Processed {len(results)} steps.", "success")
             else:
-                print("\n⚠  No results collected.")
+                self.update_status("\n⚠️ No results collected.", "warning")
 
         except Exception as e:
-            print(f"Experiment failed: {e}")
-            import traceback; traceback.print_exc()
+            self.update_status(f"\n❌ Experiment failed: {e}", "error")
+            import traceback
+            self.update_status(traceback.format_exc(), "error")
+        finally:
+            # Always restore button state
+            self.cycle_unitaries_button.configure(text="Cycle Unitaries", state="normal")
+            self.update_status(f"\nFinished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", "info")
 
     # ──────────────────────────────────────────────────────────────
     # helper: save the results table to a CSV file
@@ -488,7 +681,7 @@ class Window3Content(ctk.CTkFrame):
         """
         if not rows:
             print("Nothing to export – no rows provided.")
-            return
+            return None
 
         # default file name: cycle_results_YYYYmmdd_HHMMSS.csv
         default_name = f"cycle_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
@@ -501,7 +694,7 @@ class Window3Content(ctk.CTkFrame):
         )
         if not path:        # user pressed Cancel
             print("Export cancelled.")
-            return
+            return None
 
         try:
             import csv
@@ -510,10 +703,10 @@ class Window3Content(ctk.CTkFrame):
                 writer.writerow(headers)
                 writer.writerows(rows)
             print(f"Results successfully saved to: {path}")
+            return path
         except Exception as e:
             print(f"Failed to write CSV: {e}")
-
-
+            return None
 
     def _create_zero_config(self):
         """Create a configuration with all theta and phi values set to zero"""
@@ -834,9 +1027,7 @@ class Window3Content(ctk.CTkFrame):
             mzi_convention.clements_to_chip(bs_list)
 
             # Update the AppData with the new JSON output
-            input_pin = int(self.input_var.get())
-            output_pin = int(self.output_var.get())
-            json_output = mzi_lut.get_json_output(self.n, bs_list, input_pin, output_pin)
+            json_output = mzi_lut.get_json_output(self.n, bs_list)
             print(json_output)
 
             # Save the updated JSON to AppData

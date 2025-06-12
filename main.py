@@ -8,7 +8,7 @@ import serial.tools.list_ports
 
 SETTINGS_PATH = os.path.join(os.path.dirname(__file__), "config", "settings.json")
 
-def initialize_switch(port=None):
+def initialize_switch(port=None, switch_name="Switch"):
     """Initialize switch device with auto-detection or specified port"""
     if port:
         try:
@@ -16,10 +16,10 @@ def initialize_switch(port=None):
             # Test connection
             channel = switch.get_channel()
             if channel is not None:
-                print(f"[INFO][Switch] Connected to {port}, current channel: {channel}")
+                print(f"[INFO][{switch_name}] Connected to {port}, current channel: {channel}")
                 return switch
         except Exception as e:
-            print(f"[ERROR][Switch] Failed to connect to {port}: {e}")
+            print(f"[ERROR][{switch_name}] Failed to connect to {port}: {e}")
             return None
     else:
         # Auto-detect switch
@@ -29,12 +29,95 @@ def initialize_switch(port=None):
                 switch = Switch(port_info.device)
                 channel = switch.get_channel()
                 if channel is not None:
-                    print(f"[INFO][Switch] Auto-detected on {port_info.device}")
+                    print(f"[INFO][{switch_name}] Auto-detected on {port_info.device}")
                     return switch
             except:
                 continue
-        print("[WARNING][Switch] No switch device detected")
+        print(f"[WARNING][{switch_name}] No switch device detected")
         return None
+
+def initialize_dual_switches(config):
+    """Initialize both input and output switches based on configuration"""
+    # Get switch ports from config or use defaults
+    input_port = config.get("switch_input_port", None)
+    output_port = config.get("switch_output_port", None)
+    
+    switch_input = None
+    switch_output = None
+    used_ports = []  # Track which ports are already in use
+    
+    # If ports are not specified in config, try to auto-detect
+    if not input_port and not output_port:
+        print("[INFO] Auto-detecting switches...")
+        ports = serial.tools.list_ports.comports()
+        available_ports = [p.device for p in ports]
+        
+        # Common port patterns for switches
+        switch_ports = []
+        for port in available_ports:
+            if "COM" in port or "ttyUSB" in port or "tty.usbserial" in port:
+                switch_ports.append(port)
+        
+        print(f"[INFO] Found potential switch ports: {switch_ports}")
+        
+        # Try to assign switches to available ports
+        for port in switch_ports:
+            if port in used_ports:
+                continue
+                
+            # Try to connect to this port
+            try:
+                test_switch = Switch(port)
+                channel = test_switch.get_channel()
+                if channel is not None:
+                    # Successfully connected
+                    if not switch_output:  # Assign first working port to output
+                        switch_output = test_switch
+                        used_ports.append(port)
+                        print(f"[INFO][Output Switch] Connected to {port}, current channel: {channel}")
+                    elif not switch_input:  # Assign second working port to input
+                        switch_input = test_switch
+                        used_ports.append(port)
+                        print(f"[INFO][Input Switch] Connected to {port}, current channel: {channel}")
+                    else:
+                        # Both switches assigned, close this connection
+                        test_switch = None
+                        break
+            except Exception as e:
+                print(f"[ERROR] Failed to connect to {port}: {e}")
+                continue
+    else:
+        # Use specified ports
+        if output_port:
+            switch_output = initialize_switch(output_port, "Output Switch")
+            if switch_output:
+                used_ports.append(output_port)
+        
+        if input_port and input_port not in used_ports:
+            switch_input = initialize_switch(input_port, "Input Switch")
+            if switch_input:
+                used_ports.append(input_port)
+    
+    # If we still don't have both switches, try additional ports
+    if not switch_input or not switch_output:
+        additional_ports = ["COM3", "COM4", "COM5", "COM6", "COM7", "/dev/ttyUSB0", "/dev/ttyUSB1"]
+        
+        for port in additional_ports:
+            if port in used_ports:
+                continue
+                
+            if not switch_output:
+                switch_output = initialize_switch(port, "Output Switch")
+                if switch_output:
+                    used_ports.append(port)
+                    continue
+                    
+            if not switch_input:
+                switch_input = initialize_switch(port, "Input Switch")
+                if switch_input:
+                    used_ports.append(port)
+    
+    return switch_input, switch_output
 
 def main():
 
@@ -113,11 +196,22 @@ def main():
         print("[INFO][DAQ] NI-DAQmx not found, using mock NI-DAQ device.")
         daq = MockDAQ()
 
-    # Initialize switch - try auto-detect first, then specific port
-    switch = initialize_switch() or initialize_switch("COM5")
+    # Initialize switches
+    switch_input, switch_output = initialize_dual_switches(config)
+
+    # Print switch status
+    print("\n[INFO] Switch Configuration:")
+    print(f"  Input Switch: {'Connected' if switch_input else 'Not connected'}")
+    print(f"  Output Switch: {'Connected' if switch_output else 'Not connected'}")
+
+    # For backward compatibility - if only one switch is connected, use it as output
+    if not switch_output and switch_input:
+        print("[INFO] Only one switch detected, using it as output switch")
+        switch_output = switch_input
+        switch_input = None
 
     # Start the GUI application (you'll need to modify your MainWindow to handle multiple power meters)
-    app = MainWindow(qontrol, thorlabs_devices, daq, switch, config)
+    app = MainWindow(qontrol, thorlabs_devices, daq, switch_input, switch_output, config)
     app.mainloop()
 
     # Disconnect devices on exit

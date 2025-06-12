@@ -14,7 +14,7 @@ from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mappin
 from collections import defaultdict
 from typing import Dict, Any
 from scipy import optimize
-from app.devices.switch_device import Switch
+from app.utils.switch_measurements import SwitchMeasurements
 
 class Window1Content(ctk.CTkFrame):
     ### Define the callbacks for the interpolation functionality and update the label###
@@ -44,15 +44,13 @@ class Window1Content(ctk.CTkFrame):
             self.interpolated_theta_label.configure(text="")
         ######
 
-
-
-
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, switch, phase_selector=None, grid_size="8x8", **kwargs):
+    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, switch_input, switch_output, phase_selector=None, grid_size="8x8", **kwargs):
         super().__init__(master, **kwargs)
         self.qontrol = qontrol
         self.thorlabs = thorlabs
         self.daq = daq   
-        self.switch = switch     
+        self.switch_input = switch_input 
+        self.switch_output = switch_output  
         self.grid_size = grid_size
         self.after_id = None
         self.control_panel = None  
@@ -426,7 +424,7 @@ class Window1Content(ctk.CTkFrame):
         dwell_label.grid(row=5, column=0, padx=(10, 5), pady=5, sticky="w")
         
         self.sweep_dwell_entry = ctk.CTkEntry(sweep_tab, placeholder_text="1e2")
-        self.sweep_dwell_entry.insert(0, "1e2")  # Default to 100 ms (0.1 second)
+        self.sweep_dwell_entry.insert(0, "1e2")  # Default to 100 ms 
         self.sweep_dwell_entry.grid(row=5, column=1, padx=(5, 10), pady=5, sticky="ew")
 
         # Row 6: Measure using switch
@@ -471,61 +469,90 @@ class Window1Content(ctk.CTkFrame):
         self.sweep_run_button.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky="ew")
 
         ### Switch tab ###
-        switch_tab = notebook.add("Switch")
+        switch_tab = notebook.add("Switches")  
         switch_tab.grid_columnconfigure(0, weight=1)
         switch_tab.grid_columnconfigure(1, weight=1)
 
-        # Row 0: Channel selection
-        channel_label = ctk.CTkLabel(switch_tab, text="Channel:")
-        channel_label.grid(row=0, column=0, padx=(10, 5), pady=(10, 5), sticky="w")
+        # Create frames for each switch
+        output_frame = ctk.CTkFrame(switch_tab)
+        output_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
-        self.switch_channel_entry = ctk.CTkEntry(switch_tab, placeholder_text="1-12")
-        self.switch_channel_entry.grid(row=0, column=1, padx=(5, 10), pady=(10, 5), sticky="ew")
+        input_frame = ctk.CTkFrame(switch_tab)
+        input_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 
-        # Row 1: Set channel button
-        self.switch_set_button = ctk.CTkButton(
-            switch_tab,
-            text="Set Channel",
-            command=self._set_switch_channel
-        )
-        self.switch_set_button.grid(row=1, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
+        # OUTPUT SWITCH CONTROLS
+        output_header = ctk.CTkLabel(output_frame, text="Output Switch", 
+                                font=("TkDefaultFont", 14, "bold"))
+        output_header.pack(pady=(5, 10))
 
-        # Row 2: Get current channel button
-        self.switch_get_button = ctk.CTkButton(
-            switch_tab,
+        # Buttons for output switch
+        self.output_get_button = ctk.CTkButton(
+            output_frame,
             text="Get Current Channel",
-            command=self._get_switch_channel
+            command=lambda: self._get_switch_channel("output")
         )
-        self.switch_get_button.grid(row=2, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
+        self.output_get_button.pack(pady=5)
 
-        # Row 3: Current channel display
-        self.switch_status_label = ctk.CTkLabel(
-            switch_tab, 
+        # Status label for output
+        self.output_status_label = ctk.CTkLabel(
+            output_frame, 
             text="Current Channel: Unknown",
-            font=("TkDefaultFont", 12, "bold")
+            font=("TkDefaultFont", 11, "bold")
         )
-        self.switch_status_label.grid(row=3, column=0, columnspan=2, padx=10, pady=(10, 5), sticky="ew")
+        self.output_status_label.pack(pady=(10, 5))
 
-        # Row 4: Quick channel buttons (1-8)
-        quick_frame = ctk.CTkFrame(switch_tab, fg_color="transparent")
-        quick_frame.grid(row=4, column=0, columnspan=2, padx=10, pady=(10, 5), sticky="ew")
+        # OUTPUT QUICK BUTTONS
+        self.output_quick_frame = ctk.CTkFrame(output_frame)
+        self.output_quick_frame.pack(pady=5)
+        self._build_quick_buttons(self.output_quick_frame, "output", "12x12")  # Always 12 buttons
 
-        quick_label = ctk.CTkLabel(quick_frame, text="Quick Select:")
-        quick_label.pack(side="left", padx=(0, 10))
+        # INPUT SWITCH CONTROLS
+        input_header = ctk.CTkLabel(input_frame, text="Input Switch", 
+                                font=("TkDefaultFont", 14, "bold"))
+        input_header.pack(pady=(5, 10))
 
-        for i in range(1, 9):
-            btn = ctk.CTkButton(
-                quick_frame,
-                text=str(i),
-                width=30,
-                command=lambda ch=i: self._quick_set_channel(ch)
-            )
-            btn.pack(side="left", padx=2)
+        # Buttons for input switch
+        self.input_get_button = ctk.CTkButton(
+            input_frame,
+            text="Get Current Channel",
+            command=lambda: self._get_switch_channel("input")
+        )
+        self.input_get_button.pack(pady=5)
 
+        # Status label for input
+        self.input_status_label = ctk.CTkLabel(
+            input_frame, 
+            text="Current Channel: Unknown",
+            font=("TkDefaultFont", 11, "bold")
+        )
+        self.input_status_label.pack(pady=(10, 5))
+
+        # INPUT QUICK BUTTONS
+        self.input_quick_frame = ctk.CTkFrame(input_frame)
+        self.input_quick_frame.pack(pady=5)
+        self._build_quick_buttons(self.input_quick_frame, "input", "12x12")  # Always 12 buttons
         # Compact error display in inner_frame
         self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
         self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
     
+    def _build_quick_buttons(self, parent_frame, switch_type, mesh_size=None):
+        """Build quick buttons - always 12 buttons, 4 per row"""
+        # Remove any existing buttons
+        for widget in parent_frame.winfo_children():
+            widget.destroy()
+        
+        # Always create 12 buttons
+        for i in range(1, 13):  # 1 to 12
+            row = (i - 1) // 4  # 4 buttons per row
+            col = (i - 1) % 4
+            btn = ctk.CTkButton(
+                parent_frame,
+                text=str(i),
+                width=30,
+                command=lambda ch=i: self._quick_set_channel(ch, switch_type)
+            )
+            btn.grid(row=row, column=col, padx=2, pady=2)
+
     def _on_measure_switch_changed(self, value):
         """Show/hide switch channel selection based on measure option"""
         if value == "Yes":
@@ -536,107 +563,71 @@ class Window1Content(ctk.CTkFrame):
             self.switch_channels_entry.grid_remove()
 
     def _parse_switch_channels(self, channel_string):
-        """
-        Parse channel string input to get list of channel numbers.
-        Supports formats like "1,2,3,4" or "1-4" or "1-4,7,9-12"
-        
-        Args:
-            channel_string (str): User input for channels
-            
-        Returns:
-            list: List of channel numbers
-        """
-        channels = []
-        
-        try:
-            # Split by comma first
-            parts = channel_string.replace(" ", "").split(",")
-            
-            for part in parts:
-                if "-" in part:
-                    # Handle range like "1-4"
-                    start, end = part.split("-")
-                    channels.extend(range(int(start), int(end) + 1))
-                else:
-                    # Handle single channel
-                    channels.append(int(part))
-            
-            # Remove duplicates and sort
-            channels = sorted(list(set(channels)))
-            
-            # Validate channel numbers (assuming 1-12 for your switch)
-            valid_channels = [ch for ch in channels if 1 <= ch <= 12]
-            
-            if len(valid_channels) != len(channels):
-                print(f"Warning: Some channels were out of range (1-12). Using: {valid_channels}")
-                
-            return valid_channels
-            
-        except Exception as e:
-            raise ValueError(f"Invalid channel format: {channel_string}. Use format like '1,2,3,4' or '1-8'")
+        """Parse channel string input to get list of channel numbers."""
+        return SwitchMeasurements.parse_switch_channels(channel_string)
 
-    def _set_switch_channel(self):
-        """Set the switch to the specified channel"""
-        if not self.switch:
-            self._show_error("Switch device not connected")
+    def _get_switch_channel(self, switch_type):
+        """Get the current channel from the specified switch"""
+        if switch_type == "output":
+            switch = self.switch_output
+            status_label = self.output_status_label
+        else:  # input
+            switch = self.switch_input
+            status_label = self.input_status_label
+            
+        if not switch:
+            self._show_error(f"{switch_type.capitalize()} switch device not connected")
             return
             
         try:
-            channel = int(self.switch_channel_entry.get())
-            if not (1 <= channel <= 12):  # Adjust range based on your switch
-                raise ValueError("Channel must be between 1 and 12")
-                
-            # Set the channel
-            self.switch.set_channel(channel)
-            
-            # Verify it was set
-            time.sleep(0.1)  # Small delay
-            current = self.switch.get_channel()
-            
-            if current == channel:
-                self.switch_status_label.configure(
-                    text=f"Current Channel: {current} ✓",
-                    text_color="green"
-                )
-            else:
-                self.switch_status_label.configure(
-                    text=f"Current Channel: {current} (Failed to set {channel})",
-                    text_color="red"
-                )
-                
-        except ValueError as e:
-            self._show_error(f"Invalid channel: {e}")
-        except Exception as e:
-            self._show_error(f"Failed to set channel: {e}")
-
-    def _get_switch_channel(self):
-        """Get the current channel from the switch"""
-        if not self.switch:
-            self._show_error("Switch device not connected")
-            return
-            
-        try:
-            channel = self.switch.get_channel()
+            channel = switch.get_channel()
             if channel is not None:
-                self.switch_status_label.configure(
+                status_label.configure(
                     text=f"Current Channel: {channel}",
                     text_color="white"
                 )
-                self.switch_channel_entry.delete(0, "end")
-                self.switch_channel_entry.insert(0, str(channel))
             else:
-                self.switch_status_label.configure(
+                status_label.configure(
                     text="Failed to read channel",
                     text_color="red"
                 )
         except Exception as e:
             self._show_error(f"Failed to read channel: {e}")
 
-    def _quick_set_channel(self, channel):
+    def _quick_set_channel(self, channel, switch_type):
         """Quick set channel using numbered buttons"""
-        self.switch_channel_entry.delete(0, "end")
-        self.switch_channel_entry.insert(0, str(channel))
-        self._set_switch_channel()
+        if switch_type == "output":
+            switch = self.switch_output
+            status_label = self.output_status_label
+        else:  # input
+            switch = self.switch_input
+            status_label = self.input_status_label
+            
+        if not switch:
+            self._show_error(f"{switch_type.capitalize()} switch device not connected")
+            return
+            
+        try:
+            # Set the channel
+            switch.set_channel(channel)
+            
+            # Verify it was set
+            time.sleep(0.1)  # Small delay
+            current = switch.get_channel()
+            
+            if current == channel:
+                status_label.configure(
+                    text=f"Current Channel: {current} ✓",
+                    text_color="green"
+                )
+            else:
+                status_label.configure(
+                    text=f"Current Channel: {current} (Failed to set {channel})",
+                    text_color="red"
+                )
+                
+        except Exception as e:
+            self._show_error(f"Failed to set channel: {e}")
 
     def _run_sweep(self):
         """Run MZI Sweep with configurable switch channel measurement"""
@@ -659,8 +650,8 @@ class Window1Content(ctk.CTkFrame):
             
             # Get switch channels if using switch
             if use_switch:
-                if not self.switch:
-                    raise ValueError("Switch device not available but 'Measure using switch' is selected")
+                if not self.switch_output:
+                    raise ValueError("Output switch device not available but 'Measure using switch' is selected")
                 
                 # Parse user-specified channels
                 channel_string = self.switch_channels_entry.get()
@@ -741,15 +732,17 @@ class Window1Content(ctk.CTkFrame):
         headers = ["timestamp", "step", f"{parameter}_pi_units"]
         
         if use_switch:
-            # Use the user-specified channels stored in self.switch_channels
-            for ch in self.switch_channels:
-                headers.append(f"ch{ch}_{self.selected_unit}")
+            # Use the shared module to create headers
+            headers.extend(SwitchMeasurements.create_headers_with_switch(
+                self.switch_channels, self.selected_unit
+            ))
         else:
             # Headers for direct Thorlabs measurements
             if self.thorlabs:
                 devices = self.thorlabs if isinstance(self.thorlabs, list) else [self.thorlabs]
-                for i in range(len(devices)):
-                    headers.append(f"thorlabs{i}_{self.selected_unit}")
+                headers.extend(SwitchMeasurements.create_headers_thorlabs(
+                    len(devices), self.selected_unit
+                ))
         
         return headers
 
@@ -770,53 +763,16 @@ class Window1Content(ctk.CTkFrame):
 
     def _measure_with_switch(self):
         """Measure power using the optical switch for specified channels only"""
-        measurements = []
-        
-        if not self.switch or not self.thorlabs:
-            print("    Error: Switch or Thorlabs device not available")
-            return measurements
-        
         # Get the first Thorlabs device (connected to switch output)
         thorlabs_device = self.thorlabs[0] if isinstance(self.thorlabs, list) else self.thorlabs
         
-        # Measure only the specified switch channels
-        for channel in self.switch_channels:
-            try:
-                # Set switch to channel
-                self.switch.set_channel(channel)
-                
-                # Small delay to allow switch to settle
-                time.sleep(0.05)  # 50ms settling time
-                
-                # Read power
-                power = thorlabs_device.read_power(unit=self.selected_unit)
-                measurements.append(power)
-                
-            except Exception as e:
-                print(f"    Error measuring channel {channel}: {e}")
-                measurements.append(0.0)
-        
-        return measurements
+        return SwitchMeasurements.measure_with_switch(
+            self.switch_output, thorlabs_device, self.switch_channels, self.selected_unit
+    )
 
     def _measure_thorlabs_direct(self):
         """Measure power directly from Thorlabs devices (no switch)"""
-        measurements = []
-        
-        if not self.thorlabs:
-            print("    Error: No Thorlabs devices available")
-            return measurements
-        
-        devices = self.thorlabs if isinstance(self.thorlabs, list) else [self.thorlabs]
-        
-        for i, device in enumerate(devices):
-            try:
-                power = device.read_power(unit=self.selected_unit)
-                measurements.append(power)
-            except Exception as e:
-                print(f"    Error reading Thorlabs {i}: {e}")
-                measurements.append(0.0)
-        
-        return measurements
+        return SwitchMeasurements.measure_thorlabs_direct(self.thorlabs, self.selected_unit)
 
     def _print_sweep_measurements(self, measurements, use_switch):
         """Print measurements to console"""

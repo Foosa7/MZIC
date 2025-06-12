@@ -97,7 +97,7 @@ def map_bs_list(n, bs_list):
     
     return mapping
 
-def get_json_output(n, bs_list, input_pin, output_pin):
+def get_json_output(n, bs_list):
     """
     Generate JSON output with additional metadata and formatted theta/phi values.
     """
