@@ -415,7 +415,7 @@ class Window3Content(ctk.CTkFrame):
         except Exception as e:
             print(f"[ERROR] Failed to update JSON grid for package {package}: {e}")
 
-    self.decomposition_package_var.trace_add("write", _on_package_changed)
+    #self.decomposition_package_var.trace_add("write", _on_package_changed)
     
     
     
