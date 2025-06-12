@@ -33,7 +33,7 @@ class Window3Content(ctk.CTkFrame):
         self.right_frame.grid(row=0, column=0, sticky='nsew', padx=5, pady=5)
 
         # Create a Tabview
-        self.tabview = ctk.CTkTabview(self.right_frame, width=600, height=300)
+        self.tabview = ctk.CTkTabview(self.right_frame, width=900, height=300)
         self.tabview.grid(row=0, column=0, sticky='nsew', padx=10, pady=10)
 
         # Add a tab for a unitary matrix
@@ -78,7 +78,16 @@ class Window3Content(ctk.CTkFrame):
             command=self.cycle_unitaries, width=140, height=32
         )
         self.cycle_unitaries_button.grid(row=1, column=0, padx=10, pady=4, sticky="w")
-
+        
+        # Interpolation toggle 
+        self.interpolation_var = ctk.BooleanVar(value=getattr(AppData, "interpolation_enabled", False))
+        self.interpolation_checkbox = ctk.CTkCheckBox(
+            self.cycle_frame,
+            text="Interpolation",
+            variable=self.interpolation_var,
+            command=self._on_interpolation_toggle
+        )
+        self.interpolation_checkbox.grid(row=1, column=2, columnspan=2,  padx=(10, 0), pady=4)
         # ─────────────────────  row – dwell-time (ms)
         ctk.CTkLabel(self.cycle_frame, text="Dwell Time (ms):")\
             .grid(row=2, column=0, sticky="e", padx=10, pady=4)
@@ -88,7 +97,8 @@ class Window3Content(ctk.CTkFrame):
         dwell_time_frame.grid_columnconfigure(0, weight=1)
 
         # shared state
-        self.dwell_var = ctk.StringVar(value="500")   # milliseconds
+        #self.dwell_var = ctk.StringVar(value="500")   # milliseconds
+        self.dwell_var = ctk.StringVar(value=getattr(AppData, "dwell_time", "500"))
         _SLIDER_MIN_MS = 1
         _SLIDER_MAX_MS = 5_000
         self._dwell_lock = False                      # recursion guard
@@ -99,6 +109,7 @@ class Window3Content(ctk.CTkFrame):
             self._dwell_lock = True
             self.dwell_var.set(f"{int(value_ms)}")    # keep as ms
             self._dwell_lock = False
+            AppData.dwell_time = self.dwell_var.get()  # Save to AppData
 
         def _entry_changed(*_):
             if self._dwell_lock:
@@ -143,8 +154,12 @@ class Window3Content(ctk.CTkFrame):
         self.cycle_frame.grid_columnconfigure(1, weight=1)
 
         # ─────────────────────  row 3 – measurement source
-        self.measurement_source = ctk.StringVar(value="Thorlabs")
-
+        #self.measurement_source = ctk.StringVar(value="Thorlabs")
+        self.measurement_source = ctk.StringVar(value=getattr(AppData, "measurement_source", "Thorlabs"))
+        def _measurement_source_changed(*args):
+            AppData.measurement_source = self.measurement_source.get()
+        self.measurement_source.trace_add("write", _measurement_source_changed)
+        
         ctk.CTkLabel(self.cycle_frame, text="Measurement source:")\
             .grid(row=3, column=0, sticky="e", padx=10, pady=4)
 
@@ -158,17 +173,28 @@ class Window3Content(ctk.CTkFrame):
 
         # ─────────────────────  row 4 – Package option
         ctk.CTkLabel(self.cycle_frame, text="Package:").grid(row=4, column=0, sticky="e", padx=10, pady=4)
-        self.decomposition_package_var = ctk.StringVar(value="interferometer")  # Default value
+        #self.decomposition_package_var = ctk.StringVar(value="pnn")  # Default value
+        self.decomposition_package_var = ctk.StringVar(
+            value=getattr(AppData, "decomposition_package", "pnn")
+        )
         self.decomposition_package_dropdown = ctk.CTkOptionMenu(
             self.cycle_frame,
             variable=self.decomposition_package_var,
             values=["interferometer", "pnn"]
         )
         self.decomposition_package_dropdown.grid(row=4, column=1, sticky="ew", padx=10, pady=4)
-
+        def on_package_changed(*args):
+            AppData.decomposition_package = self.decomposition_package_var.get()
+        self.decomposition_package_var.trace_add("write", on_package_changed)
         # ─────────────────────  row 5 – Global Phase option
         ctk.CTkLabel(self.cycle_frame, text="Global Phase:").grid(row=5, column=0, sticky="e", padx=10, pady=4)
-        self.global_phase_var = ctk.BooleanVar(value=False)  # Default: disabled
+        #self.global_phase_var = ctk.BooleanVar(value=False)  # Default: disabled
+        
+        self.global_phase_var = ctk.BooleanVar(value=getattr(AppData, "global_phase", False))
+        def on_global_phase_changed(*args):
+            AppData.global_phase = self.global_phase_var.get()
+        self.global_phase_var.trace_add("write", on_global_phase_changed)
+        
         self.global_phase_checkbox = ctk.CTkCheckBox(
             self.cycle_frame,
             text="Enable",
@@ -180,7 +206,12 @@ class Window3Content(ctk.CTkFrame):
         ctk.CTkLabel(self.cycle_frame, text="Measure using switch:")\
             .grid(row=6, column=0, sticky="e", padx=10, pady=4)
 
-        self.measure_switch_var = ctk.StringVar(value="No")
+        #self.measure_switch_var = ctk.StringVar(value="No")
+        self.measure_switch_var = ctk.StringVar(value=getattr(AppData, "measure_switch", "No"))
+        def on_measure_switch_changed_var(*args):
+            AppData.measure_switch = self.measure_switch_var.get()
+        self.measure_switch_var.trace_add("write", on_measure_switch_changed_var)
+        
         self.measure_switch_menu = ctk.CTkOptionMenu(
             self.cycle_frame,
             variable=self.measure_switch_var,
@@ -270,10 +301,143 @@ class Window3Content(ctk.CTkFrame):
 
         # Add a text box to display the matrix
         self.unitary_textbox = ctk.CTkTextbox(
-            self.right_frame, width=600, height=300, wrap="none"
+            self.right_frame, width=900, height=300, wrap="none"
         )
         self.unitary_textbox.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        # 从 AppData 中加载记忆的内容
+        if getattr(AppData, "unitary_textbox_content", None):
+            self.unitary_textbox.insert("1.0", AppData.unitary_textbox_content)
+    
+    # def _on_interpolation_toggle(self):
+    #     AppData.interpolation_enabled = self.interpolation_var.get()
+    #     if AppData.interpolation_enabled:
+    #         if AppData.interpolated_theta:
+    #             # If interpolation is already done, just update the status
+    #             self.update_status("Interpolation already performed. Using cached values.", "info")
+    #             return
 
+
+    #         # Only 6 special nodes are interpolated
+    #         special_nodes = ["E1", "F1", "G1", "H1", "E2", "G2"]
+    #         from tests.interpolation.data import Reader_interpolation as reader
+    #         interpolated = {}
+    #         # 读取当前 AppData.default_json_grid
+    #         json_grid = AppData.default_json_grid
+    #         for node in special_nodes:
+    #             try:
+    #                 # 读取原始theta
+    #                 theta_val = float(json_grid[node]['theta'])
+    #                 reader.load_sweep_file(f"{node}_theta_200_steps.csv")
+    #                 interpolated_theta = reader.theta_trans(theta_val * np.pi, reader.theta, reader.theta_corrected)/np.pi
+    #                 interpolated[node] = interpolated_theta
+    #                 # 直接修改 AppData.default_json_grid 里的 theta
+    #                 json_grid[node]['theta'] = str(interpolated_theta)
+    #             except Exception as e:
+    #                 print(f"Interpolation failed for {node}: {e}")
+    #         AppData.interpolated_theta = interpolated
+    #     else:
+    #         AppData.interpolated_theta = {}
+
+    def _on_interpolation_toggle(self):
+        AppData.interpolation_enabled = self.interpolation_var.get()
+        if AppData.interpolation_enabled:
+            if AppData.interpolated_theta:
+                # 如果已经插值过，直接返回
+                return
+
+            # 只对6个special nodes做插值
+            special_nodes = ["E1", "F1", "G1", "H1", "E2", "G2"]
+            from tests.interpolation.data import Reader_interpolation as reader
+            interpolated = {}
+            # 读取当前 AppData.default_json_grid
+            json_grid = AppData.default_json_grid
+            for node in special_nodes:
+                try:
+                    # 读取原始theta
+                    theta_val = float(json_grid[node]['theta'])
+                    reader.load_sweep_file(f"{node}_theta_200_steps.csv")
+                    interpolated_theta = reader.theta_trans(theta_val * np.pi, reader.theta, reader.theta_corrected) / np.pi
+                    interpolated[node] = interpolated_theta
+                    # 直接修改 AppData.default_json_grid 里的 theta
+                    json_grid[node]['theta'] = str(interpolated_theta)
+                except Exception as e:
+                    print(f"Interpolation failed for {node}: {e}")
+            AppData.interpolated_theta = interpolated
+        else:
+            # 如果禁用 Interpolation，重新基于 unitary_textbox 的矩阵分解更新 JSON
+            try:
+                # 从 unitary_textbox 中读取矩阵
+                matrix_u = self._read_matrix_from_textbox()
+                # 根据当前 package 选择分解方法
+                package = self.decomposition_package_var.get()
+                if package == "pnn":
+                    from pnn.methods import decompose_clements
+                    [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
+                    A_theta *= 2 / np.pi
+                    A_phi += np.pi
+                    A_phi = A_phi % (2 * np.pi)
+                    A_phi /= np.pi
+                    json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+                elif package == "interferometer":
+                    I = unitary.decomposition(matrix_u, global_phase=self.global_phase_var.get())
+                    bs_list = I.BS_list
+                    mzi_convention.clements_to_chip(bs_list)
+                    json_output = mzi_lut.get_json_output(self.n, bs_list)
+                # 更新 AppData.default_json_grid
+                AppData.default_json_grid = json_output
+            except Exception as e:
+                print(f"Failed to reset JSON grid after disabling interpolation: {e}")
+            AppData.interpolated_theta = {}
+
+    def _on_package_changed(*args):
+        AppData.decomposition_package = self.decomposition_package_var.get()
+        try:
+            # 从 unitary_textbox 中读取矩阵
+            matrix_u = self._read_matrix_from_textbox()
+            # 根据当前 package 选择分解方法
+            package = self.decomposition_package_var.get()
+            if package == "pnn":
+                from pnn.methods import decompose_clements
+                [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
+                A_theta *= 2 / np.pi
+                A_phi += np.pi
+                A_phi = A_phi % (2 * np.pi)
+                A_phi /= np.pi
+                json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+            elif package == "interferometer":
+                I = unitary.decomposition(matrix_u, global_phase=self.global_phase_var.get())
+                bs_list = I.BS_list
+                mzi_convention.clements_to_chip(bs_list)
+                json_output = mzi_lut.get_json_output(self.n, bs_list)
+            # 更新 AppData.default_json_grid
+            setattr(AppData, 'default_json_grid', json_output)
+            print(f"[INFO] JSON grid updated based on new package: {package}")
+        except Exception as e:
+            print(f"[ERROR] Failed to update JSON grid for package {package}: {e}")
+
+    self.decomposition_package_var.trace_add("write", _on_package_changed)
+    
+    
+    
+    
+    def _read_matrix_from_textbox(self) -> np.ndarray:
+        """Read the matrix from the unitary_textbox."""
+        try:
+            content = self.unitary_textbox.get("1.0", "end").strip()
+            rows = content.split("\n")
+            matrix = []
+            for row in rows:
+                elements = row.split()
+                matrix.append([complex(elem.replace("j", "j")) for elem in elements])
+            return np.array(matrix, dtype=complex)
+        except Exception as e:
+            print(f"Failed to read matrix from textbox: {e}")
+            return np.eye(self.n, dtype=complex)  # Return identity matrix as fallback
+    
+    
+    
+    
+    
     def update_status(self, message, tag="info"):
         """Update the status display with a new message"""
         # Check if we're currently at the bottom before inserting
@@ -1018,17 +1182,38 @@ class Window3Content(ctk.CTkFrame):
             # Display the formatted matrix in the text box
             self.unitary_textbox.delete("1.0", "end")  # Clear the text box
             self.unitary_textbox.insert("1.0", formatted_matrix)
+            
 
             use_global_phase = self.global_phase_var.get() # True or False
+            
+            package = self.decomposition_package_var.get()
 
-            # Perform decomposition
-            I = unitary.decomposition(matrix_u, global_phase=use_global_phase)
-            bs_list = I.BS_list
-            mzi_convention.clements_to_chip(bs_list)
+            ### choose the pnn package
+            if package == "pnn":
+                from pnn.methods import decompose_clements
+                [A_phi, A_theta, *_] = decompose_clements(matrix_u, block = 'mzi')
+                A_theta *= 2/np.pi
+                A_phi += np.pi
+                A_phi = A_phi % (2*np.pi)
+                A_phi *= 2/np.pi
+                json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+            
+            ### choose the interferometer package
+            elif package == 'interferometer':
+                I = unitary.decomposition(matrix_u, global_phase=use_global_phase)
+                bs_list = I.BS_list
+                mzi_convention.clements_to_chip(bs_list)
+                json_output = mzi_lut.get_json_output(self.n, bs_list)
+            
 
-            # Update the AppData with the new JSON output
-            json_output = mzi_lut.get_json_output(self.n, bs_list)
-            print(json_output)
+            #Perform decomposition
+            # I = unitary.decomposition(matrix_u, global_phase=use_global_phase)
+            # bs_list = I.BS_list
+            # mzi_convention.clements_to_chip(bs_list)
+
+            # # Update the AppData with the new JSON output
+            # json_output = mzi_lut.get_json_output(self.n, bs_list)
+            # print(json_output)
 
             # Save the updated JSON to AppData
             setattr(AppData, 'default_json_grid', json_output)
@@ -1036,7 +1221,15 @@ class Window3Content(ctk.CTkFrame):
 
         except Exception as e:
             print(f"Error during decomposition: {e}")
-
+        # Save the content inside the unitary_textbox to AppData
+        AppData.unitary_textbox_content = self.unitary_textbox.get("1.0", "end").strip()
+        # 如果 Interpolation 已启用，自动执行插值
+        if AppData.interpolation_enabled:
+            self._on_interpolation_toggle()
+    
+    
+    
+    
     def import_unitary_file(self):
         '''Import an .npy unitary file into the currently selected tab.'''
         path = filedialog.askopenfilename(

@@ -23,7 +23,7 @@ class Window1Content(ctk.CTkFrame):
         self.interpolation_enabled = self.interpolate_theta_var.get()
         if self.interpolation_enabled:
             # List of 6 special nodes
-            special_nodes = ["E1", "F1", "G1", "H1", "E2", "G2"]
+            special_nodes = ["E1", "E2", "F1", "G1", "G2", "H1"]
             from tests.interpolation.data import Reader_interpolation as reader
             updated = []
             for node in special_nodes:
@@ -36,9 +36,10 @@ class Window1Content(ctk.CTkFrame):
                 reader.load_sweep_file(f"{node}_theta_200_steps.csv")
                 interpolated = reader.theta_trans(theta_val * np.pi, reader.theta, reader.theta_corrected) / np.pi
                 self.interpolated_theta[node] = interpolated
-                updated.append(f"{node}: {interpolated:.3f}")
+                #updated.append(f"{node}: {interpolated:.3f}")
+                updated.append(f"{node}: {interpolated:.4g} π \n")
             # Show updated values
-            self.interpolated_theta_label.configure(text="; ".join(updated) if updated else "No valid theta found")
+            self.interpolated_theta_label.configure(text=" ".join(updated) if updated else "No valid theta found")
         else:
             self.interpolated_theta.clear()
             self.interpolated_theta_label.configure(text="")

@@ -2,6 +2,14 @@
 from threading import Lock
 
 class AppData:
+    unitary_textbox_content = ""
+    interpolation_enabled = False
+    interpolated_theta = {}
+    measure_switch = "Yes"
+    global_phase = False
+    measurement_source = "Thorlabs"
+    decomposition_package = "pnn"
+    dwell_time = "500"
     default_json_grid = {}
     _last_selection_lock = Lock()
     last_selected = {"cross": "", "arm": ""}  # Set default starting value
