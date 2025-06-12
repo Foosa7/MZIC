@@ -175,7 +175,7 @@ class Window1Content(ctk.CTkFrame):
         self.interpolated_theta_label.grid(row=2, column=0, columnspan=7, sticky="ew")
 
         # Compact notebook for displays
-        notebook = ctk.CTkTabview(inner_frame, height=180, width=300)  # Fixed height, width
+        notebook = ctk.CTkTabview(inner_frame, height=180, width=400)  # Fixed height, width
         notebook.grid_propagate(False)
         notebook.grid(row=1, column=0, sticky="nsew", pady=(2, 0))
         inner_frame.grid_columnconfigure(0, weight=1)
@@ -193,7 +193,7 @@ class Window1Content(ctk.CTkFrame):
         self.interp_option_a = ctk.CTkOptionMenu(interpolation_tab,
                                                 values=["enable", "disable"],
                                                 command=self._on_interpolation_option_changed)
-        self.interp_option_a.set("disable")
+        self.interp_option_a.set("enable")
         self.interp_option_a.grid(row=0, column=1, padx=(5, 10), pady=(10, 5), sticky="ew")
 
         # Row 1: Satisfy sweep files?
@@ -203,7 +203,7 @@ class Window1Content(ctk.CTkFrame):
         self.interp_option_b = ctk.CTkOptionMenu(interpolation_tab,
                                                 values=["satisfy with sweep files", "Not satisfy"],
                                                 command=self._on_interpolation_option_changed)
-        self.interp_option_b.set("Not satisfy")
+        self.interp_option_b.set("satisfy with sweep files")
         self.interp_option_b.grid(row=1, column=1, padx=(5, 10), pady=5, sticky="ew")
 
         # Row 2: Sweep file
@@ -234,7 +234,8 @@ class Window1Content(ctk.CTkFrame):
         angle_label = ctk.CTkLabel(interpolation_tab, text="Input angle (π radians):")
         angle_label.grid(row=4, column=0, padx=(10, 5), pady=5, sticky="w")
 
-        self.angle_entry = ctk.CTkEntry(interpolation_tab, placeholder_text="e.g., 1.57")
+        self.angle_entry = ctk.CTkEntry(interpolation_tab, placeholder_text="e.g., 1.00")
+        self.angle_entry.insert(0, "1.00")  # Default to 1.00 π radians
         self.angle_entry.grid(row=4, column=1, padx=(5, 10), pady=5, sticky="ew")
 
         # Row 5: Plot button
@@ -254,7 +255,7 @@ class Window1Content(ctk.CTkFrame):
             try:
                 self.interpolation_manager.load_sweep_file(default_file)
                 print(f"[Interpolation] Default file loaded: {default_file}")
-                self.interp_plot_label.configure(text=f"File loaded: {default_file}")
+                self.interp_plot_label.configure(text=f"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n File loaded:"+" {default_file}")
             except Exception as e:
                 print(f"[Interpolation] Failed to load default file: {e}")
                 self.interp_plot_label.configure(text="Failed to load default file")
@@ -414,8 +415,8 @@ class Window1Content(ctk.CTkFrame):
         steps_label = ctk.CTkLabel(sweep_tab, text="Steps:")
         steps_label.grid(row=4, column=0, padx=(10, 5), pady=5, sticky="w")
         
-        self.sweep_steps_entry = ctk.CTkEntry(sweep_tab, placeholder_text="20")
-        self.sweep_steps_entry.insert(0, "20")
+        self.sweep_steps_entry = ctk.CTkEntry(sweep_tab, placeholder_text="200")
+        self.sweep_steps_entry.insert(0, "200")
         self.sweep_steps_entry.grid(row=4, column=1, padx=(5, 10), pady=5, sticky="ew")
         
         # Row 5: Dwell time
