@@ -208,44 +208,6 @@ class Interferometer:
         if show_plot:
             plt.show()
 
-
-def triangle_decomposition(U):
-    """Returns a triangular mesh of MZIs implementing matrix U
-
-    This code implements the decomposition algorithm in:
-    Reck, Michael, et al. "Experimental realization of any discrete unitary operator." 
-    Physical review letters 73.1 (1994): 58.
-
-    Args:
-        U (np.ndarray): complex-valued 2D numpy array representing the interferometer
-
-    Returns:
-        an Interferometer instance
-    """
-    I = Interferometer()
-    N = int(np.sqrt(U.size))
-    for ii in range(N-1):
-        for jj in range(N-1-ii):
-            modes = [N - jj - 1, N - jj]
-            theta = custom_arctan(U[ii, N - 1 - jj], U[ii, N - 2 - jj])
-            phi = -custom_angle(-U[ii, N - 1 - jj], U[ii, N - 2 - jj])
-            global_phase = np.angle(U[ii, N - 1 - jj])  # Extract global phase
-
-            # Define the MZI matrix
-            invT = np.eye(N, dtype=np.complex128)
-            invT[modes[0]-1, modes[0]-1] = np.exp(1j * global_phase) * (1j * np.exp(1j * phi) * np.sin(theta))
-            invT[modes[0]-1, modes[1]-1] = np.exp(1j * global_phase) * (1j * np.cos(theta))
-            invT[modes[1]-1, modes[0]-1] = np.exp(1j * global_phase) * (1j * np.exp(1j * phi) * np.cos(theta))
-            invT[modes[1]-1, modes[1]-1] = np.exp(1j * global_phase) * (-1j * np.sin(theta))
-
-            U = np.matmul(U, invT)
-            I.BS_list.append(Beamsplitter(modes[0], modes[1], theta, phi))
-    phases = np.diag(U)
-    phases = phases / np.abs(phases)  # Normalize to ensure unit magnitude
-    I.output_phases = [np.angle(i) for i in phases]
-    return I
-
-
 def decomposition(U, global_phase=None):
     """Returns a rectangular mesh of MZIs implementing matrix U
 
@@ -401,25 +363,6 @@ def custom_arccot(x1, x2):
 def custom_angle(x1, x2):
     """Stable phase difference calculation using arctan2."""
     return np.angle(x1) - np.angle(x2) 
-
-# def custom_arctan(x1, x2):
-#     if x2 != 0:
-#         return np.arctan(abs(x1/x2))
-#     else:
-#         return np.pi/2
-    
-# def custom_arccot(x1, x2):
-#     if x1 != 0:
-#         return np.arctan(abs(x2/x1))
-#     else:
-#         return np.pi/2
-
-# def custom_angle(x1, x2):
-#     if x2 != 0:
-#         return np.angle(x1/x2)
-#     else:
-#         return 0
-
 
 if __name__ == "__main__":
     

@@ -34,13 +34,6 @@ LABEL_SEQUENCE_8x8 = [
     ["G4", "H3"]
 ]
 
-CUSTOM_DIAGONAL = [
-    # First diagonal 
-    ["E1"],
-    # Second diagonal 
-    ["F1", "G1"],
-]
-
 LABEL_SEQUENCE_12x12 = [
     ["A1"],
     ["A2", "B1", "C1"],
@@ -65,7 +58,6 @@ LABEL_CHIP_8x8 = [
     ["B3", "D3", "F3", "H3"],
     ["A4", "C4", "E4", "G4"]
 ]
-
 
 #Clements
 def get_label_sequence(n):
