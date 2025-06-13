@@ -372,6 +372,7 @@ class Window3Content(ctk.CTkFrame):
                 package = self.decomposition_package_var.get()
                 if package == "pnn":
                     from pnn.methods import decompose_clements
+                    #### Shall we use mzi or bs in this pnn package?
                     [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
                     A_theta *= 2 / np.pi
                     A_phi += np.pi
@@ -570,7 +571,9 @@ class Window3Content(ctk.CTkFrame):
                 except Exception as e:
                     print(f"Thorlabs read error: {e}")
         '''
+    
 
+    ### cycle funtion
     def cycle_unitaries(self):
         """
         1) Ask for a folder with step_*.npy files.
@@ -703,19 +706,70 @@ class Window3Content(ctk.CTkFrame):
                 self.cycle_unitaries_button.configure(text=f"Step {step_idx}/{total_steps}")
                 self.update()
 
-                # a) load the unitary + decompose → set heaters
+                # # a) load the unitary + decompose → set heaters
+                # ### Need the package information to decide how to decompose
+                # try:
+                #     self.update_status("  • Loading and decomposing unitary...", "info")
+                #     U_step = np.load(file_path)
+                #     I = unitary.decomposition(U_step, global_phase=use_global_phase)
+                #     bs = I.BS_list
+                #     mzi_convention.clements_to_chip(bs)
+                #     json_output = mzi_lut.get_json_output(self.n, bs)
+                #     setattr(AppData, 'default_json_grid', json_output)
+                #     self.update_status("  ✓ Decomposition complete", "success")
+                # except Exception as e:
+                #     self.update_status(f"  ✖ Decomposition failed: {e}", "error")
+                #     continue 
+                
+                #a) load the unitary + decompose → set heaters
+                ## Need the package information to decide how to decompose
                 try:
                     self.update_status("  • Loading and decomposing unitary...", "info")
                     U_step = np.load(file_path)
-                    I = unitary.decomposition(U_step, global_phase=use_global_phase)
-                    bs = I.BS_list
-                    mzi_convention.clements_to_chip(bs)
-                    json_output = mzi_lut.get_json_output(self.n, bs)
+
+                    # 根据 Package 选项选择分解方法
+                    package = self.decomposition_package_var.get()
+                    if package == "pnn":
+                        from pnn.methods import decompose_clements
+                        [A_phi, A_theta, *_] = decompose_clements(U_step, block='mzi')
+                        A_theta *= 2 / np.pi
+                        A_phi += np.pi
+                        A_phi = A_phi % (2 * np.pi)
+                        A_phi /= np.pi
+                        json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+                    elif package == "interferometer":
+                        I = unitary.decomposition(U_step, global_phase=use_global_phase)
+                        bs_list = I.BS_list
+                        mzi_convention.clements_to_chip(bs_list)
+                        json_output = mzi_lut.get_json_output(self.n, bs_list)
+                    else:
+                        raise ValueError(f"Unknown package: {package}")
+
+                    # 更新 AppData.default_json_grid
                     setattr(AppData, 'default_json_grid', json_output)
                     self.update_status("  ✓ Decomposition complete", "success")
+
+                    # 如果 Interpolation 已启用，执行插值
+                    if AppData.interpolation_enabled:
+                        self.update_status("  • Performing interpolation...", "info")
+                        special_nodes = ["E1", "F1", "G1", "H1", "E2", "G2"]
+                        from tests.interpolation.data import Reader_interpolation as reader
+                        interpolated = {}
+                        for node in special_nodes:
+                            try:
+                                theta_val = float(json_output[node]['theta'])
+                                reader.load_sweep_file(f"{node}_theta_200_steps.csv")
+                                interpolated_theta = reader.theta_trans(theta_val * np.pi, reader.theta, reader.theta_corrected) / np.pi
+                                interpolated[node] = interpolated_theta
+                                json_output[node]['theta'] = str(interpolated_theta)
+                            except Exception as e:
+                                self.update_status(f"  ✖ Interpolation failed for {node}: {e}", "error")
+                        AppData.interpolated_theta = interpolated
+                        self.update_status("  ✓ Interpolation complete", "success")
+
                 except Exception as e:
                     self.update_status(f"  ✖ Decomposition failed: {e}", "error")
-                    continue              
+                    continue             
 
                 # b) push phases to the chip
                 self.update_status("  • Applying phases to chip...", "info")
