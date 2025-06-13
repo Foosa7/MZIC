@@ -74,7 +74,7 @@ def get_label_sequence(n):
     elif n == 6:
         return LABEL_SEQUENCE_6x6
     elif n == 8:
-        return CUSTOM_DIAGONAL
+        return LABEL_SEQUENCE_8x8
     else:
         return LABEL_SEQUENCE_12x12
         
@@ -104,35 +104,11 @@ def get_json_output(n, bs_list):
     mapping = map_bs_list(n, bs_list)
     output = {}
     
-    static_config = {
-            "A1": {
-                "arms": ["TL", "TR"],
-                "theta": str(1),
-                "phi": str(0),
-            },
-            "C1": {
-                "arms": ["TL", "TR"],
-                "theta": str(1),
-                "phi": str(0),
-            },
-            "G2": {
-                "arms": ["TL", "TR"],
-                "theta": str(1),
-                "phi": str(0),
-            },
-            "H1": {
-                "arms": ["TL", "BL"],
-                "theta": str(1),
-                "phi": str(0),
-            }
-        }
-    output.update(static_config)  # Add static configuration to the JSON output
-    
     for label, (theta, phi) in mapping.items():
         output[label] = {
             "arms": ['TL', 'TR', 'BL', 'BR'],
-            "theta": str(theta),  # Format theta to 10 decimal places
-            "phi": str(phi),     # Format phi to 10 decimal places
+            "theta": str(theta),  
+            "phi": str(phi),     
         }
 
     return output
