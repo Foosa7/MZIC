@@ -20,6 +20,7 @@ class Window3Content(ctk.CTkFrame):
         self.thorlabs = thorlabs
         self.daq = daq
         self.switch = switch
+        self.unitary_entries = None
 
         # NxN dimension
         self.n = int(grid_size.split('x')[0])
@@ -32,15 +33,15 @@ class Window3Content(ctk.CTkFrame):
         self.right_frame = ctk.CTkFrame(self.content_frame, fg_color='transparent')
         self.right_frame.grid(row=0, column=0, sticky='nsew', padx=5, pady=5)
 
-        # Create a Tabview
-        self.tabview = ctk.CTkTabview(self.right_frame, width=900, height=300)
-        self.tabview.grid(row=0, column=0, sticky='nsew', padx=10, pady=10)
+        # # Create a Tabview
+        # self.tabview = ctk.CTkTabview(self.right_frame, width=900, height=140)
+        # self.tabview.grid(row=0, column=0, sticky='nsew', padx=10, pady=10)
 
-        # Add a tab for a unitary matrix
-        self.tabview.add('Unitary')
+        # # Add a tab for a unitary matrix
+        # self.tabview.add('Unitary')
 
-        # For each tab, build a separate NxN of CTkEntries.
-        self.unitary_entries = self.create_nxn_entries(self.tabview.tab('Unitary'))
+        # # For each tab, build a separate NxN of CTkEntries.
+        # self.unitary_entries = self.create_nxn_entries(self.tabview.tab('Unitary'))
 
         # ──────────────────────────────────────────────────────────────
         # 1) UNITARY-MATRIX TOOLS
@@ -297,13 +298,13 @@ class Window3Content(ctk.CTkFrame):
         # ──────────────────────────────────────────────────────────────
         # Load any saved unitary into the entry grid
         # ──────────────────────────────────────────────────────────────
-        self.handle_all_tabs()
+        #self.handle_all_tabs()
 
         # Add a text box to display the matrix
         self.unitary_textbox = ctk.CTkTextbox(
-            self.right_frame, width=900, height=300, wrap="none"
+            self.right_frame, width=900, height=140, wrap="none"
         )
-        self.unitary_textbox.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.unitary_textbox.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         # 从 AppData 中加载记忆的内容
         if getattr(AppData, "unitary_textbox_content", None):
             self.unitary_textbox.insert("1.0", AppData.unitary_textbox_content)
