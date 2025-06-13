@@ -30,8 +30,18 @@ class Window3Content(ctk.CTkFrame):
         self.content_frame = ctk.CTkFrame(self, fg_color='transparent')
         self.content_frame.pack(expand=True, fill='both', padx=2, pady=2)
 
-        self.right_frame = ctk.CTkFrame(self.content_frame, fg_color='transparent')
-        self.right_frame.grid(row=0, column=0, sticky='nsew', padx=5, pady=5)
+        # Configure grid columns - left for controls, right for status
+        self.content_frame.grid_columnconfigure(0, weight=1)  # Left column (controls, plots)
+        self.content_frame.grid_columnconfigure(1, weight=2)  # Right column (status)
+        self.content_frame.grid_rowconfigure(0, weight=1)
+
+        # Left side container
+        self.left_frame = ctk.CTkFrame(self.content_frame, fg_color='transparent')
+        self.left_frame.grid(row=0, column=0, sticky='nsew', padx=(5,2), pady=5)
+
+        # Right side container 
+        self.right_container = ctk.CTkFrame(self.content_frame, fg_color='transparent')
+        self.right_container.grid(row=0, column=1, sticky='nsew', padx=(2,5), pady=5)
 
         # # Create a Tabview
         # self.tabview = ctk.CTkTabview(self.right_frame, width=900, height=140)
@@ -47,7 +57,7 @@ class Window3Content(ctk.CTkFrame):
         # 1) UNITARY-MATRIX TOOLS
         # ──────────────────────────────────────────────────────────────
         self.unitary_buttons_frame = ctk.CTkFrame(
-            self.right_frame, fg_color="transparent"
+            self.left_frame, fg_color="transparent"
         )
         self.unitary_buttons_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
 
@@ -62,7 +72,7 @@ class Window3Content(ctk.CTkFrame):
         # 2) EXPERIMENT CONTROLS  
         # ──────────────────────────────────────────────────────────────
         self.cycle_frame = ctk.CTkFrame(
-            self.right_frame, fg_color="#2B2B2B", corner_radius=8
+            self.left_frame, fg_color="#2B2B2B", corner_radius=8
         )
         self.cycle_frame.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0, 10))
         self.cycle_frame.grid_columnconfigure(1, weight=1)
@@ -243,10 +253,10 @@ class Window3Content(ctk.CTkFrame):
         # 3) STATUS DISPLAY
         # ──────────────────────────────────────────────────────────────
         self.status_frame = ctk.CTkFrame(
-            self.right_frame, fg_color="#1E1E1E", corner_radius=8
+            self.right_container, fg_color="#1E1E1E", corner_radius=8
         )
-        self.status_frame.grid(row=3, column=0, sticky="nsew", padx=10, pady=(0, 10))
-        
+        self.status_frame.pack(fill="both", expand=True, padx=(0, 10), pady=(10, 50))
+
         # Title
         ctk.CTkLabel(
             self.status_frame, text="📊 Experiment Status",
@@ -302,7 +312,7 @@ class Window3Content(ctk.CTkFrame):
 
         # Add a text box to display the matrix
         self.unitary_textbox = ctk.CTkTextbox(
-            self.right_frame, width=900, height=140, wrap="none"
+            self.left_frame, width=900, height=140, wrap="none"
         )
         self.unitary_textbox.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         # 从 AppData 中加载记忆的内容
@@ -1358,27 +1368,3 @@ class Window3Content(ctk.CTkFrame):
         '''Refresh NxN grids when the user selects a new mesh size.'''
         self.n = int(new_mesh_size.split('x')[0])
         self.grid_size = new_mesh_size          # keep the string in sync
-
-        # Get the single mapping
-        entries, appdata_var = self.get_unitary_mapping()
-        if entries is None or appdata_var is None:
-            return  # Skip if invalid
-
-        # Determine parent frame
-        container = self.tabview.tab('Unitary')
-
-        # Destroy old widgets and clear entries
-        for child in container.winfo_children():
-            child.destroy()
-
-        # Recreate the grid and update reference
-        new_entries = self.create_nxn_entries(container)
-        setattr(self, 'unitary_entries', new_entries)
-
-        # Restore saved matrix or default to identity
-        unitary_matrix = getattr(AppData, appdata_var, None)
-        if unitary_matrix is None or unitary_matrix.shape != (self.n, self.n):
-            unitary_matrix = np.eye(self.n, dtype=complex)
-
-        self.fill_tab_entries(new_entries, unitary_matrix)
-        setattr(AppData, appdata_var, unitary_matrix)
