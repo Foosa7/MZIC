@@ -4,9 +4,15 @@ from app.imports import *
 import tkinter.filedialog as filedialog
 import copy
 from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
-from app.utils.unitary import unitary, mzi_lut, mzi_convention
 from app.utils.appdata import AppData
 from app.utils.switch_measurements import SwitchMeasurements
+from app.utils.decomposition import (
+    decomposition, 
+    decompose_clements,
+    clements_to_chip,
+    get_json_interferometer,
+    get_json_pnn
+)
 
 class Window3Content(ctk.CTkFrame):
     
@@ -382,19 +388,19 @@ class Window3Content(ctk.CTkFrame):
                 # 根据当前 package 选择分解方法
                 package = self.decomposition_package_var.get()
                 if package == "pnn":
-                    from pnn.methods import decompose_clements
+                    #from pnn.methods import decompose_clements
                     #### Shall we use mzi or bs in this pnn package?
                     [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
                     A_theta *= 2 / np.pi
-                    A_phi += np.pi
+                    #A_phi += np.pi
                     A_phi = A_phi % (2 * np.pi)
                     A_phi /= np.pi
-                    json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+                    json_output = get_json_pnn(self.n, A_theta, A_phi)
                 elif package == "interferometer":
-                    I = unitary.decomposition(matrix_u, global_phase=self.global_phase_var.get())
+                    I = decomposition(matrix_u, global_phase=self.global_phase_var.get())
                     bs_list = I.BS_list
-                    mzi_convention.clements_to_chip(bs_list)
-                    json_output = mzi_lut.get_json_output(self.n, bs_list)
+                    clements_to_chip(bs_list)
+                    json_output = get_json_interferometer(self.n, bs_list)
                 # 更新 AppData.default_json_grid
                 AppData.default_json_grid = json_output
             except Exception as e:
@@ -409,18 +415,18 @@ class Window3Content(ctk.CTkFrame):
             # 根据当前 package 选择分解方法
             package = self.decomposition_package_var.get()
             if package == "pnn":
-                from pnn.methods import decompose_clements
+                #from pnn.methods import decompose_clements
                 [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
                 A_theta *= 2 / np.pi
-                A_phi += np.pi
+                #A_phi += np.pi
                 A_phi = A_phi % (2 * np.pi)
                 A_phi /= np.pi
-                json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+                json_output = get_json_pnn(self.n, A_theta, A_phi)
             elif package == "interferometer":
-                I = unitary.decomposition(matrix_u, global_phase=self.global_phase_var.get())
+                I = decomposition(matrix_u, global_phase=self.global_phase_var.get())
                 bs_list = I.BS_list
-                mzi_convention.clements_to_chip(bs_list)
-                json_output = mzi_lut.get_json_output(self.n, bs_list)
+                clements_to_chip(bs_list)
+                json_output = get_json_interferometer(self.n, bs_list)
             # 更新 AppData.default_json_grid
             setattr(AppData, 'default_json_grid', json_output)
             print(f"[INFO] JSON grid updated based on new package: {package}")
@@ -428,9 +434,6 @@ class Window3Content(ctk.CTkFrame):
             print(f"[ERROR] Failed to update JSON grid for package {package}: {e}")
 
     #self.decomposition_package_var.trace_add("write", _on_package_changed)
-    
-    
-    
     
     def _read_matrix_from_textbox(self) -> np.ndarray:
         """Read the matrix from the unitary_textbox."""
@@ -737,22 +740,29 @@ class Window3Content(ctk.CTkFrame):
                 try:
                     self.update_status("  • Loading and decomposing unitary...", "info")
                     U_step = np.load(file_path)
+                    
+                    # Embed U_step into a unitary matrix if it's smaller than the mesh size
+                    if U_step.shape[0] < self.n or U_step.shape[1] < self.n:
+                        embedded_U = np.eye(self.n, dtype=complex)
+                        rows, cols = U_step.shape
+                        embedded_U[:rows, :cols] = U_step
+                        U_step = embedded_U
 
                     # 根据 Package 选项选择分解方法
                     package = self.decomposition_package_var.get()
                     if package == "pnn":
-                        from pnn.methods import decompose_clements
+                        #from pnn.methods import decompose_clements
                         [A_phi, A_theta, *_] = decompose_clements(U_step, block='mzi')
                         A_theta *= 2 / np.pi
-                        A_phi += np.pi
+                        #A_phi += np.pi
                         A_phi = A_phi % (2 * np.pi)
                         A_phi /= np.pi
-                        json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+                        json_output = get_json_pnn(self.n, A_theta, A_phi)
                     elif package == "interferometer":
-                        I = unitary.decomposition(U_step, global_phase=use_global_phase)
+                        I = decomposition(U_step, global_phase=use_global_phase)
                         bs_list = I.BS_list
-                        mzi_convention.clements_to_chip(bs_list)
-                        json_output = mzi_lut.get_json_output(self.n, bs_list)
+                        clements_to_chip(bs_list)
+                        json_output = get_json_interferometer(self.n, bs_list)
                     else:
                         raise ValueError(f"Unknown package: {package}")
 
@@ -1236,6 +1246,13 @@ class Window3Content(ctk.CTkFrame):
             # Load the unitary matrix from the .npy file
             matrix_u = np.load(path)
             print(f"Loaded unitary matrix from {path}")
+                    
+            # Embed U_step into a unitary matrix if it's smaller than the mesh size
+            if matrix_u.shape[0] < self.n or matrix_u.shape[1] < self.n:
+                embedded_U = np.eye(self.n, dtype=complex)
+                rows, cols = matrix_u.shape
+                embedded_U[:rows, :cols] = matrix_u
+                matrix_u = embedded_U
 
             # Format the matrix with additional spacing
             formatted_matrix = "\n".join(
@@ -1255,21 +1272,20 @@ class Window3Content(ctk.CTkFrame):
 
             ### choose the pnn package
             if package == "pnn":
-                from pnn.methods import decompose_clements
+                #from pnn.methods import decompose_clements
                 [A_phi, A_theta, *_] = decompose_clements(matrix_u, block = 'mzi')
                 A_theta *= 2/np.pi
-                A_phi += np.pi
+                #A_phi += np.pi
                 A_phi = A_phi % (2*np.pi)
                 A_phi *= 2/np.pi
-                json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+                json_output = get_json_pnn(self.n, A_theta, A_phi)
             
             ### choose the interferometer package
             elif package == 'interferometer':
-                I = unitary.decomposition(matrix_u, global_phase=use_global_phase)
+                I = decomposition(matrix_u, global_phase=use_global_phase)
                 bs_list = I.BS_list
-                mzi_convention.clements_to_chip(bs_list)
-                json_output = mzi_lut.get_json_output(self.n, bs_list)
-            
+                clements_to_chip(bs_list)
+                json_output = get_json_interferometer(self.n, bs_list)
 
             #Perform decomposition
             # I = unitary.decomposition(matrix_u, global_phase=use_global_phase)
@@ -1291,9 +1307,6 @@ class Window3Content(ctk.CTkFrame):
         # 如果 Interpolation 已启用，自动执行插值
         if AppData.interpolation_enabled:
             self._on_interpolation_toggle()
-    
-    
-    
     
     def import_unitary_file(self):
         '''Import an .npy unitary file into the currently selected tab.'''
@@ -1348,17 +1361,6 @@ class Window3Content(ctk.CTkFrame):
         mat = np.eye(self.n, dtype=complex)
     
         entries, appdata_var = self.get_active_tab()  
-    
-        if entries is not None and appdata_var is not None:
-            self.fill_tab_entries(entries, mat)
-            setattr(AppData, appdata_var, mat)  # Save dynamically
-
-
-    def fill_random(self):
-        '''Fill the currently selected tab with a random unitary matrix.'''
-        mat = unitary.random_unitary(self.n)
-    
-        entries, appdata_var = self.get_active_tab()  # Get active tab dynamically
     
         if entries is not None and appdata_var is not None:
             self.fill_tab_entries(entries, mat)

@@ -133,6 +133,9 @@ MZIC/
 │   │   └── control_app.py          # MQTT control application
 │   ├── utils/                      # Utility functions and helpers
 │   │   ├── calibrate/              # Calibration utilities
+│   │   │   ├── mapping/            # Utilities for decomposition mapping
+│   │   │   │   ├── mzi_convention.py   # Beam splitter angle convention conversion
+│   │   │   │   ├── mzi_lut.py          # Lookup tables for MZI configurations
 │   │   ├── gui/                    # GUI utility functions
 │   │   ├── interpolation/          # Phase interpolation system
 │   │   │   ├── data/               # Interpolation data files
@@ -148,8 +151,6 @@ MZIC/
 │   │   │   ├── qmapper8x8.py       # Clements mesh to chip pin mapping
 │   │   │   └── qset.py             # Current value setter for Qontrol
 │   │   ├── unitary/                # Unitary transformation modules
-│   │   │   ├── mzi_convention.py   # BS angle convention conversion
-│   │   │   ├── mzi_lut.py          # MZI lookup tables
 │   │   │   └── unitary.py          # Unitary decomposition
 │   │   ├── appdata.py              # Application data management
 │   │   ├── config_manager.py       # Configuration file manager

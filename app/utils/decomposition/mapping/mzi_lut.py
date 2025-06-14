@@ -3,13 +3,13 @@
 from app.imports import *
 
 # Label sequence matching the physical layout
-LABEL_SEQUENCE_4x4 = [
+SEQUENCE_INTERFEROMETER_4x4 = [
     ["A1"],
     ["A2", "B1", "C1"],
     ["C2", "D1"],
 ]
 
-LABEL_SEQUENCE_6x6 = [
+SEQUENCE_INTERFEROMETER_6x6 = [
     ["A1"],
     ["A2", "B1", "C1"],
     ["A3", "B2", "C2", "D1", "E1"],
@@ -17,7 +17,7 @@ LABEL_SEQUENCE_6x6 = [
     ["E3", "F2"],
 ]
 
-LABEL_SEQUENCE_8x8 = [
+SEQUENCE_INTERFEROMETER_8x8 = [
     # First diagonal (A1)
     ["A1"],
     # Second diagonal (A2, B1, C1)
@@ -34,14 +34,7 @@ LABEL_SEQUENCE_8x8 = [
     ["G4", "H3"]
 ]
 
-CUSTOM_DIAGONAL = [
-    # First diagonal 
-    ["E1"],
-    # Second diagonal 
-    ["F1", "G1"],
-]
-
-LABEL_SEQUENCE_12x12 = [
+SEQUENCE_INTERFEROMETER_12x12 = [
     ["A1"],
     ["A2", "B1", "C1"],
     ["A3", "B2", "C2", "D1", "E1"],
@@ -55,7 +48,7 @@ LABEL_SEQUENCE_12x12 = [
     ["K6", "L5"]
 ]
 
-LABEL_CHIP_8x8 = [
+SEQUENCE_PNN_8x8 = [
 # PNN package mapping
     ["A1", "C1", "E1", "G1"],
     ["B1", "D1", "F1", "H1"],
@@ -66,21 +59,20 @@ LABEL_CHIP_8x8 = [
     ["A4", "C4", "E4", "G4"]
 ]
 
-
 #Clements
-def get_label_sequence(n):
+def get_sequence_interferometer(n):
     if n == 4:
-        return LABEL_SEQUENCE_4x4
+        return SEQUENCE_INTERFEROMETER_4x4
     elif n == 6:
-        return LABEL_SEQUENCE_6x6
+        return SEQUENCE_INTERFEROMETER_6x6
     elif n == 8:
-        return CUSTOM_DIAGONAL
+        return SEQUENCE_INTERFEROMETER_8x8
     else:
-        return LABEL_SEQUENCE_12x12
+        return SEQUENCE_INTERFEROMETER_12x12
         
-def map_bs_list(n, bs_list):
+def map_interferometer(n, bs_list):
     """Map beam splitters to physical labels based on pre-defined sequence"""
-    label_sequence = get_label_sequence(n)
+    label_sequence = get_sequence_interferometer(n)
     
     label_idx = 0
     mapping = {}
@@ -97,48 +89,21 @@ def map_bs_list(n, bs_list):
     
     return mapping
 
-def get_json_output(n, bs_list):
+def get_json_interferometer(n, bs_list):
     """
     Generate JSON output with additional metadata and formatted theta/phi values.
     """
-    mapping = map_bs_list(n, bs_list)
+    mapping = map_interferometer(n, bs_list)
     output = {}
-    
-    static_config = {
-            "A1": {
-                "arms": ["TL", "TR"],
-                "theta": str(1),
-                "phi": str(0),
-            },
-            "C1": {
-                "arms": ["TL", "TR"],
-                "theta": str(1),
-                "phi": str(0),
-            },
-            "G2": {
-                "arms": ["TL", "TR"],
-                "theta": str(1),
-                "phi": str(0),
-            },
-            "H1": {
-                "arms": ["TL", "BL"],
-                "theta": str(1),
-                "phi": str(0),
-            }
-        }
-    output.update(static_config)  # Add static configuration to the JSON output
-    
+        
     for label, (theta, phi) in mapping.items():
         output[label] = {
             "arms": ['TL', 'TR', 'BL', 'BR'],
-            "theta": str(theta),  # Format theta to 10 decimal places
-            "phi": str(phi),     # Format phi to 10 decimal places
+            "theta": str(theta),  
+            "phi": str(phi),     
         }
 
     return output
-
-
-
 
 # #### # Directly use A_theta and A_phi to generate JSON output for the pnn package ####
 # def get_json_output_from_theta_phi(n, A_theta, A_phi):
@@ -172,23 +137,16 @@ def get_json_output(n, bs_list):
 #         }
 #     return output
 
-
-
-
 # PNN package mapping
-def get_label_sequence(n):
-    if n == 4:
-        return LABEL_SEQUENCE_4x4
-    elif n == 6:
-        return LABEL_SEQUENCE_6x6
-    elif n == 8:
-        return LABEL_CHIP_8x8  # 注意这里用的是 LABEL_CHIP_8x8
+def get_sequence_pnn(n):
+    if n == 8:
+        return SEQUENCE_PNN_8x8  # 注意这里用的是 LABEL_CHIP_8x8
     else:
-        return LABEL_SEQUENCE_12x12
+        raise ValueError("Unsupported PNN sequence for n={}".format(n))
 
 def map_pnn(n, A_theta, A_phi):
     """Map beam splitters to physical labels based on pre-defined sequence"""
-    label_sequence = get_label_sequence(n)
+    label_sequence = get_sequence_pnn(n)
 
     A_theta = A_theta.flatten()
     A_phi = A_phi.flatten()
@@ -214,7 +172,7 @@ def map_pnn(n, A_theta, A_phi):
     
     return mapping
 
-def get_json_output_from_theta_phi(n, A_theta, A_phi):
+def get_json_pnn(n, A_theta, A_phi):
     """
     采用PNN物理映射方式，直接用A_theta和A_phi生成JSON输出
     """
