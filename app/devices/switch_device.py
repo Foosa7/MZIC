@@ -46,7 +46,7 @@ class SwitchDevice:
             print(f"[ERROR][Switch] {port_type.capitalize()} port not set.")
             return False
 
-        if not (0 <= channel <= 12):
+        if not (1 <= channel <= 12):
             raise ValueError("Channel must be between 1 and 64")
 
         command = [0xEF, 0xEF, 0x06, 0xFF, 0x0D, 0x00, 0x00, channel]
@@ -96,6 +96,26 @@ class SwitchDevice:
         else:
             print(f"[INFO][Switch] Failed to get channel. Response: {response.hex()}")
             return None
+
+    def sweep_outputs(self, input_pin, output_pins, delay=0.5):
+        """
+        Set the input channel once, then sweep the output channel through all output_pins with a delay.
+        """
+        print(f"[INFO][Switch] Sweeping input {input_pin} over outputs {output_pins} with delay {delay}s")
+        # Set input channel once
+        if not self.set_channel(input_pin, port_type="input"):
+            print("[ERROR][Switch] Failed to set input channel for sweep.")
+            return False
+
+        all_success = True
+        for out_pin in output_pins:
+            print(f"[INFO][Switch] Setting output channel to {out_pin}")
+            success = self.set_channel(out_pin, port_type="output")
+            if not success:
+                print(f"[ERROR][Switch] Failed to set output channel {out_pin}")
+                all_success = False
+            time.sleep(delay)
+        return all_success
 
 ## ef ef 06 ff 0d 00 00 01 f1 for channel 1
 ## ef ef 06 ff 0d 00 00 02 f2 for channel 2

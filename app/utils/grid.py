@@ -1035,10 +1035,9 @@ class Example(Frame):
                         self.canvas.itemconfig(text_id, fill="red")
 
         # --- Restore grid center selection and input boxes ---
-        skip_keys = {"input_pin", "output_pin", "phase_shifter", "calibration_node"}
         for center, data in imported.items():
-            if center in skip_keys:
-                continue
+            if not isinstance(data, dict):
+                continue  # Only process grid points (like "A1", "K6", ...)
 
             arms = data.get("arms", [])
             theta_val = data.get("theta", "0")

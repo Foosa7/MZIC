@@ -1,1 +1,25 @@
-{"A1": {"arms": ["TL", "BR"], "theta": "2", "phi": "0"}, "B1": {"arms": ["TL", "TR"], "theta": "1", "phi": "0"}, "C1": {"arms": ["BL"], "theta": "0", "phi": "0"}}
+{
+    "A1": {
+        "arms": [
+            "TL",
+            "BR"
+        ],
+        "theta": "2",
+        "phi": "0"
+    },
+    "B1": {
+        "arms": [
+            "TL",
+            "TR"
+        ],
+        "theta": "1",
+        "phi": "0"
+    },
+    "C1": {
+        "arms": [
+            "BL"
+        ],
+        "theta": "0",
+        "phi": "0"
+    }
+}

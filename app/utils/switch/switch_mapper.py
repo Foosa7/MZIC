@@ -13,6 +13,10 @@ MAPPING_SCHEMA = {
         "output_pin": {"type": "integer", "minimum": 0}
     },
     "patternProperties": {
+        "^output_pin_\\d+$": {  # Accepts output_pin_1, output_pin_2, ..., output_pin_n
+            "type": "integer",
+            "minimum": 0
+        },
         "^[A-Z][1-9]$": {
             "type": "object",
             "properties": {
@@ -32,9 +36,8 @@ MAPPING_SCHEMA = {
             "additionalProperties": False
         }
     },
-    "additionalProperties": False
+    "additionalProperties": True  # Allow extra keys like phase_shifter, calibration_node, etc.
 }
-
 
 def get_switch_devices_from_appdata():
     """

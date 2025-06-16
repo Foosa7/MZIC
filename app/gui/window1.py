@@ -929,7 +929,7 @@ class Window1Content(ctk.CTkFrame):
                 # Skip if this cross isn't in our mapping
                 if cross_label not in label_map:
                     continue
-                    
+
                 theta_ch, phi_ch = label_map[cross_label]
                 theta_val = data.get("theta", "0")
                 phi_val = data.get("phi", "0")
@@ -1840,8 +1840,9 @@ class Window1Content(ctk.CTkFrame):
             self._show_error("Please select both input and output pins before applying.")
             return
 
+        # Map logical pin to hardware channel (add 1 if 0-based)
         input_pin = input_pins[0]  # Use the first selected (or adapt for multiple)
-        output_pin = output_pins[0]
+        output_pin = output_pins[0] 
 
         print(f"[INFO][Window1] Applying input pin: {input_pin}, output pin: {output_pin}")
 
@@ -1857,3 +1858,44 @@ class Window1Content(ctk.CTkFrame):
                 self._show_error("Failed to apply switch pins. Check connection and try again.")
         else:
             self._show_error("Switch device not available.")
+
+    def sweep_switch_outputs_from_json(json_data, delay=0.5):
+        """
+        Sweep the output pins if output_pin_1, output_pin_2, ... are present in the JSON.
+        Sets the input channel once, then sweeps output channels.
+        Returns True if sweep was successful, else False.
+        """
+        try:
+            if isinstance(json_data, str):
+                data = json.loads(json_data)
+            else:
+                data = json_data
+
+            input_pin = data.get("input_pin")
+            # Collect all output_pin keys (output_pin, output_pin_1, output_pin_2, ...)
+            output_pins = []
+            for key in ["output_pin", "output_pin_1", "output_pin_2", "output_pin_3"]:
+                if key in data:
+                    output_pins.append(data[key])
+
+            # Map logical pins to hardware channels (add 1 if 0-based)
+            if input_pin is not None:
+                input_pin = input_pin + 1
+            output_pins = [pin + 1 for pin in output_pins]
+
+            if input_pin is None or not output_pins:
+                print("[ERROR][Switch] JSON missing 'input_pin' or output pins.")
+                return False
+
+            input_switch, output_switch = get_switch_devices_from_appdata()
+            if not output_switch:
+                print("[ERROR][Switch] Output switch device not available.")
+                return False
+
+            # Use the output_switch to sweep outputs
+            print(f"[INFO][Switch] Sweeping input {input_pin} over outputs {output_pins} with delay {delay}s")
+            return output_switch.sweep_outputs(input_pin, output_pins, delay=delay)
+
+        except Exception as e:
+            print(f"[ERROR][Switch] Exception during sweep: {str(e)}")
+            return False
