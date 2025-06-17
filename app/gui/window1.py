@@ -22,22 +22,39 @@ class Window1Content(ctk.CTkFrame):
         """Enable/disable interpolation and update theta values for 6 nodes."""
         self.interpolation_enabled = self.interpolate_theta_var.get()
         if self.interpolation_enabled:
-            # List of 6 special nodes
             special_nodes = ["E1", "E2", "F1", "G1", "G2", "H1"]
-            from tests.interpolation.data import Reader_interpolation as reader
             updated = []
+            
             for node in special_nodes:
-                # Get current theta value from the grid
                 try:
                     theta_val = float(self.custom_grid.input_boxes[node]['theta_entry'].get())
                 except Exception:
                     continue
-                # Do interpolation (replace with your actual logic)
-                reader.load_sweep_file(f"{node}_theta_200_steps.csv")
-                interpolated = reader.theta_trans(theta_val * np.pi, reader.theta, reader.theta_corrected) / np.pi
-                self.interpolated_theta[node] = interpolated
-                #updated.append(f"{node}: {interpolated:.3f}")
-                updated.append(f"{node}: {interpolated:.4g} π \n")
+                    
+                # Use interpolation manager instead of direct import
+                try:
+                    # Save current file
+                    current_file = self.interpolation_manager.current_file
+                    
+                    # Load node-specific file
+                    node_file = f"{node}_theta_200_steps.csv"
+                    self.interpolation_manager.load_sweep_file(node_file)
+                    
+                    # Get interpolated value
+                    angle_info = self.interpolation_manager.get_corrected_angle(theta_val * np.pi)
+                    interpolated = angle_info['output_rad'] / np.pi
+                    
+                    # Restore previous file
+                    if current_file:
+                        self.interpolation_manager.load_sweep_file(current_file)
+                        
+                    self.interpolated_theta[node] = interpolated
+                    updated.append(f"{node}: {interpolated:.4g} π \n")
+                    
+                except Exception as e:
+                    print(f"Interpolation failed for {node}: {e}")
+                    continue
+                    
             # Show updated values
             self.interpolated_theta_label.configure(text=" ".join(updated) if updated else "No valid theta found")
         else:

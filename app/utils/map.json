@@ -1,142 +1,114 @@
  {
-  "A1": {
+  "A4": {      
     "theta": 0,
-    "phi": 31,
-    "control_type": "current"
+    "phi": 31  
   },
-  "A2": {
+  "A3": {      
     "theta": 1,
-    "phi": 30,
-    "control_type": "current"
+    "phi": 30  
   },
-  "A3": {
+  "A2": {      
     "theta": 2,
-    "phi": 29,
-    "control_type": "current"
+    "phi": 29
   },
-  "A4": {
+  "A1": {
     "theta": 3,
-    "phi": 28,
-    "control_type": "current"
-  },
-  "B1": {
-    "theta": 3,
-    "phi": 35,
-    "control_type": "current"
-  },
-  "B2": {
-    "theta": 4,
-    "phi": 34,
-    "control_type": "current"
+    "phi": 28
   },
   "B3": {
+    "theta": 4,
+    "phi": 34
+  },
+  "B2": {
     "theta": 5,
-    "phi": 33,
-    "control_type": "current"
+    "phi": 33
   },
-  "C1": {
-    "theta": 7,
-    "phi": 38,
-    "control_type": "current"
-  },
-  "C2": {
-    "theta": 8,
-    "phi": 37,
-    "control_type": "current"
-  },
-  "C3": {
-    "theta": 9,
-    "phi": 36,
-    "control_type": "current"
+  "B1": {
+    "theta": 6,
+    "phi": 32
   },
   "C4": {
-    "theta": 10,
-    "phi": 35,
-    "control_type": "current"
+    "theta": 7,
+    "phi": 38
   },
-  "D1": {
-    "theta": 10,
-    "phi": 42,
-    "control_type": "current"
+  "C3": {
+    "theta": 8,
+    "phi": 37
   },
-  "D2": {
-    "theta": 11,
-    "phi": 41,
-    "control_type": "current"
+  "C2": {
+    "theta": 9,
+    "phi": 36
+  },
+  "C1": {
+    "theta": 10,
+    "phi": 35
   },
   "D3": {
+    "theta": 11,
+    "phi": 41
+  },
+  "D2": {
     "theta": 12,
-    "phi": 40,
-    "control_type": "current"
+    "phi": 40
   },
-  "E1": {
-    "theta": 14,
-    "phi": 45,
-    "control_type": "current"
-  },
-  "E2": {
-    "theta": 15,
-    "phi": 44,
-    "control_type": "current"
-  },
-  "E3": {
-    "theta": 16,
-    "phi": 43,
-    "control_type": "current"
+  "D1": {
+    "theta": 13,
+    "phi": 39
   },
   "E4": {
-    "theta": 17,
-    "phi": 42,
-    "control_type": "current"
+    "theta": 14,
+    "phi": 45
   },
-  "F1": {
-    "theta": 17,
-    "phi": 49,
-    "control_type": "current"
+  "E3": {
+    "theta": 15,
+    "phi": 44
   },
-  "F2": {
-    "theta": 18,
-    "phi": 48,
-    "control_type": "current"
+  "E2": {
+    "theta": 16,
+    "phi": 43
+  },
+  "E1": {
+    "theta": 17,
+    "phi": 42
   },
   "F3": {
+    "theta": 18,
+    "phi": 48
+  },
+  "F2": {
     "theta": 19,
-    "phi": 47,
-    "control_type": "current"
+    "phi": 47
   },
-  "G1": {
-    "theta": 21,
-    "phi": 52,
-    "control_type": "current"
-  },
-  "G2": {
-    "theta": 22,
-    "phi": 51,
-    "control_type": "current"
-  },
-  "G3": {
-    "theta": 23,
-    "phi": 50,
-    "control_type": "current"
+  "F1": {
+    "theta": 20,
+    "phi": 46
   },
   "G4": {
+    "theta": 21,
+    "phi": 52
+  },
+  "G3": {
+    "theta": 22,
+    "phi": 51
+  },
+  "G2": {
+    "theta": 23,
+    "phi": 50
+  },
+  "G1": {
     "theta": 24,
-    "phi": 49,
-    "control_type": "current"
+    "phi": 49
   },
   "H1": {
-    "theta": 24,
-    "phi": 56,
-    "control_type": "current"
+    "theta": 27,
+    "phi": 53
   },
   "H2": {
-    "theta": 25,
-    "phi": 55,
-    "control_type": "current"
+    "theta": 26,
+    "phi": 54
   },
   "H3": {
-    "theta": 26,
-    "phi": 54,
-    "control_type": "current"
+    "theta": 25,
+    "phi": 55
   }
 }

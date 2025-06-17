@@ -1,5 +1,5 @@
 # utils/qmapper8x8.py
-from app.imports import *
+#from app.imports import *
 import json
 from jsonschema import validate
 from collections import defaultdict
@@ -26,9 +26,7 @@ def export_mapping_json(label_map):
     for label, (theta, phi) in label_map.items():
         export_data[label] = {
             "theta": theta,
-            "phi": phi,
-            "control_type": "current"  # Add control type
-        }
+            "phi": phi,        }
     return json.dumps(export_data, indent=2)
 
 def import_mapping_json(json_str):

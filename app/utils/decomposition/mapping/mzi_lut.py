@@ -184,4 +184,13 @@ def get_json_pnn(n, A_theta, A_phi):
             "theta": str(theta),
             "phi": str(phi),
         }
+    
+        # Route out leakage light
+        if label in ['B1', 'C2', 'D2', 'E3', 'F3', 'G4', 'D1', 'E2', 'F2', 'G3', 'H3']:
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": '2',
+                "phi": '0',
+            }
+
     return output

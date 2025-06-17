@@ -1277,7 +1277,7 @@ class Window3Content(ctk.CTkFrame):
                 A_theta *= 2/np.pi
                 #A_phi += np.pi
                 A_phi = A_phi % (2*np.pi)
-                A_phi *= 2/np.pi
+                A_phi /= np.pi
                 json_output = get_json_pnn(self.n, A_theta, A_phi)
             
             ### choose the interferometer package
