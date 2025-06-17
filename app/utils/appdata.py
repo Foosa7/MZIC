@@ -22,10 +22,14 @@ class AppData:
 
     saved_unitary = None     
   
+    # Calibration storage
+    resistance_calibration_data = {}  # e.g., {"A1_theta": {...}, ...}
+    phase_calibration_data = {}       # e.g., {"A1_theta": {...}, ...}
+
     selected_labels = set()
     io_config = None
     last_selection = {"cross": None, "arm": None}  # Set default starting value
-
+    
     @classmethod
     def update_last_selection(cls, cross, arm):
         if cross is not None:
@@ -43,6 +47,23 @@ class AppData:
     def get_last_selection(cls):
         with cls._last_selection_lock:
             return cls.last_selected.copy()
+        
+
+    @classmethod
+    def update_io_config(cls, cross, state):
+        """Update IO configuration for a specific cross"""
+        # Map TR/BR to cross/bar
+        if state == 'TR' or state == 'BL':
+            cls.io_config[cross] = 'cross'
+        elif state == 'TL' or state == 'BR':
+            cls.io_config[cross] = 'bar'
+        else:
+            cls.io_config[cross] = state  # For direct 'cross'/'bar' updates
+
+    @classmethod
+    def get_io_config(cls, cross):
+        """Get IO configuration for a specific cross"""
+        return cls.io_config.get(cross, 'cross')  # Default to cross if not set        
 
     test_json_grid = {"A1": {"arms": ["TL", "TR", "BL", "BR"], "theta": "0", "phi": "0"},
     "B1": {"arms": ["TL", "TR", "BL", "BR"], "theta": "0", "phi": "0"}}
@@ -180,3 +201,27 @@ class AppData:
             "opmod_lincub_char_cross_state_images": self.opmod_lincub_char_cross_state_images,
             "opmod_lincub_char_bar_state_images": self.opmod_lincub_char_bar_state_images
         }
+
+
+    @classmethod
+    def update_resistance_calibration(cls, label, data):
+        """Update resistance calibration data for a node."""
+        cls.resistance_calibration_data[label] = data
+
+    @classmethod
+    def update_phase_calibration(cls, label, data):
+        """Update phase calibration data for a node."""
+        cls.phase_calibration_data[label] = data
+
+    @classmethod
+    def get_resistance_calibration(cls, label):
+        return cls.resistance_calibration_data.get(label, None)
+
+    @classmethod
+    def get_phase_calibration(cls, label):
+        return cls.phase_calibration_data.get(label, None)
+
+    @classmethod
+    def clear_calibration(cls):
+        cls.resistance_calibration_data.clear()
+        cls.phase_calibration_data.clear()
