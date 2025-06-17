@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import time
 import json
+from app.utils.qontrol.qmapper8x8 import create_label_mapping
 
 class CalibrationUtils:
     def characterize_resistance(self, qontrol, channel, delay=0.5):
@@ -82,8 +83,8 @@ class CalibrationUtils:
             'offset': fit_result['offset'],
             'currents': currents.tolist(),
             'optical_powers': optical_powers,
-            'fitfunc': fit_result['fitfunc'],  # Add this line
-            'rawres': fit_result['rawres']     # Add this line
+            'fitfunc': fit_result['fitfunc'],  
+            'rawres': fit_result['rawres']     
         }
 
     def fit_cos(self, xdata, ydata):
@@ -137,15 +138,28 @@ class CalibrationUtils:
         }
 
     def export_calibration(self, resistance_params, phase_params, filepath=None):
-        """Export calibration data to JSON format"""
+        """Export calibration data to JSON format with channel labels (underscored), thetas first then phis, and pin info"""
+        import json
+        import numpy as np
+        from datetime import datetime
+
         if filepath is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filepath = f"calibration_data_{timestamp}.json"
-        
+
+        label_map = create_label_mapping(8)  # Use your grid size here
+        channel_to_label = {}
+        for label, (theta_ch, phi_ch) in label_map.items():
+            channel_to_label[theta_ch] = f"{label}_theta"
+            channel_to_label[phi_ch] = f"{label}_phi"
+
         # Prepare resistance data
-        resistance_data = {}
+        theta_res = {}
+        phi_res = {}
         for channel, params in resistance_params.items():
-            resistance_data[str(channel)] = {
+            label = channel_to_label.get(channel, str(channel))
+            entry = {
+                "pin": channel,
                 "resistance_params": {
                     "a": float(params['a']),
                     "c": float(params['c']),
@@ -160,11 +174,20 @@ class CalibrationUtils:
                     "max_current": float(params['max_current'])
                 }
             }
+            if "theta" in label:
+                theta_res[label] = entry
+            else:
+                phi_res[label] = entry
+
+        resistance_data = {**theta_res, **phi_res}
 
         # Prepare phase data
-        phase_data = {}
+        theta_phase = {}
+        phi_phase = {}
         for channel, params in phase_params.items():
-            phase_data[str(channel)] = {
+            label = channel_to_label.get(channel, str(channel))
+            entry = {
+                "pin": channel,
                 "phase_params": {
                     "io_config": params['io_config'],
                     "amplitude": float(params['amp']),
@@ -177,8 +200,13 @@ class CalibrationUtils:
                     "optical_powers": params['optical_powers']
                 }
             }
+            if "theta" in label:
+                theta_phase[label] = entry
+            else:
+                phi_phase[label] = entry
 
-        # Combine all calibration data
+        phase_data = {**theta_phase, **phi_phase}
+
         calibration_data = {
             "metadata": {
                 "timestamp": datetime.now().isoformat(),
@@ -188,10 +216,9 @@ class CalibrationUtils:
             "phase_calibration": phase_data
         }
 
-        # Save to file
         with open(filepath, 'w') as f:
             json.dump(calibration_data, f, indent=4)
-        
+
         return filepath
 
     def import_calibration(self, filepath):
