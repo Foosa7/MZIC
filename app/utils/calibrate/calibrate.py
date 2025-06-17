@@ -230,9 +230,8 @@ class CalibrationUtils:
         phase_params = {}
         
         # Import resistance calibration data
-        for channel, params in data['resistance_calibration'].items():
-            channel_num = int(channel)
-            resistance_params[channel_num] = {
+        for label, params in data['resistance_calibration'].items():
+            resistance_params[label] = {
                 'a': params['resistance_params']['a'],
                 'c': params['resistance_params']['c'],
                 'd': params['resistance_params']['d'],
@@ -250,16 +249,14 @@ class CalibrationUtils:
             }
         
         # Import phase calibration data
-        for channel, params in data['phase_calibration'].items():
-            channel_num = int(channel)
-            
+        for label, params in data['phase_calibration'].items():
             # Recreate fit function based on io_config
             if params['phase_params']['io_config'] == 'cross':
                 fit_func = self.fit_cos
             else:
                 fit_func = self.fit_cos_negative
                 
-            phase_params[channel_num] = {
+            phase_params[label] = {
                 'io_config': params['phase_params']['io_config'],
                 'amp': params['phase_params']['amplitude'],
                 'omega': params['phase_params']['frequency'] * 2 * np.pi,

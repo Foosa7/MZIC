@@ -192,7 +192,9 @@ class Window1Content(ctk.CTkFrame):
     def _event_update_handler(self, event=None):
         """Handle event-driven updates"""
         current = AppData.get_last_selection()
+        self.replot_current_selection()
         print(f"Current selection: {current['cross']}-{current['arm']}")
+
 
     def _create_status_displays(self):
         """Status displays are now integrated in control panel"""
@@ -684,6 +686,31 @@ class Window1Content(ctk.CTkFrame):
             
             # Store results
             self.resistance_params[target_channel] = result
+
+            # --- Add this block ---
+            label_map = create_label_mapping(8)  # Use your grid size if not 8
+            channel_to_label = {}
+            for label, (theta_ch, phi_ch) in label_map.items():
+                channel_to_label[theta_ch] = f"{label}_theta"
+                channel_to_label[phi_ch] = f"{label}_phi"
+            label = channel_to_label.get(target_channel, str(target_channel))
+            from app.utils.appdata import AppData
+            AppData.update_resistance_calibration(label, {
+                "pin": target_channel,
+                "resistance_params": {
+                    "a": float(result['a']),
+                    "c": float(result['c']),
+                    "d": float(result['d']),
+                    "rmin": float(result['rmin']),
+                    "rmax": float(result['rmax']),
+                    "alpha": float(result['alpha'])
+                },
+                "measurement_data": {
+                    "currents": result['currents'],
+                    "voltages": result['voltages'],
+                    "max_current": float(result['max_current'])
+                }
+            })
             
             # Update display
             self.mapping_display.configure(state="normal")
@@ -758,6 +785,28 @@ class Window1Content(ctk.CTkFrame):
             
             # Store results
             self.phase_params[target_channel] = result
+
+            # --- Add this block ---
+            label_map = create_label_mapping(8)  # Use your grid size if not 8
+            channel_to_label = {}
+            for label, (theta_ch, phi_ch) in label_map.items():
+                channel_to_label[theta_ch] = f"{label}_theta"
+                channel_to_label[phi_ch] = f"{label}_phi"
+            label = channel_to_label.get(target_channel, str(target_channel))
+            AppData.update_phase_calibration(label, {
+                "pin": target_channel,
+                "phase_params": {
+                    "io_config": result['io_config'],
+                    "amplitude": float(result['amp']),
+                    "frequency": float(result['omega']/(2*np.pi)),
+                    "phase": float(result['phase']),
+                    "offset": float(result['offset'])
+                },
+                "measurement_data": {
+                    "currents": result['currents'],
+                    "optical_powers": result['optical_powers']
+                }
+            })
             
             # Update display
             self.mapping_display.configure(state="normal")
@@ -831,5 +880,76 @@ class Window1Content(ctk.CTkFrame):
                 self.resistance_params = resistance_params
                 self.phase_params = phase_params
                 print(f"Calibration data imported from {file_path}")
+                # Clear selection after import
+                AppData.update_last_selection("", "")
+                self.replot_current_selection()  # Show "No plot to display"
         except Exception as e:
             self._show_error(f"Failed to import calibration data: {str(e)}")
+
+    def replot_current_selection(self):
+        """Replot the graph for the currently selected node using imported calibration data."""
+        current = AppData.get_last_selection()
+        if not current or not current.get('cross'):
+            # No selection: clear plots and show message
+            self.graph_image_label1.configure(image=None, text="No plot to display")
+            self.graph_image_label2.configure(image=None, text="No plot to display")
+            self._current_image_ref1 = None
+            self._current_image_ref2 = None
+            return
+
+        label_map = create_label_mapping(8)  # Or use self.grid_size if dynamic
+        theta_ch, phi_ch = label_map.get(current['cross'], (None, None))
+        if not self.phase_selector:
+            return  # Phase selector not initialized
+
+        channel_type = self.phase_selector.radio_var.get()
+        target_channel = theta_ch if channel_type == "theta" else phi_ch
+        channel_to_label = {}
+        for lbl, (th, ph) in label_map.items():
+            channel_to_label[th] = f"{lbl}_theta"
+            channel_to_label[ph] = f"{lbl}_phi"
+        label = channel_to_label.get(target_channel, str(target_channel))
+
+        # Resistance plot
+        if label in self.resistance_params:
+            params = self.resistance_params[label]
+            fig = self.plot_utils.plot_resistance(
+                params['currents'],
+                params['voltages'],
+                [params['a'], params['c'], params['d']],
+                params.get('pin', target_channel),
+                current=current,
+                channel_type=channel_type,
+                phase_selector=self.phase_selector
+            )
+            if fig:
+                buf = io.BytesIO()
+                fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+                buf.seek(0)
+                img = Image.open(buf)
+                ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(480, 320))
+                self.graph_image_label1.configure(image=ctk_image, text="")
+                self._current_image_ref1 = ctk_image
+                plt.close(fig)
+        # Try phase plot
+        if label in self.phase_params:
+            params = self.phase_params[label]
+            fig = self.plot_utils.plot_phase(
+                params['currents'],
+                params['optical_powers'],
+                params.get('fitfunc', lambda x, *a: x),  # fallback if missing
+                [params['amp'], params['omega'], params['phase'], params['offset']],
+                params.get('pin', target_channel),
+                params['io_config'],
+                current=current,
+                channel_type=channel_type
+            )
+            if fig:
+                buf = io.BytesIO()
+                fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+                buf.seek(0)
+                img = Image.open(buf)
+                ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(480, 320))
+                self.graph_image_label2.configure(image=ctk_image, text="")
+                self._current_image_ref2 = ctk_image
+                plt.close(fig)

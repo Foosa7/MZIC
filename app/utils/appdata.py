@@ -11,6 +11,10 @@ class AppData:
 
     saved_unitary = None     
 
+    # Add these class attributes for calibration storage
+    resistance_calibration_data = {}  # e.g., {"A1_theta": {...}, ...}
+    phase_calibration_data = {}       # e.g., {"A1_theta": {...}, ...}
+
     @classmethod
     def update_last_selection(cls, cross, arm):
         if cross is not None:
@@ -180,3 +184,26 @@ class AppData:
             "opmod_lincub_char_cross_state_images": self.opmod_lincub_char_cross_state_images,
             "opmod_lincub_char_bar_state_images": self.opmod_lincub_char_bar_state_images
         }
+
+    @classmethod
+    def update_resistance_calibration(cls, label, data):
+        """Update resistance calibration data for a node."""
+        cls.resistance_calibration_data[label] = data
+
+    @classmethod
+    def update_phase_calibration(cls, label, data):
+        """Update phase calibration data for a node."""
+        cls.phase_calibration_data[label] = data
+
+    @classmethod
+    def get_resistance_calibration(cls, label):
+        return cls.resistance_calibration_data.get(label, None)
+
+    @classmethod
+    def get_phase_calibration(cls, label):
+        return cls.phase_calibration_data.get(label, None)
+
+    @classmethod
+    def clear_calibration(cls):
+        cls.resistance_calibration_data.clear()
+        cls.phase_calibration_data.clear()
