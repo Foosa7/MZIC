@@ -392,7 +392,7 @@ class Window3Content(ctk.CTkFrame):
                     #### Shall we use mzi or bs in this pnn package?
                     [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
                     A_theta *= 2 / np.pi
-                    #A_phi += np.pi
+                    A_phi += np.pi
                     A_phi = A_phi % (2 * np.pi)
                     A_phi /= np.pi
                     json_output = get_json_pnn(self.n, A_theta, A_phi)
@@ -418,7 +418,7 @@ class Window3Content(ctk.CTkFrame):
                 #from pnn.methods import decompose_clements
                 [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
                 A_theta *= 2 / np.pi
-                #A_phi += np.pi
+                A_phi += np.pi
                 A_phi = A_phi % (2 * np.pi)
                 A_phi /= np.pi
                 json_output = get_json_pnn(self.n, A_theta, A_phi)
@@ -754,7 +754,7 @@ class Window3Content(ctk.CTkFrame):
                         #from pnn.methods import decompose_clements
                         [A_phi, A_theta, *_] = decompose_clements(U_step, block='mzi')
                         A_theta *= 2 / np.pi
-                        #A_phi += np.pi
+                        A_phi += np.pi
                         A_phi = A_phi % (2 * np.pi)
                         A_phi /= np.pi
                         json_output = get_json_pnn(self.n, A_theta, A_phi)
@@ -1275,7 +1275,7 @@ class Window3Content(ctk.CTkFrame):
                 #from pnn.methods import decompose_clements
                 [A_phi, A_theta, *_] = decompose_clements(matrix_u, block = 'mzi')
                 A_theta *= 2/np.pi
-                #A_phi += np.pi
+                A_phi += np.pi
                 A_phi = A_phi % (2*np.pi)
                 A_phi /= np.pi
                 json_output = get_json_pnn(self.n, A_theta, A_phi)

@@ -103,6 +103,42 @@ def get_json_interferometer(n, bs_list):
             "phi": str(phi),     
         }
 
+        # Route out leakage light
+        if label in ['B1', 'C2', 'D2', 'E3', 'E2', 'F3', 'G4', 'D1', 'F2', 'G3', 'H3']:
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": '2',
+                "phi": '0',
+            }
+        '''
+        elif label == 'E1':
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": str(theta),
+                "phi": '1.5',
+            }
+
+        elif label == 'E2':
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": '2.0',
+                "phi": '1.5',
+            }
+        
+        elif label == 'F1':
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": str(theta),
+                "phi": '0.5',
+            }
+        
+        elif label in ('G1', 'G2', 'H1'):
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": str(theta),
+                "phi": '1.0',
+            }  
+        '''
     return output
 
 # #### # Directly use A_theta and A_phi to generate JSON output for the pnn package ####
@@ -186,11 +222,39 @@ def get_json_pnn(n, A_theta, A_phi):
         }
     
         # Route out leakage light
-        if label in ['B1', 'C2', 'D2', 'E3', 'F3', 'G4', 'D1', 'E2', 'F2', 'G3', 'H3']:
+        if label in ['B1', 'C2', 'D2', 'E3', 'E2', 'F3', 'G4', 'D1', 'F2', 'G3', 'H3']:
             output[label] = {
                 "arms": ['TL', 'TR', 'BL', 'BR'],
-                "theta": '2',
+                "theta": '2.0',
                 "phi": '0',
             }
-
+        '''
+        elif label == 'E1':
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": str(theta),
+                "phi": '1.5',
+            }
+        
+        elif label == 'E2':
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": '2.0',
+                "phi": '1.5',
+            }
+        
+        elif label == 'F1':
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": str(theta),
+                "phi": '0.5',
+            }
+        
+        elif label in ('G1', 'G2', 'H1'):
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": str(theta),
+                "phi": '1.0',
+            }  
+        '''
     return output
