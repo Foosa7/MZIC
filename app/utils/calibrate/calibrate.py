@@ -52,39 +52,168 @@ class CalibrationUtils:
             'resistance_parameters': [float(a), float(c), float(d)]
         }
 
-    def characterize_phase(self, qontrol, thorlabs, channel, io_config, delay=0.5):
-        """Execute phase characterization routine"""
-        start_current = 0
-        end_current = qontrol.globalcurrrentlimit
-        steps = 10
-        currents = np.linspace(start_current, end_current, steps)
-        optical_powers = []
+
+    def characterize_phase(self, qontrol, thorlabs, channel, io_config, resistance_params, delay=0.5):
+        """Execute phase characterization routine using resistance data and power
         
+        Args:
+            qontrol: Instrument controller
+            thorlabs: Power meter(s)
+            channel: Channel index
+            io_config: IO configuration string
+            resistance_params: dict or list of [a, c, d] for this channel
+            delay: Delay between measurements
+        """
+        # Get resistance parameters from previous characterization
+        if resistance_params is None or resistance_params == 'Null':
+            raise ValueError(f"Resistance characterization required for channel {channel} before phase characterization")
+        
+        # Extract resistance parameters [a, c, d] from previous characterization
+        if isinstance(resistance_params, dict):
+            # Check if parameters are nested (newer format)
+            if 'resistance_params' in resistance_params:
+                params_dict = resistance_params['resistance_params']
+                a, c, d = params_dict.get('a'), params_dict.get('c'), params_dict.get('d')
+            else:
+                # Direct format (older format)
+                a, c, d = resistance_params.get('a'), resistance_params.get('c'), resistance_params.get('d')
+        else:
+            a, c, d = resistance_params  # assume list or tuple
+
+        # Calculate max heating power to create uniform power spacing
+        max_current = qontrol.globalcurrrentlimit
+        max_resistance = a * (max_current**2) + c
+        max_heating_power = max_current**2 * max_resistance
+        
+        # Create uniform heating power steps
+        steps = 10
+        heating_powers_mw = np.linspace(0, max_heating_power, steps)
+        
+        # Calculate corresponding currents for each power level
+        currents = []
+        for P in heating_powers_mw:
+            if P == 0:
+                currents.append(0.0)
+            else:
+                # Solve: P = I²(aI² + c) = aI⁴ + cI² for I
+                # This becomes: aI⁴ + cI² - P = 0
+                # Let x = I², then: ax² + cx - P = 0
+                # Solution: x = (-c + √(c² + 4aP)) / (2a)
+                discriminant = c**2 + 4*a*P
+                if discriminant >= 0:
+                    I_squared = (-c + np.sqrt(discriminant)) / (2*a)
+                    if I_squared >= 0:
+                        I = np.sqrt(I_squared)
+                        currents.append(min(I, max_current))
+                    else:
+                        currents.append(0.0)
+                else:
+                    currents.append(0.0)
+        
+        currents = np.array(currents)
+        
+        # Calculate resistance values using the fitted parameters
+        resistances = a * (currents**2) + c  # R(I) = a*I^2 + c
+
+        # Measure optical powers
+        optical_powers = []
         for I in currents:
             qontrol.set_current(channel, float(I))
             time.sleep(delay)
             optical_powers.append(thorlabs[0].read_power())
-        
+
+        # Reset current to zero
         qontrol.set_current(channel, 0.0)
 
-        # Perform cosine fit
+        # Use heating power as x-data instead of current
+        # Perform cosine fit with power data
         if io_config == "cross":
-            fit_result = self.fit_cos(currents, optical_powers)
+            fit_result = self.fit_cos(heating_powers_mw, optical_powers)
         else:
-            fit_result = self.fit_cos_negative(currents, optical_powers)
+            fit_result = self.fit_cos_negative(heating_powers_mw, optical_powers)
 
-        # Add fit_result items to the return dictionary
+        # Return results with power data
         return {
             'io_config': io_config,
             'amp': fit_result['amp'],
             'omega': fit_result['omega'],
             'phase': fit_result['phase'],
             'offset': fit_result['offset'],
-            'currents': currents.tolist(),
+            'heating_powers': heating_powers_mw.tolist(),  # Power in mW
             'optical_powers': optical_powers,
-            'fitfunc': fit_result['fitfunc'],  # Add this line
-            'rawres': fit_result['rawres']     # Add this line
+            'currents': currents.tolist(),  # Keep currents for reference
+            'resistances': resistances.tolist(),  # Keep resistances for reference
+            'fitfunc': fit_result['fitfunc'],
+            'rawres': fit_result['rawres'],
+            'resistance_parameters': [float(a), float(c), float(d)]  # Include resistance params
         }
+
+    # def characterize_phase(self, qontrol, thorlabs, channel, io_config, resistance_params, delay=0.5):
+    #     """Execute phase characterization routine using resistance data and power
+        
+    #     Args:
+    #         qontrol: Instrument controller
+    #         thorlabs: Power meter(s)
+    #         channel: Channel index
+    #         io_config: IO configuration string
+    #         resistance_params: dict or list of [a, c, d] for this channel
+    #         delay: Delay between measurements
+    #     """
+    #     # Get resistance parameters from previous characterization
+    #     if resistance_params is None or resistance_params == 'Null':
+    #         raise ValueError(f"Resistance characterization required for channel {channel} before phase characterization")
+        
+    #     # Extract resistance parameters [a, c, d] from previous characterization
+    #     if isinstance(resistance_params, dict):
+    #         a, c, d = resistance_params.get('a'), resistance_params.get('c'), resistance_params.get('d')
+    #     else:
+    #         a, c, d = resistance_params  # assume list or tuple
+
+    #     # Measurement setup - same current range as resistance characterization
+    #     start_current = 0
+    #     end_current = qontrol.globalcurrrentlimit
+    #     steps = 10
+    #     currents = np.linspace(start_current, end_current, steps).astype(float)
+
+    #     # Calculate resistance values using the fitted parameters
+    #     resistances = a * (currents**2) + c  # R(I) = a*I^2 + c
+
+    #     # Calculate heating power: P = I^2 * R(I) = I^2 * (a*I^2 + c) = a*I^4 + c*I^2
+    #     heating_powers = currents**2 * resistances  # Power in watts
+    #     heating_powers_mw = heating_powers  # Convert to milliwatts
+
+    #     # Measure optical powers
+    #     optical_powers = []
+    #     for I in currents:
+    #         qontrol.set_current(channel, float(I))
+    #         time.sleep(delay)
+    #         optical_powers.append(thorlabs[0].read_power())
+
+    #     # Reset current to zero
+    #     qontrol.set_current(channel, 0.0)
+
+    #     # Use heating power as x-data instead of current
+    #     # Perform cosine fit with power data
+    #     if io_config == "cross":
+    #         fit_result = self.fit_cos(heating_powers_mw, optical_powers)
+    #     else:
+    #         fit_result = self.fit_cos_negative(heating_powers_mw, optical_powers)
+
+    #     # Return results with power data
+    #     return {
+    #         'io_config': io_config,
+    #         'amp': fit_result['amp'],
+    #         'omega': fit_result['omega'],
+    #         'phase': fit_result['phase'],
+    #         'offset': fit_result['offset'],
+    #         'heating_powers': heating_powers_mw.tolist(),  # Power in mW
+    #         'optical_powers': optical_powers,
+    #         'currents': currents.tolist(),  # Keep currents for reference
+    #         'resistances': resistances.tolist(),  # Keep resistances for reference
+    #         'fitfunc': fit_result['fitfunc'],
+    #         'rawres': fit_result['rawres'],
+    #         'resistance_parameters': [float(a), float(c), float(d)]  # Include resistance params
+    #     }
 
     def fit_cos(self, xdata, ydata):
         """Positive cosine fit"""
@@ -193,6 +322,10 @@ class CalibrationUtils:
             json.dump(calibration_data, f, indent=4)
         
         return filepath
+
+
+
+
 
     def import_calibration(self, filepath):
         """Import calibration data from JSON format"""

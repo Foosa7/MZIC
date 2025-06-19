@@ -1860,31 +1860,31 @@ class Window1Content(ctk.CTkFrame):
             self.mapping_display.insert("end", f"Alpha: {result['alpha']:.4f}\n")
             self.mapping_display.configure(state="disabled")
             
-            # # Generate and display plot
-            # current = AppData.get_last_selection()
-            # fig = self.plot_utils.plot_resistance(
-            #     result['currents'],
-            #     result['voltages'],
-            #     [result['a'], result['c'], result['d']],  # Resistance params
-            #     target_channel,
-            #     current=current,
-            #     channel_type=channel_type,
-            #     phase_selector=self.phase_selector
-            # )
+            # Generate and display plot
+            current = AppData.get_last_selection()
+            fig = self.plot_utils.plot_resistance(
+                result['currents'],
+                result['voltages'],
+                [result['a'], result['c'], result['d']],  # Resistance params
+                target_channel,
+                current=current,
+                channel_type=channel_type,
+                phase_selector=self.phase_selector
+            )
             
-            # if fig:
-            #     # Convert plot to image
-            #     buf = io.BytesIO()
-            #     fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
-            #     buf.seek(0)
-            #     img = Image.open(buf)
+            if fig:
+                # Convert plot to image
+                buf = io.BytesIO()
+                fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+                buf.seek(0)
+                img = Image.open(buf)
 
-            #     # Create CTkImage and display in graph tab
-            #     ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(480, 320))
-            #     self.graph_image_label1.configure(image=ctk_image, text="")
-            #     self._current_image_ref1 = ctk_image  # Keep reference
+                # Create CTkImage and display in graph tab
+                ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(480, 320))
+                self.graph_image_label1.configure(image=ctk_image, text="")
+                self._current_image_ref1 = ctk_image  # Keep reference
                 
-            #     plt.close(fig)  # Clean up matplotlib figure
+                plt.close(fig)  # Clean up matplotlib figure
                     
         except Exception as e:
             self._show_error(f"Resistance characterization failed: {str(e)}")
@@ -1905,32 +1905,41 @@ class Window1Content(ctk.CTkFrame):
             
             if target_channel is None:
                 raise ValueError("No valid channel selected")
-                
+            
             # Get current selection state and IO config from AppData
             current = AppData.get_last_selection()
             cross = current.get('cross', '')
             io_config = AppData.get_io_config(cross)  # This will return 'cross' or 'bar'
             
+            # --- Get resistance parameters from AppData ---
+            label_map = create_label_mapping(8)  # Use your grid size if not 8
+            channel_to_label = {}
+            for label, (theta_ch_map, phi_ch_map) in label_map.items():
+                channel_to_label[theta_ch_map] = f"{label}_theta"
+                channel_to_label[phi_ch_map] = f"{label}_phi"
+            label = channel_to_label.get(target_channel, str(target_channel))
+            resistance_data = AppData.get_resistance_calibration(label)
+            if not resistance_data or "resistance_params" not in resistance_data:
+                self._show_error(
+                    f"No valid resistance calibration data found for {label}.\n"
+                    "Please run resistance calibration first."
+                )
+                return
+
             print(f"Running phase calibration for channel {target_channel} ({io_config})")
-            
+
             # Execute phase characterization
             result = self.calibration_utils.characterize_phase(
                 self.qontrol,
                 self.thorlabs,
                 target_channel,
-                io_config
+                io_config,
+                resistance_data  # pass full dict now
             )
             
             # Store results
             self.phase_params[target_channel] = result
 
-            # --- Add this block ---
-            label_map = create_label_mapping(8)  # Use your grid size if not 8
-            channel_to_label = {}
-            for label, (theta_ch, phi_ch) in label_map.items():
-                channel_to_label[theta_ch] = f"{label}_theta"
-                channel_to_label[phi_ch] = f"{label}_phi"
-            label = channel_to_label.get(target_channel, str(target_channel))
             AppData.update_phase_calibration(label, {
                 "pin": target_channel,
                 "phase_params": {
@@ -1945,7 +1954,6 @@ class Window1Content(ctk.CTkFrame):
                     "optical_powers": result['optical_powers']
                 }
             })
-            
             # Update display
             self.mapping_display.configure(state="normal")
             self.mapping_display.delete("1.0", "end")
@@ -1957,32 +1965,32 @@ class Window1Content(ctk.CTkFrame):
             self.mapping_display.insert("end", f"Phase: {result['phase']:.4f} rad\n")
             self.mapping_display.configure(state="disabled")
             
-            # # Generate and display plot
-            # fig = self.plot_utils.plot_phase(
-            #     result['currents'],
-            #     result['optical_powers'],
-            #     result['fitfunc'],
-            #     result['rawres'][1],
-            #     target_channel,
-            #     io_config,
-            #     current=current,
-            #     channel_type=channel_type
-            # )
+            # Generate and display plot
+            fig = self.plot_utils.plot_phase(
+                result['heating_powers'],
+                result['optical_powers'],
+                result['fitfunc'],
+                result['rawres'][1],
+                target_channel,
+                io_config,
+                current=current,
+                channel_type=channel_type
+            )
             
-            # if fig:
-            #     # Convert plot to image
-            #     buf = io.BytesIO()
-            #     fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
-            #     buf.seek(0)
-            #     img = Image.open(buf)
+            if fig:
+                # Convert plot to image
+                buf = io.BytesIO()
+                fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+                buf.seek(0)
+                img = Image.open(buf)
 
-            #     # Create CTkImage and display in graph tab
-            #     ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(480, 320))
-            #     self.graph_image_label2.configure(image=ctk_image, text="")
-            #     self._current_image_ref2 = ctk_image  # Keep reference
+                # Create CTkImage and display in graph tab
+                ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(480, 320))
+                self.graph_image_label2.configure(image=ctk_image, text="")
+                self._current_image_ref2 = ctk_image  # Keep reference
                 
-            #     plt.close(fig)  # Clean up matplotlib figure
-                
+                plt.close(fig)  # Clean up matplotlib figure
+
         except Exception as e:
             self._show_error(f"Phase characterization failed: {str(e)}")
             import traceback
