@@ -141,8 +141,8 @@ class Window1Content(ctk.CTkFrame):
 
         # Add to your controls list in _create_compact_control_panel method:
         controls = [
-            ("Import", self._import_config),
-            ("Export", self._export_config),
+            # ("Import", self._import_config),
+            # ("Export", self._export_config),
             ("Current", self._apply_config),
             ("Clear", self._clear_grid),
             ("R", self.characterize_resistance),
@@ -150,7 +150,7 @@ class Window1Content(ctk.CTkFrame):
             ("Phase", self.apply_phase_new)  # Add this new button
         ]
 
-        for col in range(7):
+        for col in range(len(controls)):
             btn_frame.grid_columnconfigure(col, weight=1)
 
         # Create buttons with adjusted styling
@@ -159,8 +159,10 @@ class Window1Content(ctk.CTkFrame):
                 btn_frame, 
                 text=text,
                 command=cmd,
-                width=20, 
-                height=24,
+                width=12, 
+                height=18,
+                # width=20, 
+                # height=24,
                 font=ctk.CTkFont(size=12) 
             )
             btn.grid(row=0, column=col, padx=1, sticky="nsew")
