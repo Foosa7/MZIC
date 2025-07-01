@@ -1,8 +1,10 @@
-# utils/qmapper8x8.py
+# utils/qmapper12x12.py
 from app.imports import *
 import json
 from jsonschema import validate
 from collections import defaultdict
+from pathlib import Path
+
 
 MAPPING_SCHEMA = {
     "type": "object",
@@ -105,6 +107,7 @@ def import_single_selection(selection_dict):
 #     return label_map
 
 
+
 def load_custom_label_mapping(json_path):
     """Loads a manually defined label-to-channel mapping from JSON file"""
     try:
@@ -113,6 +116,30 @@ def load_custom_label_mapping(json_path):
         return import_mapping_json(json_str)
     except Exception as e:
         raise ValueError(f"Failed to load label mapping: {e}")
+
+
+def create_label_mapping(grid_n):
+    """
+    Loads a manually defined label-to-channel mapping from a JSON file.
+    The file should be named '12_mode_mapping.json' and located in the same directory.
+    """
+    from pathlib import Path
+    mapping_file = Path(__file__).parent / "12_mode_mapping.json"
+    try:
+        with open(mapping_file, 'r') as f:
+            json_str = f.read()
+        return import_mapping_json(json_str)
+    except Exception as e:
+        raise ValueError(f"Failed to load label mapping: {e}")
+
+# def load_custom_label_mapping(json_path):
+#     """Loads a manually defined label-to-channel mapping from JSON file"""
+#     try:
+#         with open(json_path, 'r') as f:
+#             json_str = f.read()
+#         return import_mapping_json(json_str)
+#     except Exception as e:
+#         raise ValueError(f"Failed to load label mapping: {e}")
 
 # example mapping
 
@@ -128,8 +155,6 @@ def load_custom_label_mapping(json_path):
 #   ...
 #   "L5": {"theta": 59, "phi": 60}
 # }
-
-
 
 def print_mapping(label_map):
     """Prints mapping in column groups with channel pairs"""
@@ -205,13 +230,15 @@ def apply_qontrol_mapping(qontrol_device, channel_map):
 # Example usage:
 if __name__ == "__main__":
     # Create and export
-    # mapping = create_label_mapping(8)
-    label_map = load_custom_label_mapping("custom_mapping_12mode.json")
+    # Path to JSON file in the same folder
+    MAPPING_FILE = Path(__file__).parent / "12_mode_mapping.json"
+    # Load, export, re-import, and print mapping
+    label_map = load_custom_label_mapping(MAPPING_FILE)
     json_data = export_mapping_json(label_map)
     print("Exported JSON:\n", json_data)
-    
-    # Import and validate
     imported_map = import_mapping_json(json_data)
-    import_single_selection(AppData.last_selected)
+    # Dummy call — you can skip or replace this
+    # import_single_selection(AppData.last_selected)
+    
     print("\nImported mapping:")
     print_mapping(imported_map)

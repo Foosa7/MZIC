@@ -39,47 +39,49 @@ class Example(Frame):
 
     def initUI(self):
         self.pack(fill=BOTH, expand=1)
-        
-        # Control frame (optional)
-        # control_frame = Frame(self)
-        # control_frame.pack(side='top', fill='x')
-        
-        # self.coord_label = Label(control_frame, text="X: 0, Y: 0", font=("Arial", 12))
-        # self.coord_label.pack(side='left', padx=10, pady=5)
-        
-        # Create canvas with grey background and no highlight border.
         self.canvas = Canvas(self, bg='grey16', highlightthickness=0)
-        
         self.nodes = {}
         self.paths = []
         self.selected_paths = set()
         self.cross_labels = {}
-        
-        # Base values (for the original 8x8 grid)
-        base_horizontal = 100
-        base_vertical = 200
-        base_arm = 50
-        base_start_x = 150
-        base_start_y = 80
-        
-        # Apply the scaling factor (e.g. 0.5 will use half the size)
+
+        # Set geometry based on grid size
+        if self.grid_n == 8:
+            base_horizontal = 100
+            base_vertical = 200
+            base_arm = 50
+            base_start_x = 150
+            base_start_y = 80
+        elif self.grid_n == 12:
+            base_horizontal = 100*0.8
+            base_vertical = 200*0.8
+            base_arm = 50*0.8
+            base_start_x = 130
+            base_start_y = 70
+        else:
+            # Fallback/default values
+            base_horizontal = 100
+            base_vertical = 200
+            base_arm = 50
+            base_start_x = 150
+            base_start_y = 80
+
+        # Apply the scaling factor (if you want to keep it for other cases)
         horizontal_spacing = base_horizontal * self.scale
         vertical_spacing = base_vertical * self.scale
         arm_length = base_arm * self.scale
         start_x = base_start_x * self.scale
         start_y = base_start_y * self.scale
-        
-        # Create the grid using the computed parameters.
+
         self.create_nxn_grid(
-            n=self.grid_n, 
+            n=self.grid_n,
             start_x=start_x,
             start_y=start_y,
             horizontal_spacing=horizontal_spacing,
             vertical_spacing=vertical_spacing,
             arm_length=arm_length
         )
-        
-        # self.canvas.bind("<Motion>", self.show_coordinates)
+
         self.canvas.bind("<Button-1>", self.on_canvas_click)
         self.canvas.pack(fill=BOTH, expand=1)
 
@@ -217,7 +219,12 @@ class Example(Frame):
         for i, node in enumerate(sorted_nodes):
             # Determine extension parameters
             is_special = f"X_{second_last_col}" in node.name and side == "right"
-            ext_length = extension * 3 if is_special else extension
+            if n == 8 and is_special:
+                ext_length = extension * 3
+            elif n == 12 and is_special:
+                ext_length = extension * 2.6
+            else:
+                ext_length = extension
             
             # Calculate extension position
             new_x = node.x + (ext_length if side == "right" else -ext_length)
@@ -225,12 +232,12 @@ class Example(Frame):
             self.nodes[ext_node.name] = ext_node
             self.create_path(node, ext_node)
 
-            # Add labels for 8x8 grid
+            # Add labels for grid
             if n == 8:
                 label = 14 - i if side == "left" else 7 + i
                 self._draw_side_label(is_special, label, side, new_x, node.y)
             elif n == 12:
-                label = 22 - i if side == "left" else 11 + i
+                label = 3 + i if side == "left" else 14 - i
                 self._draw_side_label(is_special, label, side, new_x, node.y)
 
         if side == "right" and col == second_last_col and n == 8:
@@ -386,11 +393,20 @@ class Example(Frame):
         )
         self.paths.append(Path(node1, node2, line_id))
 
+    # def on_canvas_click(self, event):
+    #     """Handles path selection."""
+    #     for path in self.paths:
+    #         coords = self.canvas.coords(path.line_id)
+    #         if len(coords) >= 4 and self.is_point_near_line(event.x, event.y, *coords[:4], 15):  # 15 pixels tolerance
+    #             self.toggle_path_selection(path)
+
     def on_canvas_click(self, event):
         """Handles path selection."""
+        # Use 10 px tolerance if grid_n is 12, else 15
+        tolerance = 10 if self.grid_n == 12 else 15
         for path in self.paths:
             coords = self.canvas.coords(path.line_id)
-            if len(coords) >= 4 and self.is_point_near_line(event.x, event.y, *coords[:4], 15):  # 15 pixels tolerance
+            if len(coords) >= 4 and self.is_point_near_line(event.x, event.y, *coords[:4], tolerance):
                 self.toggle_path_selection(path)
 
     def on_side_label_click(self, event, label_tag):

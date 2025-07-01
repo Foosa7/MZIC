@@ -1,6 +1,7 @@
 # app/gui/window1.py
 from app.imports import *
 
+import threading
 from decimal import *
 import copy
 import sympy as sp
@@ -10,7 +11,9 @@ from contextlib import redirect_stdout
 from app.gui.widgets import PhaseShifterSelectionWidget
 import customtkinter as ctk
 from app.utils.gui import grid
-from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
+from app.utils.qontrol.mapping_utils import get_mapping_functions
+# from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
+# from app.utils.qontrol.qmapper12x12 import create_label_mapping as create_label_mapping_12x12   
 from collections import defaultdict
 from app.utils.calibrate.calibrate import CalibrationUtils
 from app.utils.gui.plot_utils import PlotUtils
@@ -73,7 +76,7 @@ class Window1Content(ctk.CTkFrame):
         # Initialize interpolation manager
         from app.utils.interpolation import interpolation_manager
         self.interpolation_manager = interpolation_manager
-
+    
         # Configure main layout
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -141,8 +144,8 @@ class Window1Content(ctk.CTkFrame):
 
         # Add to your controls list in _create_compact_control_panel method:
         controls = [
-            # ("Import", self._import_config),
-            # ("Export", self._export_config),
+            ("Import", self._import_config),
+            ("Export", self._export_config),
             ("Current", self._apply_config),
             ("Clear", self._clear_grid),
             ("R", self.characterize_resistance),
@@ -159,8 +162,8 @@ class Window1Content(ctk.CTkFrame):
                 btn_frame, 
                 text=text,
                 command=cmd,
-                width=12, 
-                height=18,
+                width=8, 
+                height=16,
                 # width=20, 
                 # height=24,
                 font=ctk.CTkFont(size=12) 
@@ -172,10 +175,32 @@ class Window1Content(ctk.CTkFrame):
         self.interpolated_theta_label.grid(row=2, column=0, columnspan=7, sticky="ew")
 
         # Compact notebook for displays
-        notebook = ctk.CTkTabview(inner_frame, height=180, width=400)  # Fixed height, width
+        notebook = ctk.CTkTabview(inner_frame, height=180, width=300)  # Fixed height, width for the right side panel
         notebook.grid_propagate(False)
-        notebook.grid(row=1, column=0, sticky="nsew", pady=(2, 0))
+        notebook.grid(row=1, column=0, sticky="nsew", pady=(0, 0))
         inner_frame.grid_columnconfigure(0, weight=1)
+
+        ### Graph tab ###
+        graph_tab = notebook.add("R/P Graph")
+        self.graph_frame = ctk.CTkFrame(graph_tab)
+        self.graph_frame.grid(row=0, column=0, sticky="nsew")
+        
+        graph_tab.grid_rowconfigure(0, weight=1)
+        graph_tab.grid_columnconfigure(0, weight=1)
+        
+        self.graph_frame.grid_rowconfigure(0, weight=1) # Plot 1
+        self.graph_frame.grid_rowconfigure(1, weight=1) # Plot 2
+        self.graph_frame.grid_columnconfigure(0, weight=1)
+
+        self.graph_image_label1 = ctk.CTkLabel(
+            self.graph_frame, text="No plot to display", anchor="n"
+        )
+        self.graph_image_label1.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+
+        self.graph_image_label2 = ctk.CTkLabel(
+            self.graph_frame, text="No plot to display", anchor="n" 
+        )
+        self.graph_image_label2.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
 
         ### Interpolation tab ###
         interpolation_tab = notebook.add("Interpolation")
@@ -352,28 +377,6 @@ class Window1Content(ctk.CTkFrame):
             command=self._on_run_path_sequence
         )
         self.run_path_sequence_button.pack(side="left", padx=5, pady=5)
-
-        ### Graph tab ###
-        graph_tab = notebook.add("R/P Graph")
-        self.graph_frame = ctk.CTkFrame(graph_tab)
-        self.graph_frame.grid(row=0, column=0, sticky="nsew")
-        
-        graph_tab.grid_rowconfigure(0, weight=1)
-        graph_tab.grid_columnconfigure(0, weight=1)
-        
-        self.graph_frame.grid_rowconfigure(0, weight=1) # Plot 1
-        self.graph_frame.grid_rowconfigure(1, weight=1) # Plot 2
-        self.graph_frame.grid_columnconfigure(0, weight=1)
-
-        self.graph_image_label1 = ctk.CTkLabel(
-            self.graph_frame, text="No plot to display", anchor="n"
-        )
-        self.graph_image_label1.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
-
-        self.graph_image_label2 = ctk.CTkLabel(
-            self.graph_frame, text="No plot to display", anchor="n" 
-        )
-        self.graph_image_label2.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
 
         ### Status tab ###
         self.status_display = ctk.CTkTextbox(notebook.add("Status"), state="disabled")
@@ -943,18 +946,60 @@ class Window1Content(ctk.CTkFrame):
             traceback.print_exc()
 
 
+    # def _start_status_updates(self):
+    #     """Start periodic status updates"""
+    #     self._update_system_status()
+    #     self.after(10000, self._start_status_updates)
+
+    # def _update_system_status(self):
+    #     """Update both status and error displays"""
+    #     try:
+    #         self._capture_output(self.qontrol.show_errors, self.error_display)
+    #         self._capture_output(self.qontrol.show_status, self.status_display)
+    #     except Exception as e:
+    #         self._show_error(f"Status update failed: {str(e)}")
+
     def _start_status_updates(self):
-        """Start periodic status updates"""
+        """Start periodic status updates (non-blocking)"""
         self._update_system_status()
         self.after(10000, self._start_status_updates)
 
     def _update_system_status(self):
-        """Update both status and error displays"""
-        try:
-            self._capture_output(self.qontrol.show_errors, self.error_display)
-            self._capture_output(self.qontrol.show_status, self.status_display)
-        except Exception as e:
-            self._show_error(f"Status update failed: {str(e)}")
+        """Update both status and error displays in a background thread"""
+        def worker():
+            try:
+                # Capture outputs as strings (not updating UI here)
+                error_output = self._capture_output_str(self.qontrol.show_errors)
+                status_output = self._capture_output_str(self.qontrol.show_status)
+                # Schedule UI update in main thread
+                self.after(0, lambda: self._update_status_displays(error_output, status_output))
+            except Exception as e:
+                self.after(0, lambda: self._show_error(f"Status update failed: {str(e)}"))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _capture_output_str(self, device_func):
+        """Capture output from device functions as a string (no UI update)"""
+        with io.StringIO() as buffer:
+            with redirect_stdout(buffer):
+                try:
+                    device_func()
+                except Exception as e:
+                    print(f"Error: {str(e)}")
+            return buffer.getvalue()
+
+    def _update_status_displays(self, error_output, status_output):
+        """Update the error and status displays in the main thread"""
+        self.error_display.configure(state="normal")
+        self.error_display.delete("1.0", "end")
+        self.error_display.insert("1.0", error_output)
+        self.error_display.configure(state="disabled")
+
+        self.status_display.configure(state="normal")
+        self.status_display.delete("1.0", "end")
+        self.status_display.insert("1.0", status_output)
+        self.status_display.configure(state="disabled")
+
             
     def _capture_output(self, device_func, display):
         """Capture output from device functions"""
@@ -1359,7 +1404,7 @@ class Window1Content(ctk.CTkFrame):
         self.custom_grid = grid.Example(
             self.grid_container, 
             grid_n=n,
-            scale=0.8 if n >= 12 else 1.0
+            scale=1.0
         )
         self.custom_grid.pack(fill="both", expand=True)
         self._attach_grid_listeners()
@@ -1399,6 +1444,8 @@ class Window1Content(ctk.CTkFrame):
         """Update Qontrol device with current values"""
         try:
             config = self.custom_grid.export_paths_json()
+            # apply_grid_mapping(self.qontrol, config, self.grid_size)
+            create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
             apply_grid_mapping(self.qontrol, config, self.grid_size)
         except Exception as e:
             self._show_error(f"Device update failed: {str(e)}")
@@ -1530,7 +1577,11 @@ class Window1Content(ctk.CTkFrame):
             zero_config = self._create_zero_config()
             
             # Apply the zero configuration to the device.
+            # apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
+            create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
             apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
+
+
             print("Grid cleared and all values set to zero")
             self._capture_output(self.qontrol.show_status, self.status_display)
             self._update_selection_display()  # Add this line
@@ -1576,7 +1627,9 @@ class Window1Content(ctk.CTkFrame):
                 return
 
             # Create label mapping for channel assignments
-            label_map = create_label_mapping(8)  # Assuming 8x8 grid
+            # label_map = create_label_mapping(8)  # Assuming 8x8 
+            create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+            label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
 
             # Create a new configuration with current values
             phase_grid_config = copy.deepcopy(grid_config)
@@ -1797,7 +1850,10 @@ class Window1Content(ctk.CTkFrame):
             return None, None
 
         cross = selected[0]  # Use the first selected label
-        label_map = create_label_mapping(8)
+        # label_map = create_label_mapping(8)
+
+        create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+        label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
         theta_ch, phi_ch = label_map.get(cross, (None, None))
         print(f"Current selection: {cross}")
 
@@ -1828,7 +1884,12 @@ class Window1Content(ctk.CTkFrame):
             self.resistance_params[target_channel] = result
 
             # --- Add this block ---
-            label_map = create_label_mapping(8)  # Use your grid size if not 8
+            # label_map = create_label_mapping(8)  # Use your grid size if not 8
+
+            create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+            label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+
+
             channel_to_label = {}
             for label, (theta_ch, phi_ch) in label_map.items():
                 channel_to_label[theta_ch] = f"{label}_theta"
@@ -1914,7 +1975,12 @@ class Window1Content(ctk.CTkFrame):
             io_config = AppData.get_io_config(cross)  # This will return 'cross' or 'bar'
             
             # --- Get resistance parameters from AppData ---
-            label_map = create_label_mapping(8)  # Use your grid size if not 8
+            # label_map = create_label_mapping(8)  # Use your grid size if not 8
+
+            create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+            label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+
+
             channel_to_label = {}
             for label, (theta_ch_map, phi_ch_map) in label_map.items():
                 channel_to_label[theta_ch_map] = f"{label}_theta"
@@ -2045,7 +2111,11 @@ class Window1Content(ctk.CTkFrame):
             self._current_image_ref2 = None
             return
 
-        label_map = create_label_mapping(8)  # Or use self.grid_size if dynamic
+        # label_map = create_label_mapping(8)  # Or use self.grid_size if dynamic
+
+        create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+        label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+        
         theta_ch, phi_ch = label_map.get(current['cross'], (None, None))
         if not self.phase_selector:
             return  # Phase selector not initialized
