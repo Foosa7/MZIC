@@ -229,7 +229,7 @@ class CalibrationUtils:
 
         popt, pcov = optimize.curve_fit(
             cos_func, xdata, ydata, p0=guess,
-            bounds=([0, 0, -np.pi, -np.inf], [np.inf, np.inf, np.pi, np.inf])
+            bounds=([0, 0, -2*np.pi, -np.inf], [np.inf, np.inf, 2*np.pi, np.inf])
         )
 
         A, b, c, d = popt
@@ -247,7 +247,7 @@ class CalibrationUtils:
 
         popt, pcov = optimize.curve_fit(
             cos_func, xdata, ydata, p0=guess,
-            bounds=([0, 0, -np.pi, -np.inf], [np.inf, np.inf, np.pi, np.inf])
+            bounds=([0, 0, -2*np.pi, -np.inf], [np.inf, np.inf, 2*np.pi, np.inf])
         )
 
         A, b, c, d = popt
