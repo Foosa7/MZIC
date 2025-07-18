@@ -1,11 +1,13 @@
 # app/utils/calibrate/calibrate.py
 
+from app.imports import *
 import numpy as np
 from scipy import optimize
 import matplotlib.pyplot as plt
 from datetime import datetime
 import time
 import json
+
 
 class CalibrationUtils:
     def characterize_resistance(self, qontrol, channel, delay=0.5):
@@ -265,16 +267,36 @@ class CalibrationUtils:
             'rawres': (guess, popt, pcov)
         }
 
+
     def export_calibration(self, resistance_params, phase_params, filepath=None):
         """Export calibration data to JSON format"""
         if filepath is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filepath = f"calibration_data_{timestamp}.json"
-        
-        # Prepare resistance data
-        resistance_data = {}
+
+        # Load label mapping from 12_mode_mapping.json
+        from pathlib import Path
+        mapping_file = Path(__file__).parent.parent / "qontrol" / "12_mode_mapping.json"
+        with open(mapping_file, 'r') as f:
+            label_map = json.load(f)
+
+        # Prepare resistance data with label_theta keys and channel info at the top
+        resistance_entries = []
         for channel, params in resistance_params.items():
-            resistance_data[str(channel)] = {
+            label = None
+            channel_type = None
+            for k, v in label_map.items():
+                if "theta" in v and v["theta"] == int(channel):
+                    label = k
+                    channel_type = "theta"
+                    break
+                elif "phi" in v and v["phi"] == int(channel):
+                    label = k
+                    channel_type = "phi"
+                    break
+            key = f"{label}_{channel_type}" if label and channel_type else str(channel)
+            resistance_entries.append((key, {
+                "pin": int(channel),
                 "resistance_params": {
                     "a": float(params['a']),
                     "c": float(params['c']),
@@ -288,12 +310,29 @@ class CalibrationUtils:
                     "voltages": params['voltages'],
                     "max_current": float(params['max_current'])
                 }
-            }
+            }))
 
-        # Prepare phase data
-        phase_data = {}
+        # Sort by label (alphabetically)
+        resistance_entries.sort(key=lambda x: x[0])
+        resistance_data = {k: v for k, v in resistance_entries}
+
+        # Prepare phase data (unchanged)
+        phase_entries = []
         for channel, params in phase_params.items():
-            phase_data[str(channel)] = {
+            label = None
+            channel_type = None
+            for k, v in label_map.items():
+                if "theta" in v and v["theta"] == int(channel):
+                    label = k
+                    channel_type = "theta"
+                    break
+                elif "phi" in v and v["phi"] == int(channel):
+                    label = k
+                    channel_type = "phi"
+                    break
+            key = f"{label}_{channel_type}" if label and channel_type else str(channel)
+            phase_entries.append((key, {
+                "pin": int(channel),
                 "phase_params": {
                     "io_config": params['io_config'],
                     "amplitude": float(params['amp']),
@@ -305,13 +344,21 @@ class CalibrationUtils:
                     "currents": params['currents'],
                     "optical_powers": params['optical_powers']
                 }
-            }
+            }))
+
+        # Sort by label (alphabetically)
+        phase_entries.sort(key=lambda x: x[0])
+        phase_data = {k: v for k, v in phase_entries}
+
 
         # Combine all calibration data
+        # mesh_options = self.config.get("options", ["6x6", "8x8", "12x12"])
         calibration_data = {
             "metadata": {
                 "timestamp": datetime.now().isoformat(),
-                "version": "1.0"
+                "version": "1.0",
+                # "default_mesh": self.config.get("default_mesh", mesh_options[1])
+
             },
             "resistance_calibration": resistance_data,
             "phase_calibration": phase_data
@@ -320,8 +367,66 @@ class CalibrationUtils:
         # Save to file
         with open(filepath, 'w') as f:
             json.dump(calibration_data, f, indent=4)
-        
+
         return filepath
+
+    # def export_calibration(self, resistance_params, phase_params, filepath=None):
+    #     """Export calibration data to JSON format"""
+    #     if filepath is None:
+    #         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    #         filepath = f"calibration_data_{timestamp}.json"
+        
+    #     # Prepare resistance data
+    #     resistance_data = {}
+    #     for channel, params in resistance_params.items():
+    #         resistance_data[str(channel)] = {
+    #             "resistance_params": {
+    #                 "a": float(params['a']),
+    #                 "c": float(params['c']),
+    #                 "d": float(params['d']),
+    #                 "rmin": float(params['rmin']),
+    #                 "rmax": float(params['rmax']),
+    #                 "alpha": float(params['alpha'])
+    #             },
+    #             "measurement_data": {
+    #                 "currents": params['currents'],
+    #                 "voltages": params['voltages'],
+    #                 "max_current": float(params['max_current'])
+    #             }
+    #         }
+
+    #     # Prepare phase data
+    #     phase_data = {}
+    #     for channel, params in phase_params.items():
+    #         phase_data[str(channel)] = {
+    #             "phase_params": {
+    #                 "io_config": params['io_config'],
+    #                 "amplitude": float(params['amp']),
+    #                 "frequency": float(params['omega']/(2*np.pi)),
+    #                 "phase": float(params['phase']),
+    #                 "offset": float(params['offset'])
+    #             },
+    #             "measurement_data": {
+    #                 "currents": params['currents'],
+    #                 "optical_powers": params['optical_powers']
+    #             }
+    #         }
+
+    #     # Combine all calibration data
+    #     calibration_data = {
+    #         "metadata": {
+    #             "timestamp": datetime.now().isoformat(),
+    #             "version": "1.0"
+    #         },
+    #         "resistance_calibration": resistance_data,
+    #         "phase_calibration": phase_data
+    #     }
+
+    #     # Save to file
+    #     with open(filepath, 'w') as f:
+    #         json.dump(calibration_data, f, indent=4)
+        
+    #     return filepath
 
 
 

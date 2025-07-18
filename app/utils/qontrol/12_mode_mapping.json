@@ -1,79 +1,79 @@
 {
   "A1": {"theta": 65, "phi": 66},
-  "A2": {"theta": 0, "phi": 131},
+  "A2": {"theta": 31, "phi": 100},
   "A3": {"theta": 64, "phi": 67},
-  "A4": {"theta": 1, "phi": 130},
+  "A4": {"theta": 30, "phi": 101},
   "A5": {"theta": 63, "phi": 68},
-  "A6": {"theta": 2, "phi": 129},
-
-  "B1": {"theta": 3, "phi": 128},
+  "A6": {"theta": 29, "phi": 102},
+  
+  "B1": {"theta": 28, "phi": 103},
   "B2": {"theta": 62, "phi": 69},
-  "B3": {"theta": 4, "phi": 127},
+  "B3": {"theta": 27, "phi": 104},
   "B4": {"theta": 61, "phi": 70},
-  "B5": {"theta": 5, "phi": 126},
-
-  "C1": {"theta": 6, "phi": 125},
+  "B5": {"theta": 26, "phi": 105},
+  
+  "C1": {"theta": 25, "phi": 106},
   "C2": {"theta": 60, "phi": 71},
-  "C3": {"theta": 7, "phi": 124},
+  "C3": {"theta": 24, "phi": 107},
   "C4": {"theta": 59, "phi": 72},
-  "C5": {"theta": 8, "phi": 123},
+  "C5": {"theta": 23, "phi": 108},
   "C6": {"theta": 58, "phi": 73},
-
+  
   "D1": {"theta": 57, "phi": 74},
-  "D2": {"theta": 9, "phi": 122},
+  "D2": {"theta": 22, "phi": 109},
   "D3": {"theta": 56, "phi": 75},
-  "D4": {"theta": 10, "phi": 121},
+  "D4": {"theta": 21, "phi": 110},
   "D5": {"theta": 55, "phi": 76},
-
+  
   "E1": {"theta": 54, "phi": 77},
-  "E2": {"theta": 11, "phi": 120},
+  "E2": {"theta": 20, "phi": 111},
   "E3": {"theta": 53, "phi": 78},
-  "E4": {"theta": 12, "phi": 119},
+  "E4": {"theta": 19, "phi": 112},
   "E5": {"theta": 52, "phi": 79},
-  "E6": {"theta": 13, "phi": 118},
-
-  "F1": {"theta": 14, "phi": 117},
+  "E6": {"theta": 18, "phi": 113},
+  
+  "F1": {"theta": 17, "phi": 114},
   "F2": {"theta": 51, "phi": 80},
-  "F3": {"theta": 15, "phi": 116},
+  "F3": {"theta": 16, "phi": 115},
   "F4": {"theta": 50, "phi": 81},
-  "F5": {"theta": 16, "phi": 115},
-
-  "G1": {"theta": 17, "phi": 114},
+  "F5": {"theta": 15, "phi": 116},
+  
+  "G1": {"theta": 14, "phi": 117},
   "G2": {"theta": 49, "phi": 82},
-  "G3": {"theta": 18, "phi": 113},
+  "G3": {"theta": 13, "phi": 118},
   "G4": {"theta": 48, "phi": 83},
-  "G5": {"theta": 19, "phi": 112},
+  "G5": {"theta": 12, "phi": 119},
   "G6": {"theta": 47, "phi": 84},
-
+  
   "H1": {"theta": 46, "phi": 85},
-  "H2": {"theta": 20, "phi": 111},
+  "H2": {"theta": 11, "phi": 120},
   "H3": {"theta": 45, "phi": 86},
-  "H4": {"theta": 21, "phi": 110},
+  "H4": {"theta": 10, "phi": 121},
   "H5": {"theta": 44, "phi": 87},
-
+  
   "I1": {"theta": 43, "phi": 88},
-  "I2": {"theta": 22, "phi": 109},
+  "I2": {"theta": 9, "phi": 122},
   "I3": {"theta": 42, "phi": 89},
-  "I4": {"theta": 23, "phi": 108},
+  "I4": {"theta": 8, "phi": 123},
   "I5": {"theta": 41, "phi": 90},
-  "I6": {"theta": 24, "phi": 107},
-
-  "J1": {"theta": 25, "phi": 106},
+  "I6": {"theta": 7, "phi": 124},
+  
+  "J1": {"theta": 6, "phi": 125},
   "J2": {"theta": 40, "phi": 91},
-  "J3": {"theta": 26, "phi": 105},
+  "J3": {"theta": 5, "phi": 126},
   "J4": {"theta": 39, "phi": 92},
-  "J5": {"theta": 27, "phi": 104},
-
-  "K1": {"theta": 28, "phi": 103},
-  "K2": {"theta": 38, "phi": 93},
-  "K3": {"theta": 29, "phi": 102},
-  "K4": {"theta": 37, "phi": 94},
-  "K5": {"theta": 30, "phi": 101},
-  "K6": {"theta": 36, "phi": 95},
+  "J5": {"theta": 4, "phi": 127},
+  
+  "K1": {"theta": 128, "phi": 93},
+  "K2": {"theta": 37, "phi": 94},
+  "K3": {"theta": 3, "phi": 129},
+  "K4": {"theta": 36, "phi": 95},
+  "K5": {"theta": 2, "phi": 130},
+  "K6": {"theta": 1, "phi": 131},
 
   "L1": {"theta": 35, "phi": 96},
   "L2": {"theta": 34, "phi": 97},
-  "L3": {"theta": 31, "phi": 100},
-  "L4": {"theta": 33, "phi": 98},
+  "L3": {"theta": 9, "phi": 131}, 
+  "L4": {"theta": 98, "phi": 98},
   "L5": {"theta": 32, "phi": 99}
 }

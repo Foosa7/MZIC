@@ -1,11 +1,9 @@
 ## Notes
 
 #### Characterize
-1. Add channel select via grid
-2. Add characterize function
-3. Add plot 
-4. Save and export characterized data
-5. Add bar, cross, split, custom selection
+0. Finalize calibration export
+1. Add apply phase new function with new data and test 
+2. Debug connections that don't work
 
 #### Updates
 1. Grid reads globally

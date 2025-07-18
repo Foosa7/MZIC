@@ -80,34 +80,6 @@ def import_single_selection(selection_dict):
     except Exception as e:
         raise ValueError(f"Invalid selection format: {str(e)}") from e
 
-# ## Use this if A1 is at the bottom left corner
-# def create_label_mapping(grid_n):
-#     label_map = {}
-#     for i in range(grid_n):
-#         group_letter = chr(65 + i)  # 'A' to 'H'
-#         n_elements = 4 if i % 2 == 0 else 3
-        
-#         # Generate labels in ascending order
-#         suffixes = range(1, n_elements+1) if i == grid_n-1 else range(n_elements, 0, -1)
-        
-#         theta_start = sum(4 if k%2==0 else 3 for k in range(i))
-#         initial_phi = 31 + sum(3 if k%2==0 else 4 for k in range(i))
-        
-#         for j, suffix in enumerate(suffixes):
-#             if i == grid_n-1:  # Special handling for last group
-#                 theta = theta_start + (n_elements-1 - j)
-#                 phi = (initial_phi - (n_elements-1)) + j
-#             else:
-#                 theta = theta_start + j
-#                 phi = initial_phi - j
-            
-#             label = f"{group_letter}{suffix}"
-#             label_map[label] = (theta, phi)
-    
-#     return label_map
-
-
-
 def load_custom_label_mapping(json_path):
     """Loads a manually defined label-to-channel mapping from JSON file"""
     try:
@@ -116,7 +88,6 @@ def load_custom_label_mapping(json_path):
         return import_mapping_json(json_str)
     except Exception as e:
         raise ValueError(f"Failed to load label mapping: {e}")
-
 
 def create_label_mapping(grid_n):
     """
@@ -132,29 +103,6 @@ def create_label_mapping(grid_n):
     except Exception as e:
         raise ValueError(f"Failed to load label mapping: {e}")
 
-# def load_custom_label_mapping(json_path):
-#     """Loads a manually defined label-to-channel mapping from JSON file"""
-#     try:
-#         with open(json_path, 'r') as f:
-#             json_str = f.read()
-#         return import_mapping_json(json_str)
-#     except Exception as e:
-#         raise ValueError(f"Failed to load label mapping: {e}")
-
-# example mapping
-
-# {
-#   "A1": {"theta": 1, "phi": 4},
-#   "A2": {"theta": 2, "phi": 5},
-#   "A3": {"theta": 3, "phi": 6},
-#   "A4": {"theta": 10, "phi": 14},
-#   "A5": {"theta": 20, "phi": 24},
-#   "A6": {"theta": 30, "phi": 34},
-#   "B1": {"theta": 7, "phi": 8},
-#   "C6": {"theta": 11, "phi": 12},
-#   ...
-#   "L5": {"theta": 59, "phi": 60}
-# }
 
 def print_mapping(label_map):
     """Prints mapping in column groups with channel pairs"""
