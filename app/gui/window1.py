@@ -144,8 +144,10 @@ class Window1Content(ctk.CTkFrame):
 
         # Add to your controls list in _create_compact_control_panel method:
         controls = [
-            ("Import", self._import_config),
-            ("Export", self._export_config),
+            # ("Import", self._import_config),
+            # ("Export", self._export_config),export_calibration_data
+            ("Import", self.import_calibration_data),
+            ("Export", self.export_calibration_data),
             ("Current", self._apply_config),
             ("Clear", self._clear_grid),
             ("R", self.characterize_resistance),
@@ -2002,7 +2004,7 @@ class Window1Content(ctk.CTkFrame):
                 self.thorlabs,
                 target_channel,
                 io_config,
-                resistance_data  # pass full dict now
+                resistance_data  # pass full dict 
             )
             
             # Store results

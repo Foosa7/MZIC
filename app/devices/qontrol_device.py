@@ -123,7 +123,8 @@ class QontrolDevice:
 
     def set_current(self, channel, current):
         """
-        Set current (mA) for a specific channel with enhanced type checking
+        Set current (mA) for a specific channel with enhanced type checking.
+        Always warn if requested current exceeds global current limit.
         """
         try:
             if not self.device:
@@ -133,9 +134,16 @@ class QontrolDevice:
             if channel_int < 0 or channel_int >= self.device.n_chs:
                 raise ValueError(f"Invalid channel {channel} (0-{self.device.n_chs-1})")
 
-            # Use direct integer indexing
-            self.device.i[channel_int] = current
-            print(f"[INFO][Qontrol] Set current for channel {channel_int} to {current} mA")
+            # Print the requested current before any capping
+            print(f"[DEBUG][Qontrol] Requested current for channel {channel_int}: {current} mA (global limit: {self.globalcurrrentlimit} mA)")
+
+            # Always warn if requested current exceeds global current limit
+            if self.globalcurrrentlimit is not None and float(current) > float(self.globalcurrrentlimit):
+                print(f"[WARNING][Qontrol] Requested current {current} mA exceeds global current limit ({self.globalcurrrentlimit} mA). The value will be capped by the device.")
+
+            # Actually set the current (device will cap if needed)
+            self.device.i[channel_int] = float(current)
+            print(f"[INFO][Qontrol] Set current for channel {channel_int} to {self.device.i[channel_int]} mA")
 
         except ValueError as ve:
             print(f"[ERROR][Qontrol] Invalid channel format {channel}: {ve}")
@@ -145,7 +153,7 @@ class QontrolDevice:
             print(f"[ERROR][Qontrol] Error setting channel {channel}: {str(e)}")
             if hasattr(self.device, 'log'):
                 print(f"[ERROR][Qontrol] Last device errors: {self.device.log[-3:]}")
-
+                
     def show_voltages(self):
         """
         Retrieve and print voltage readings from all channels.
