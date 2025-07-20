@@ -145,11 +145,14 @@ class Window1Content(ctk.CTkFrame):
         controls = [
             ("Import", self.import_calibration_data),
             ("Export", self.export_calibration_data),
-            # ("Current", self._apply_config),
-            ("Appdata", self.export_appdata_calibration),
+            ("Current", self._apply_config),
+            # ("Appdata", self.export_appdata_calibration),
+            ("RP", self.run_rp_calibration),  # Run Resistance and Phase calibration
+            ("Status", self._show_full_status),
             ("Clear", self._clear_grid),
             ("R", self.characterize_resistance),
-            ("P", self.characterize_phase),
+            # ("P", self.characterize_phase),
+            ("AP", self.apply_phase_new),
             ("Phase", self.apply_phase_new_json)  # Add this new button
         ]
 
@@ -880,14 +883,95 @@ class Window1Content(ctk.CTkFrame):
             return
         self.run_path_sequence(path_list, delay=delay)
 
+    # def run_path_sequence(self, path_list, delay=0.5):
+    #     """
+    #     Run each path (JSON dict) in path_list with a delay between each.
+    #     Applies phase logic for each step.
+    #     Measures from 2 Thorlabs devices after each step and saves results to CSV at the end.
+    #     """
+
+    #     create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+    #     label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+
+    #     results = []
+    #     headers = ["timestamp", "step", "thorlabs1_uW", "thorlabs2_uW"]
+
+    #     def run_next(index):
+    #         if index >= len(path_list):
+    #             # Export results
+    #             if results:
+    #                 self._export_results_to_csv(results, headers)
+    #                 print("\nPath sequence complete!")
+    #                 # Reset phases to zero
+    #                 zero_config = self._create_zero_config()
+    #                 apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
+    #                 print("All values reset to zero")
+    #             else:
+    #                 print("\nNo measurements collected.")
+    #             return
+
+    #         # Update the global grid config
+    #         AppData.default_json_grid = path_list[index]
+    #         print(f"Applying path {index+1}/{len(path_list)}: {AppData.default_json_grid}")
+    #         # Optionally update the grid UI
+    #         self.custom_grid.import_paths_json(json.dumps(AppData.default_json_grid))
+    #         # Run your phase application logic
+    #         self.apply_phase_new()
+
+    #         # Thorlabs measurements (use only the first two devices)
+    #         thorlabs_values = [0.0, 0.0]
+    #         if self.thorlabs:
+    #             devices = self.thorlabs if isinstance(self.thorlabs, list) else [self.thorlabs]
+    #             for i in range(2):
+    #                 try:
+    #                     thorlabs_values[i] = devices[i].read_power(unit=self.selected_unit)
+    #                 except Exception as e:
+    #                     print(f"Error reading Thorlabs {i}: {e}")
+    #                     thorlabs_values[i] = 0.0
+
+    #         # Record results with timestamp
+    #         current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    #         row = [current_timestamp, index+1, thorlabs_values[0], thorlabs_values[1]]
+    #         results.append(row)
+
+    #         # Print current values
+    #         print(f"Step {index+1} measurements:")
+    #         print(f"  Thorlabs 1: {thorlabs_values[0]:.3f} {self.selected_unit}")
+    #         print(f"  Thorlabs 2: {thorlabs_values[1]:.3f} {self.selected_unit}")
+
+    #         # Schedule the next path after the delay
+    #         self.after(int(delay * 1000), lambda: run_next(index + 1))
+
+    #     try:
+    #         run_next(0)
+    #     except Exception as e:
+    #         print(f"Experiment failed: {e}")
+    #         import traceback
+    #         traceback.print_exc()
+
+
+    # def _start_status_updates(self):
+    #     """Start periodic status updates"""
+    #     self._update_system_status()
+    #     self.after(10000, self._start_status_updates)
+
+    # def _update_system_status(self):
+    #     """Update both status and error displays"""
+    #     try:
+    #         self._capture_output(self.qontrol.show_errors, self.error_display)
+    #         self._capture_output(self.qontrol.show_status, self.status_display)
+    #     except Exception as e:
+    #         self._show_error(f"Status update failed: {str(e)}")
+
+
     def run_path_sequence(self, path_list, delay=0.5):
         """
         Run each path (JSON dict) in path_list with a delay between each.
         Applies phase logic for each step.
         Measures from 2 Thorlabs devices after each step and saves results to CSV at the end.
         """
-        import json
-        from datetime import datetime
+        create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+        label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
 
         results = []
         headers = ["timestamp", "step", "thorlabs1_uW", "thorlabs2_uW"]
@@ -909,10 +993,54 @@ class Window1Content(ctk.CTkFrame):
             # Update the global grid config
             AppData.default_json_grid = path_list[index]
             print(f"Applying path {index+1}/{len(path_list)}: {AppData.default_json_grid}")
+
             # Optionally update the grid UI
             self.custom_grid.import_paths_json(json.dumps(AppData.default_json_grid))
-            # Run your phase application logic
-            self.apply_phase_new()
+
+            # --- Use label_map to apply phase for each cross_label ---
+            grid_config = path_list[index]
+            phase_grid_config = copy.deepcopy(grid_config)
+            for cross_label, data in grid_config.items():
+                if cross_label not in label_map:
+                    continue
+                theta_ch, phi_ch = label_map[cross_label]
+                theta_val = data.get("theta", "0")
+                phi_val = data.get("phi", "0")
+
+                # Process theta channel
+                if theta_ch is not None and theta_val:
+                    key = f"{cross_label}_theta"
+                    calibration = AppData.phase_calibration_data.get(key)
+                    if calibration:
+                        try:
+                            theta_float = float(theta_val)
+                            current_theta = self._calculate_current_for_phase_json(key, theta_float)
+                            if current_theta is not None:
+                                current_theta = round(current_theta, 5)
+                                phase_grid_config[cross_label]["theta"] = str(current_theta)
+                        except Exception as e:
+                            print(f"{cross_label}:θ ({str(e)})")
+
+                # Process phi channel
+                if phi_ch is not None and phi_val:
+                    key = f"{cross_label}_phi"
+                    calibration = AppData.phase_calibration_data.get(key)
+                    if calibration:
+                        try:
+                            phi_float = float(phi_val)
+                            current_phi = self._calculate_current_for_phase_json(key, phi_float)
+                            if current_phi is not None:
+                                current_phi = round(current_phi, 5)
+                                phase_grid_config[cross_label]["phi"] = str(current_phi)
+                        except Exception as e:
+                            print(f"{cross_label}:φ ({str(e)})")
+
+            # Apply the calculated phase grid config to the device
+            try:
+                config_json = json.dumps(phase_grid_config)
+                apply_grid_mapping(self.qontrol, config_json, self.grid_size)
+            except Exception as e:
+                print(f"Device update failed: {str(e)}")
 
             # Thorlabs measurements (use only the first two devices)
             thorlabs_values = [0.0, 0.0]
@@ -945,19 +1073,6 @@ class Window1Content(ctk.CTkFrame):
             import traceback
             traceback.print_exc()
 
-
-    # def _start_status_updates(self):
-    #     """Start periodic status updates"""
-    #     self._update_system_status()
-    #     self.after(10000, self._start_status_updates)
-
-    # def _update_system_status(self):
-    #     """Update both status and error displays"""
-    #     try:
-    #         self._capture_output(self.qontrol.show_errors, self.error_display)
-    #         self._capture_output(self.qontrol.show_status, self.status_display)
-    #     except Exception as e:
-    #         self._show_error(f"Status update failed: {str(e)}")
 
     def _start_status_updates(self):
         """Start periodic status updates (non-blocking)"""
@@ -1445,7 +1560,10 @@ class Window1Content(ctk.CTkFrame):
         try:
             config = self.custom_grid.export_paths_json()
             # apply_grid_mapping(self.qontrol, config, self.grid_size)
+            # create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
             create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+            label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+
             apply_grid_mapping(self.qontrol, config, self.grid_size)
         except Exception as e:
             self._show_error(f"Device update failed: {str(e)}")
@@ -1859,6 +1977,17 @@ class Window1Content(ctk.CTkFrame):
 
         return theta_ch, phi_ch
 
+    def run_rp_calibration(self):
+        """ Run both resistance and phase calibration functions """
+        """Run both resistance and phase calibration functions"""
+        try:
+            self.characterize_resistance()
+            self.characterize_phase()
+        except Exception as e:
+            self._show_error(f"Calibration failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
     def characterize_resistance(self):
         """Handle resistance characterization button click"""
         try:
@@ -1940,7 +2069,7 @@ class Window1Content(ctk.CTkFrame):
                 buf = io.BytesIO()
                 fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
                 buf.seek(0)
-                img = Image.open(buf)
+                img = Image.open(buf).copy()
 
                 # Create CTkImage and display in graph tab
                 ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(480, 320))
@@ -2057,6 +2186,7 @@ class Window1Content(ctk.CTkFrame):
                 self.graph_image_label2.configure(image=ctk_image, text="")
                 self._current_image_ref2 = ctk_image  # Keep reference
                 
+                buf.close()
                 plt.close(fig)  # Clean up matplotlib figure
 
         except Exception as e:
@@ -2518,6 +2648,208 @@ class Window1Content(ctk.CTkFrame):
             print(f"Failed to export AppData calibration: {e}")
 
 
+    def apply_phase_new_json(self):
+        """
+        Apply phase settings to the entire grid based on phase calibration data from AppData.
+        Processes all theta and phi values in the current grid configuration.
+        """
+        try:
+            # Get current grid configuration
+            grid_config = json.loads(self.custom_grid.export_paths_json())
+            if not grid_config:
+                self._show_error("No grid configuration found")
+                return
+
+            # Get label mapping for current grid size
+            create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+            label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+
+            # Create new configuration and tracking lists
+            phase_grid_config = copy.deepcopy(grid_config)
+            applied_channels = []
+            failed_channels = []
+
+            # Process each cross in the grid
+            for cross_label, data in grid_config.items():
+                # Skip if not in mapping
+                if cross_label not in label_map:
+                    continue
+
+                # Process theta value
+                theta_val = self.interpolated_theta.get(cross_label) if self.interpolation_enabled else data.get("theta", "0")
+                if theta_val:
+                    try:
+                        theta_float = float(theta_val)
+                        calib_key = f"{cross_label}_theta"
+                        current_theta = self._calculate_current_for_phase_new_json(calib_key, theta_float)
+                        
+                        if current_theta is not None:
+                            current_theta = round(current_theta, 5)
+                            phase_grid_config[cross_label]["theta"] = str(current_theta)
+                            applied_channels.append(f"{cross_label}:θ = {current_theta:.5f} mA")
+                        else:
+                            failed_channels.append(f"{cross_label}:θ (no calibration)")
+                    except Exception as e:
+                        failed_channels.append(f"{cross_label}:θ ({str(e)})")
+
+                # Process phi value
+                phi_val = data.get("phi", "0")
+                if phi_val:
+                    try:
+                        phi_float = float(phi_val)
+                        calib_key = f"{cross_label}_phi"
+                        current_phi = self._calculate_current_for_phase_new_json(calib_key, phi_float)
+                        
+                        if current_phi is not None:
+                            current_phi = round(current_phi, 5)
+                            phase_grid_config[cross_label]["phi"] = str(current_phi)
+                            applied_channels.append(f"{cross_label}:φ = {current_phi:.5f} mA")
+                        else:
+                            failed_channels.append(f"{cross_label}:φ (no calibration)")
+                    except Exception as e:
+                        failed_channels.append(f"{cross_label}:φ ({str(e)})")
+
+            # Store config and update displays
+            self.phase_grid_config = phase_grid_config
+            self._update_phase_results_display(applied_channels, failed_channels)
+
+            # Apply configuration to device
+            try:
+                config_json = json.dumps(phase_grid_config)
+                apply_grid_mapping(self.qontrol, config_json, self.grid_size)
+                self._capture_output(self.qontrol.show_status, self.status_display)
+            except Exception as e:
+                self._show_error(f"Device update failed: {str(e)}")
+
+        except Exception as e:
+            self._show_error(f"Failed to apply phases: {str(e)}")
+            traceback.print_exc()
+            return None
+
+    def _calculate_current_for_phase_new_json(self, calib_key, phase_value):
+        """
+        Calculate current for a phase value using the new calibration format.
+        
+        Args:
+            calib_key: str, calibration key (e.g. "A1_theta")
+            phase_value: float, phase value in π units
+            
+        Returns:
+            float: Current in mA or None if calculation fails
+        """
+        try:
+            # Get phase calibration data
+            phase_cal = AppData.phase_calibration_data.get(calib_key)
+            if not phase_cal:
+                return None
+                
+            phase_params = phase_cal.get("phase_params", {})
+            if not phase_params:
+                return None
+
+            # Get resistance calibration data
+            res_cal = AppData.resistance_calibration_data.get(calib_key)
+            if not res_cal:
+                return None
+                
+            res_params = res_cal.get("resistance_params", {})
+            if not res_params:
+                return None
+
+            # Extract phase parameters
+            b = phase_params.get("frequency", 1.0) * 2 * np.pi  # Convert Hz to rad/s
+            c = phase_params.get("phase", 0.0)  # Phase offset in radians
+
+            # Check phase range and adjust if needed
+            if phase_value < c/np.pi:
+                print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π")
+                phase_value = phase_value + 2
+                print(f"Using adjusted phase value: {phase_value}π")
+
+            # Calculate required heating power
+            P = abs((phase_value*np.pi - c) / b)  # Power in mW
+
+            # Extract resistance parameters
+            a = res_params.get("a")  # Cubic term
+            c_res = res_params.get("c")  # Linear term
+            
+            if a is not None and c_res is not None:
+                # Solve nonlinear equation using sympy
+                I = sp.symbols('I')
+                P_watts = P/1000  # Convert mW to W
+                R0 = c_res  # Linear resistance
+                alpha = a/R0 if R0 != 0 else 0  # Nonlinearity parameter
+
+                # Define equation: P/R0 = I^2 + alpha*I^4
+                eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
+                solutions = sp.solve(eq, I)
+
+                # Get positive real solution
+                positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+                if positive_solutions:
+                    return float(1000 * positive_solutions[0])  # Convert to mA
+                else:
+                    # Fallback to linear model
+                    return float(round(1000 * np.sqrt(P/(R0*1000)), 2))
+            else:
+                # Use default linear resistance
+                R = 50.0  # Default resistance in Ohms
+                return float(round(1000 * np.sqrt(P/(R*1000)), 2))
+
+        except Exception as e:
+            print(f"Error calculating current: {str(e)}")
+            return None
+
+    def _update_phase_results_display(self, applied_channels, failed_channels):
+        """Helper to update the mapping display with phase application results"""
+        self.mapping_display.configure(state="normal")
+        self.mapping_display.delete("1.0", "end")
+        self.mapping_display.insert("1.0", "Phase Application Results:\n\n")
+        
+        self.mapping_display.insert("end", "Successfully applied:\n")
+        for channel in applied_channels:
+            self.mapping_display.insert("end", f"• {channel}\n")
+            
+        if failed_channels:
+            self.mapping_display.insert("end", "\nFailed to apply:\n")
+            for channel in failed_channels:
+                self.mapping_display.insert("end", f"• {channel}\n")
+                
+        self.mapping_display.configure(state="disabled")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # def apply_phase_sweep(self):
     #     """
     #     Apply phase settings to the entire grid based on phase calibration data.
@@ -2610,161 +2942,290 @@ class Window1Content(ctk.CTkFrame):
     #         return None
 
 
-    def apply_phase_new_json(self):
-        """
-        Apply phase settings to the entire grid based on calibration data in AppData.
-        Uses the new calibration format: {"A1_theta": {...}, ...}
-        """
-        try:
-            grid_config = json.loads(self.custom_grid.export_paths_json())
-            if not grid_config:
-                self._show_error("No grid configuration found")
-                return
+    # def apply_phase_new_json(self):
+    #     """
+    #     Apply phase settings to the entire grid based on calibration data in AppData.
+    #     Uses the new calibration format: {"A1_theta": {...}, ...}
+    #     """
+    #     try:
+    #         grid_config = json.loads(self.custom_grid.export_paths_json())
+    #         if not grid_config:
+    #             self._show_error("No grid configuration found")
+    #             return
 
-            create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
-            label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+    #         create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+    #         label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
 
-            phase_grid_config = copy.deepcopy(grid_config)
-            applied_channels = []
-            failed_channels = []
+    #         phase_grid_config = copy.deepcopy(grid_config)
+    #         applied_channels = []
+    #         failed_channels = []
 
-            for cross_label, data in grid_config.items():
-                if cross_label not in label_map:
-                    continue
+    #         for cross_label, data in grid_config.items():
+    #             if cross_label not in label_map:
+    #                 continue
 
-                theta_ch, phi_ch = label_map[cross_label]
-                theta_val = data.get("theta", "0")
-                phi_val = data.get("phi", "0")
+    #             theta_ch, phi_ch = label_map[cross_label]
+    #             theta_val = data.get("theta", "0")
+    #             phi_val = data.get("phi", "0")
 
-                # Process theta channel
-                if theta_ch is not None and theta_val:
-                    key = f"{cross_label}_theta"
-                    calibration = AppData.phase_calibration_data.get(key)
-                    if calibration:
-                        try:
-                            theta_float = float(theta_val)
-                            current_theta = self._calculate_current_for_phase_json(key, theta_float)
-                            if current_theta is not None:
-                                current_theta = round(current_theta, 5)
-                                phase_grid_config[cross_label]["theta"] = str(current_theta)
-                                applied_channels.append(f"{cross_label}:θ = {current_theta:.5f} mA")
-                            else:
-                                failed_channels.append(f"{cross_label}:θ (no calibration)")
-                        except Exception as e:
-                            failed_channels.append(f"{cross_label}:θ ({str(e)})")
-                    else:
-                        failed_channels.append(f"{cross_label}:θ (missing calibration)")
+    #             # Process theta channel
+    #             if theta_ch is not None and theta_val:
+    #                 key = f"{cross_label}_theta"
+    #                 calibration = AppData.phase_calibration_data.get(key)
+    #                 if calibration:
+    #                     try:
+    #                         theta_float = float(theta_val)
+    #                         current_theta = self._calculate_current_for_phase_json(key, theta_float)
+    #                         if current_theta is not None:
+    #                             current_theta = round(current_theta, 5)
+    #                             phase_grid_config[cross_label]["theta"] = str(current_theta)
+    #                             applied_channels.append(f"{cross_label}:θ = {current_theta:.5f} mA")
+    #                         else:
+    #                             failed_channels.append(f"{cross_label}:θ (no calibration)")
+    #                     except Exception as e:
+    #                         failed_channels.append(f"{cross_label}:θ ({str(e)})")
+    #                 else:
+    #                     failed_channels.append(f"{cross_label}:θ (missing calibration)")
 
-                # Process phi channel
-                if phi_ch is not None and phi_val:
-                    key = f"{cross_label}_phi"
-                    calibration = AppData.phase_calibration_data.get(key)
-                    if calibration:
-                        try:
-                            phi_float = float(phi_val)
-                            current_phi = self._calculate_current_for_phase_json(key, phi_float)
-                            if current_phi is not None:
-                                current_phi = round(current_phi, 5)
-                                phase_grid_config[cross_label]["phi"] = str(current_phi)
-                                applied_channels.append(f"{cross_label}:φ = {current_phi:.5f} mA")
-                            else:
-                                failed_channels.append(f"{cross_label}:φ (no calibration)")
-                        except Exception as e:
-                            failed_channels.append(f"{cross_label}:φ ({str(e)})")
-                    else:
-                        failed_channels.append(f"{cross_label}:φ (missing calibration)")
+    #             # Process phi channel
+    #             if phi_ch is not None and phi_val:
+    #                 key = f"{cross_label}_phi"
+    #                 calibration = AppData.phase_calibration_data.get(key)
+    #                 if calibration:
+    #                     try:
+    #                         phi_float = float(phi_val)
+    #                         current_phi = self._calculate_current_for_phase_json(key, phi_float)
+    #                         if current_phi is not None:
+    #                             current_phi = round(current_phi, 5)
+    #                             phase_grid_config[cross_label]["phi"] = str(current_phi)
+    #                             applied_channels.append(f"{cross_label}:φ = {current_phi:.5f} mA")
+    #                         else:
+    #                             failed_channels.append(f"{cross_label}:φ (no calibration)")
+    #                     except Exception as e:
+    #                         failed_channels.append(f"{cross_label}:φ ({str(e)})")
+    #                 else:
+    #                     failed_channels.append(f"{cross_label}:φ (missing calibration)")
 
-            self.phase_grid_config = phase_grid_config
+    #         self.phase_grid_config = phase_grid_config
 
-            # Update mapping display
-            self.mapping_display.configure(state="normal")
-            self.mapping_display.delete("1.0", "end")
-            self.mapping_display.insert("1.0", "Phase Application Results:\n\n")
-            self.mapping_display.insert("end", "Successfully applied:\n")
-            for channel in applied_channels:
-                self.mapping_display.insert("end", f"• {channel}\n")
-            if failed_channels:
-                self.mapping_display.insert("end", "\nFailed to apply:\n")
-                for channel in failed_channels:
-                    self.mapping_display.insert("end", f"• {channel}\n")
-            self.mapping_display.configure(state="disabled")
+    #         # Update mapping display
+    #         self.mapping_display.configure(state="normal")
+    #         self.mapping_display.delete("1.0", "end")
+    #         self.mapping_display.insert("1.0", "Phase Application Results:\n\n")
+    #         self.mapping_display.insert("end", "Successfully applied:\n")
+    #         for channel in applied_channels:
+    #             self.mapping_display.insert("end", f"• {channel}\n")
+    #         if failed_channels:
+    #             self.mapping_display.insert("end", "\nFailed to apply:\n")
+    #             for channel in failed_channels:
+    #                 self.mapping_display.insert("end", f"• {channel}\n")
+    #         self.mapping_display.configure(state="disabled")
 
-            print(phase_grid_config)
-            self._capture_output(self.qontrol.show_status, self.status_display)
+    #         print(phase_grid_config)
+    #         self._capture_output(self.qontrol.show_status, self.status_display)
 
-            try:
-                config_json = json.dumps(phase_grid_config)
-                apply_grid_mapping(self.qontrol, config_json, self.grid_size)
-            except Exception as e:
-                self._show_error(f"Device update failed: {str(e)}")
+    #         try:
+    #             config_json = json.dumps(phase_grid_config)
+    #             apply_grid_mapping(self.qontrol, config_json, self.grid_size)
+    #         except Exception as e:
+    #             self._show_error(f"Device update failed: {str(e)}")
 
-        except Exception as e:
-            self._show_error(f"Failed to apply phases: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return None
+    #     except Exception as e:
+    #         self._show_error(f"Failed to apply phases: {str(e)}")
+    #         import traceback
+    #         traceback.print_exc()
+    #         return None
 
 
-    def _calculate_current_for_phase_json(self, calibration_key, phase_value):
-        """
-        Calculate current for a given phase value using new calibration format.
-        Args:
-            calibration_key: e.g. "A1_theta" or "B2_phi"
-            phase_value: value in pi units
-        Returns:
-            current in mA or None
-        """
-        calibration = AppData.phase_calibration_data.get(calibration_key)
-        if not calibration:
-            return None
+    # def _calculate_current_for_phase_json(self, calibration_key, phase_value):
+    #     """
+    #     Calculate current for a given phase value using new calibration format.
+    #     Args:
+    #         calibration_key: e.g. "A1_theta" or "B2_phi"
+    #         phase_value: value in pi units
+    #     Returns:
+    #         current in mA or None
+    #     """
+    #     calibration = AppData.phase_calibration_data.get(calibration_key)
+    #     if not calibration:
+    #         return None
 
-        phase_params = calibration.get("phase_params", {})
-        resistance_cal_key = calibration_key  # Use same key for resistance
-        resistance_cal = AppData.resistance_calibration_data.get(resistance_cal_key)
-        resistance_params = resistance_cal.get("resistance_params", {}) if resistance_cal else None
+    #     phase_params = calibration.get("phase_params", {})
+    #     resistance_cal_key = calibration_key  # Use same key for resistance
+    #     resistance_cal = AppData.resistance_calibration_data.get(resistance_cal_key)
+    #     resistance_params = resistance_cal.get("resistance_params", {}) if resistance_cal else None
 
-        return self._calculate_current_from_params_json(phase_value, phase_params, resistance_params)
+    #     return self._calculate_current_from_params_json(phase_value, phase_params, resistance_params)
 
-    def _calculate_current_from_params_json(self, phase_value, phase_params, resistance_params):
-        """
-        Calculate current from phase and resistance parameters in new calibration format.
-        Args:
-            phase_value: value in pi units
-            phase_params: dict from calibration
-            resistance_params: dict from calibration
-        Returns:
-            current in mA or None
-        """
-        try:
-            # Extract phase fit parameters
-            b = phase_params.get("frequency", 1.0) * 2 * np.pi  # Hz to rad/s
-            c = phase_params.get("phase", 0.0)                  # offset phase in radians
 
-            # Convert phase_value from pi units to radians
-            phase_radians = phase_value * np.pi
+    # def _calculate_current_from_params_json(self, label, channel, phase_value):
+    #     """
+    #     Calculate current using calibration data for a given label and phase value.
+        
+    #     Args:
+    #         label: str, like "A1_theta"
+    #         channel: int, used for fallback resistance
+    #         phase_value: float, phase in π units
 
-            # Calculate heating power for this phase shift
-            P = abs((phase_radians - c) / b)  # in mW
+    #     Returns:
+    #         Current in mA or None
+    #     """
+    #     try:
+    #         # === Phase calibration lookup ===
+    #         phase_entry = self.app.phase_calibration_data.get(label, {})
+    #         phase_params = phase_entry.get("phase_params", {})
 
-            # Extract resistance parameters
-            if resistance_params:
-                a = resistance_params.get("a", 0.0)
-                c_res = resistance_params.get("c", 50.0)
-                # Solve for current: P = I^2 * (a*I^2 + c)
-                # P = a*I^4 + c*I^2 → quadratic in I^2
+    #         b = phase_params.get("frequency", 1.0) * 2 * np.pi  # omega in rad/s
+    #         c = phase_params.get("phase", 0.0)                  # offset phase in radians
 
-                discriminant = c_res**2 + 4*a*P
-                if discriminant < 0 or a == 0:
-                    I_squared = P / c_res if c_res != 0 else 0
-                else:
-                    I_squared = (-c_res + np.sqrt(discriminant)) / (2*a) if a != 0 else P / c_res
-                I = np.sqrt(I_squared) if I_squared > 0 else 0
-                return float(round(1000 * I, 5))  # mA
-            else:
-                # Fallback to linear resistance
-                R = 50.0
-                I = np.sqrt(P / R)
-                return float(round(1000 * I, 5))  # mA
-        except Exception as e:
-            print(f"Error in _calculate_current_from_params: {e}")
-            return None
+    #         # Warn if phase is less than offset, wrap like original function
+    #         if phase_value < c / np.pi:
+    #             print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for label {label}")
+    #             phase_value += 2
+    #             print(f"Using adjusted phase value: {phase_value}π")
+
+    #         # Convert to radians and compute heating power
+    #         phase_radians = phase_value * np.pi
+    #         P = abs((phase_radians - c) / b)  # power in mW
+
+    #         # === Resistance calibration lookup ===
+    #         resistance_entry = self.app.resistance_calibration_data.get(label, {})
+    #         resistance_params = resistance_entry.get("resistance_params", {})
+
+    #         a = resistance_params.get("a")
+    #         c_res = resistance_params.get("c")
+
+    #         if a is not None and c_res is not None:
+    #             # Solve: P = I^2 * (a*I^2 + c)
+    #             I_sym = sp.symbols('I', real=True, positive=True)
+    #             P_watts = P / 1000  # mW to W
+    #             R0 = c_res
+    #             alpha = a / R0 if R0 != 0 else 0
+
+    #             eq = sp.Eq(P_watts / R0, I_sym**2 + alpha * I_sym**4)
+    #             solutions = sp.solve(eq, I_sym)
+    #             positive = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+    #             if positive:
+    #                 return float(round(1000 * positive[0], 2))  # return in mA
+
+    #             # Fallback linear model
+    #             I = np.sqrt(P / R0) if R0 else 0
+    #             return float(round(I, 5))  # mA
+    #         else:
+    #             # Fallback: linear resistance from list or default
+    #             print(f"No resistance found for {channel}")
+
+    #     except Exception as e:
+    #         print(f"Error in _calculate_current_from_params_json: {e}")
+    #         return None
+
+
+
+    # def _calculate_current_from_params_json(self, channel, phase_value, phase_params, resistance_params):
+    #     """
+    #     Calculate current from phase and resistance parameters in new calibration format.
+    #     Args:
+    #         channel: int channel number (used to retrieve fallback resistance if needed)
+    #         phase_value: value in π units
+    #         phase_params: dict with 'frequency' (Hz) and 'phase' (radians)
+    #         resistance_params: dict with 'a' and 'c' from calibration
+    #     Returns:
+    #         current in mA or None
+    #     """
+    #     try:
+    #         # Extract phase fit parameters
+    #         b = phase_params.get("frequency", 1.0) * 2 * np.pi  # omega in rad/s
+    #         c = phase_params.get("phase", 0.0)                  # offset phase in radians
+
+    #         # Check if phase is within valid range
+    #         if phase_value < c / np.pi:
+    #             print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
+    #             phase_value += 2
+    #             print(f"Using adjusted phase value: {phase_value}π")
+
+    #         # Convert to radians
+    #         phase_radians = phase_value * np.pi
+
+    #         # Calculate heating power (in mW)
+    #         P = abs((phase_radians - c) / b)
+
+    #         # Extract resistance parameters
+    #         a = resistance_params.get("a", None) if resistance_params else None
+    #         c_res = resistance_params.get("c", None) if resistance_params else None
+
+    #         if a is not None and c_res is not None:
+    #             # Use symbolic solver: P = I^2 * (a*I^2 + c)  =>  P/c = I^2 + (a/c) * I^4
+    #             I_sym = sp.symbols('I', real=True, positive=True)
+    #             P_watts = P / 1000  # Convert to watts
+    #             R0 = c_res
+    #             alpha = a / R0 if R0 != 0 else 0
+
+    #             eq = sp.Eq(P_watts / R0, I_sym**2 + alpha * I_sym**4)
+    #             solutions = sp.solve(eq, I_sym)
+
+    #             positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+    #             if positive_solutions:
+    #                 return float(round(1000 * positive_solutions[0], 2))  # Convert to mA
+    #             else:
+    #                 # Fallback to linear model
+    #                 I = np.sqrt(P / R0) if R0 else 0
+    #                 return float(round(I, 5))  # mA
+    #         else:
+    #             # Fallback: use linear resistance estimate from app if available
+    #             if hasattr(self, "app") and hasattr(self.app, "linear_resistance_list"):
+    #                 R = self.app.linear_resistance_list[channel] if channel < len(self.app.linear_resistance_list) else 50.0
+    #             else:
+    #                 R = 50.0  # default fallback
+
+    #             I = np.sqrt(P / (R * 1000))  # convert R to ohms
+    #             return float(round(1000 * I, 2))  # return mA
+    #     except Exception as e:
+    #         print(f"Error in _calculate_current_from_params_json: {e}")
+    #         return None
+
+
+
+
+    # def _calculate_current_from_params_json(self, phase_value, phase_params, resistance_params):
+    #     """
+    #     Calculate current from phase and resistance parameters in new calibration format.
+    #     Args:
+    #         phase_value: value in pi units
+    #         phase_params: dict from calibration
+    #         resistance_params: dict from calibration
+    #     Returns:
+    #         current in mA or None
+    #     """
+    #     try:
+    #         # Extract phase fit parameters
+    #         b = phase_params.get("frequency", 1.0) * 2 * np.pi  # Hz to rad/s
+    #         c = phase_params.get("phase", 0.0)                  # offset phase in radians
+
+    #         # Convert phase_value from pi units to radians
+    #         phase_radians = phase_value * np.pi
+
+    #         # Calculate heating power for this phase shift
+    #         P = abs((phase_radians - c) / b)  # in mW
+
+    #         # Extract resistance parameters
+    #         if resistance_params:
+    #             a = resistance_params.get("a", 0.0)
+    #             c_res = resistance_params.get("c", 1000.0)
+    #             # Solve for current: P = I^2 * (a*I^2 + c)
+    #             # P = a*I^4 + c*I^2 → quadratic in I^2
+
+    #             discriminant = c_res**2 + 4*a*P
+    #             if discriminant < 0 or a == 0:
+    #                 I_squared = P / c_res if c_res != 0 else 0
+    #             else:
+    #                 I_squared = (-c_res + np.sqrt(discriminant)) / (2*a) if a != 0 else P / c_res
+    #             I = np.sqrt(I_squared) if I_squared > 0 else 0
+    #             return float(round(I, 5))  # mA
+    #         else:
+    #             # Fallback to linear resistance
+    #             R = 1000.0
+    #             I = np.sqrt(P / R)
+    #             return float(round(I, 5))  # mA
+    #     except Exception as e:
+    #         print(f"Error in _calculate_current_from_params: {e}")
+    #         return None

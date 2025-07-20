@@ -4,6 +4,7 @@ import json
 from jsonschema import validate
 from collections import defaultdict
 from pathlib import Path
+from app.utils.qontrol.mapping_utils import get_mapping_functions
 
 
 MAPPING_SCHEMA = {
@@ -127,13 +128,19 @@ def apply_grid_mapping(qontrol_device, grid_data, grid_size):
         # n = int(grid_size.split('x')[0])
         # label_map = create_label_mapping(n)
 
+
+        create_label_mapping, _ = get_mapping_functions(grid_size)
+        label_map = create_label_mapping(int(str(grid_size).split('x')[0]))
         # Parse grid export data
-        export_data = json.loads(grid_data)
+        if isinstance(grid_data, str):
+            export_data = json.loads(grid_data)
+        else:
+            export_data = grid_data
         channel_values = {}
-        
+
         # Get current limit from device config
         current_limit = qontrol_device.config.get("globalcurrrentlimit")
-        
+
         # Map values to channels
         for label, data in export_data.items():
             if label in label_map:
@@ -145,14 +152,46 @@ def apply_grid_mapping(qontrol_device, grid_data, grid_size):
                 channel_values[theta_ch] = theta
                 channel_values[phi_ch] = phi
 
-
         # Apply the mapped values to the Qontrol device
         apply_qontrol_mapping(qontrol_device, channel_values)
 
-
-        
     except Exception as e:
         print(f"Mapping error: {str(e)}")
+
+# def apply_grid_mapping(qontrol_device, grid_data, grid_size):
+#     """Main function to map grid values to Qontrol channels"""
+#     try:
+#         # n = int(grid_size.split('x')[0])
+#         # label_map = create_label_mapping(n)
+
+#         create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+#         label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+#         # Parse grid export data
+#         export_data = json.loads(grid_data)
+#         channel_values = {}
+        
+#         # Get current limit from device config
+#         current_limit = qontrol_device.config.get("globalcurrrentlimit")
+        
+#         # Map values to channels
+#         for label, data in export_data.items():
+#             if label in label_map:
+#                 theta_ch, phi_ch = label_map[label]
+
+#                 theta = clamp_value(data.get("theta", 0), current_limit)
+#                 phi = clamp_value(data.get("phi", 0), current_limit)
+
+#                 channel_values[theta_ch] = theta
+#                 channel_values[phi_ch] = phi
+
+
+#         # Apply the mapped values to the Qontrol device
+#         apply_qontrol_mapping(qontrol_device, channel_values)
+
+
+        
+#     except Exception as e:
+#         print(f"Mapping error: {str(e)}")
 
 def clamp_value(value, max_limit):
     """Safely clamp input values"""
