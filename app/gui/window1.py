@@ -1558,15 +1558,52 @@ class Window1Content(ctk.CTkFrame):
     def _update_device(self):
         """Update Qontrol device with current values"""
         try:
+            # Get current grid configuration
             config = self.custom_grid.export_paths_json()
-            # apply_grid_mapping(self.qontrol, config, self.grid_size)
-            # create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
-            create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
-            label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+            if not config:
+                raise ValueError("No grid configuration found")
 
-            apply_grid_mapping(self.qontrol, config, self.grid_size)
+            # Get mapping functions for current grid size
+            create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+            if not create_label_mapping or not apply_grid_mapping:
+                raise ValueError("Failed to get mapping functions")
+
+            # Create label mapping based on grid size
+            n = int(self.grid_size.split('x')[0])
+            label_map = create_label_mapping(n)
+            if not label_map:
+                raise ValueError("Failed to create label mapping")
+
+            # Store the phase grid config for later use
+            if hasattr(self, 'phase_grid_config'):
+                config_to_apply = json.dumps(self.phase_grid_config)
+            else:
+                config_to_apply = config
+
+            # Apply the configuration to the device
+            apply_grid_mapping(self.qontrol, config_to_apply, self.grid_size)
+            
+            # Update status display
+            self._capture_output(self.qontrol.show_status, self.status_display)
+
         except Exception as e:
-            self._show_error(f"Device update failed: {str(e)}")
+            error_msg = f"Device update failed: {str(e)}"
+            print(error_msg)  # Log to console
+            self._show_error(error_msg)  # Show in UI
+
+
+    # def _update_device(self):
+    #     """Update Qontrol device with current values"""
+    #     try:
+    #         config = self.custom_grid.export_paths_json()
+    #         # apply_grid_mapping(self.qontrol, config, self.grid_size)
+    #         # create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+    #         create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+    #         label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+
+    #         apply_grid_mapping(self.qontrol, config, self.grid_size)
+    #     except Exception as e:
+    #         self._show_error(f"Device update failed: {str(e)}")
 
     # def _update_device(self):
     #     """Update Qontrol device with current values"""
@@ -1877,6 +1914,14 @@ class Window1Content(ctk.CTkFrame):
         P = delta_phase / b;
         '''
         
+
+        print(f"amplitude: {A}, omega: {b}, phase offset: {c}, offset: {d} for channel {channel}")
+        print(f"xdatalist_IObar: {self.app.xdatalist_IObar}")
+        print(f"xdatalist_IOcross: {self.app.xdatalist_IOcross}")
+        print(f"lincubchar_voltage: {self.app.lincubchar_voltage}"  )
+        print(f"lincubchar_current: {self.app.lincubchar_current}")
+        # print(f"resistancelist: {self.resistancelist}")
+
         # Check if phase is within valid range
         if phase_value < c/np.pi:
             print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
@@ -1898,6 +1943,9 @@ class Window1Content(ctk.CTkFrame):
                 R0 = r_params[1]  # Linear resistance term (c)
                 alpha = r_params[0]/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
                 
+                print(f"r_params[1]: {r_params[1]}")
+                print(f"r_params[0]: {r_params[0]}")
+
                 # Define equation: P/R0 = I^2 + alpha*I^4
                 eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
                 
@@ -2757,29 +2805,29 @@ class Window1Content(ctk.CTkFrame):
             if not phase_params:
                 return None
 
-            if phase_value < c/np.pi:
-                print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
-                phase_value = phase_value + 2
-                print(f"Using adjusted phase value: {phase_value}π")
-
-
             # Extract resistance parameters
             r_params = res_params.get("a_res")  # Cubic term
             R0 = res_params.get("c_res")  # Linear term
-            R0 = r_params if R0 != 0 else 0 # Nonlinearity parameter (a/c)
+            # alpha_res = r_params/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
+            # R0 = r_params if R0 != 0 else 0 # Nonlinearity parameter (a/c)
             # r_params = res_params.get("c")  # Linear term
             if r_params == 0:
                 print("-> Error: R0 (c) parameter is zero.")
                 return None
             
             # Extract phase parameters
-            b = phase_params.get("omega", 1.0) # Convert Hz to rad/s
+            b = phase_params.get("omega", 0.0) # Convert Hz to rad/s
             c = phase_params.get("phase", 0.0)  # Phase offset in radians
             io_conf = phase_params.get('io_config', 'cross_state')
             if b is None or c is None:
                 print("-> Error: Missing phase parameters (frequency, phase offset).")
                 return None
-            
+
+            if phase_value < c/np.pi:
+                print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel")
+                phase_value = phase_value + 2
+                print(f"Using adjusted phase value: {phase_value}π")
+
             P = abs((phase_value*np.pi - c) / b)
             # Define symbols for solving equation
             I = sp.symbols('I')
