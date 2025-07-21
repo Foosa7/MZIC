@@ -2028,12 +2028,12 @@ class Window1Content(ctk.CTkFrame):
             AppData.update_resistance_calibration(label, {
                 "pin": target_channel,
                 "resistance_params": {
-                    "a": float(result['a']),
-                    "c": float(result['c']),
-                    "d": float(result['d']),
+                    "a_res": float(result['a_res']),
+                    "c_res": float(result['c_res']),
+                    "d_res": float(result['d_res']),
                     "rmin": float(result['rmin']),
                     "rmax": float(result['rmax']),
-                    "alpha": float(result['alpha'])
+                    "alpha_res": float(result['alpha_res'])
                 },
                 "measurement_data": {
                     "currents": result['currents'],
@@ -2049,7 +2049,7 @@ class Window1Content(ctk.CTkFrame):
             self.mapping_display.insert("end", f"Channel: {target_channel}\n")
             self.mapping_display.insert("end", f"Min Resistance: {result['rmin']:.2f} Ω\n")
             self.mapping_display.insert("end", f"Max Resistance: {result['rmax']:.2f} Ω\n")
-            self.mapping_display.insert("end", f"Alpha: {result['alpha']:.4f}\n")
+            self.mapping_display.insert("end", f"Alpha: {result['alpha_res']:.4f}\n")
             self.mapping_display.configure(state="disabled")
             
             # Generate and display plot
@@ -2057,7 +2057,7 @@ class Window1Content(ctk.CTkFrame):
             fig = self.plot_utils.plot_resistance(
                 result['currents'],
                 result['voltages'],
-                [result['a'], result['c'], result['d']],  # Resistance params
+                [result['a_res'], result['c_res'], result['d_res']],  # Resistance params
                 target_channel,
                 current=current,
                 channel_type=channel_type,
@@ -2142,7 +2142,7 @@ class Window1Content(ctk.CTkFrame):
                 "phase_params": {
                     "io_config": result['io_config'],
                     "amplitude": float(result['amp']),
-                    "frequency": float(result['omega']/(2*np.pi)),
+                    "omega": float(result['omega']),
                     "phase": float(result['phase']),
                     "offset": float(result['offset'])
                 },
@@ -2158,7 +2158,7 @@ class Window1Content(ctk.CTkFrame):
             self.mapping_display.insert("end", f"Channel: {target_channel}\n")
             self.mapping_display.insert("end", f"IO Config: {io_config}\n")
             self.mapping_display.insert("end", f"Amplitude: {result['amp']:.4f}\n")
-            self.mapping_display.insert("end", f"Frequency: {result['omega']/(2*np.pi):.4f} Hz\n")
+            self.mapping_display.insert("end", f"omega: {result['omega']}\n")
             self.mapping_display.insert("end", f"Phase: {result['phase']:.4f} rad\n")
             self.mapping_display.configure(state="disabled")
             
@@ -2726,6 +2726,7 @@ class Window1Content(ctk.CTkFrame):
             traceback.print_exc()
             return None
 
+
     def _calculate_current_for_phase_new_json(self, calib_key, phase_value):
         """
         Calculate current for a phase value using the new calibration format.
@@ -2755,67 +2756,156 @@ class Window1Content(ctk.CTkFrame):
             phase_params = phase_cal.get("phase_params", {})
             if not phase_params:
                 return None
+
+            if phase_value < c/np.pi:
+                print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
+                phase_value = phase_value + 2
+                print(f"Using adjusted phase value: {phase_value}π")
+
+
             # Extract resistance parameters
-            a_res = res_params.get("a")  # Cubic term
-            c_res = res_params.get("c")  # Linear term
-            if c_res == 0:
+            r_params = res_params.get("a_res")  # Cubic term
+            R0 = res_params.get("c_res")  # Linear term
+            R0 = r_params if R0 != 0 else 0 # Nonlinearity parameter (a/c)
+            # r_params = res_params.get("c")  # Linear term
+            if r_params == 0:
                 print("-> Error: R0 (c) parameter is zero.")
                 return None
             
             # Extract phase parameters
-            b_param = phase_params.get("frequency", 1.0) * 2 * np.pi  # Convert Hz to rad/s
-            c_param = phase_params.get("phase", 0.0)  # Phase offset in radians
+            b = phase_params.get("omega", 1.0) # Convert Hz to rad/s
+            c = phase_params.get("phase", 0.0)  # Phase offset in radians
             io_conf = phase_params.get('io_config', 'cross_state')
-            if b_param is None or c_param is None:
+            if b is None or c is None:
                 print("-> Error: Missing phase parameters (frequency, phase offset).")
                 return None
-            # Convert frequency to b in rad/mW
-            b = b_param #* 2 * np.pi            
-            # Check phase range and adjust if needed
-            if phase_value < c_param/np.pi:
-                print(f"Warning: Phase {phase_value}π is less than offset phase {c_param/np.pi}π")
-                phase_value = phase_value + 2
-                print(f"Using adjusted phase value: {phase_value}π")
-
-            # if io_conf == 'cross_state':
-            #     # invert around π
-            #     phase_value_lin = np.pi - phase_value
-            #     print(f"-> Cross state adjustment: target_lin = {phase_value_lin:.4f} rad")
-            # else:
-            #     phase_value_lin = phase_value
-
-            P_mw = abs((phase_value*np.pi - c_param) / b)
-            print(f"-> Required Power: {P_mw:.4f} mW (io_config={io_conf})")
-
-            # Convert to Watts
-            P_w = P_mw / 1000.0
-
-            # Resistance model: P = I^2*R0 + (a_res/c_res)*I^4*R0
-            R0 = c_res * 1000.0
-            alpha = a_res / c_res
-
-            # Compute current
-            if alpha == 0:
-                I_A = np.sqrt(P_w / R0)
+            
+            P = abs((phase_value*np.pi - c) / b)
+            # Define symbols for solving equation
+            I = sp.symbols('I')
+            P_watts = P/1000  # Convert to watts
+            R0 = r_params  # Linear resistance term (c)
+            alpha = r_params/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
+            
+            # Define equation: P/R0 = I^2 + alpha*I^4
+            eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
+            
+            # Solve the equation
+            solutions = sp.solve(eq, I)
+            
+            # Filter and choose the real, positive solution
+            positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+            if positive_solutions:
+                I_mA = float(1* positive_solutions[0])  # Convert to mA 
+                print(f"-> Calculated Current: {I_mA:.4f} mA")
+                return I_mA
             else:
-                I = sp.symbols('I')
-                eq = sp.Eq(P_w/R0, I**2 + alpha*I**4)
-                # eq = sp.Eq(alpha * I**4 + I**2 - (P_w / R0), 0)
-                sols = sp.solve(eq, I)
-                real_pos = [s.evalf() for s in sols if s.is_real and s.evalf() > 0]
-                if not real_pos:
-                    print("-> Error: No valid current solution.")
-                    return None
-                I_A = real_pos[0]
-
-            I_mA = float(I_A * 1000)
-            print(f"-> Calculated Current: {I_mA:.4f} mA")
-            return I_mA
-
+                # Fallback to linear model
+                R0 = r_params
+                return float(round(1 * np.sqrt(P/(R0*1000)), 2))
 
         except Exception as e:
             print(f"Error calculating current: {str(e)}")
             return None
+        
+
+    # def _calculate_current_for_phase_new_json(self, calib_key, phase_value):
+    #     """
+    #     Calculate current for a phase value using the new calibration format.
+        
+    #     Args:
+    #         calib_key: str, calibration key (e.g. "A1_theta")
+    #         phase_value: float, phase value in π units
+            
+    #     Returns:
+    #         float: Current in mA or None if calculation fails
+    #     """
+    #     try:
+    #         # Get resistance calibration data
+    #         res_cal = AppData.resistance_calibration_data.get(calib_key)
+    #         if not res_cal:
+    #             return None
+                
+    #         res_params = res_cal.get("resistance_params", {})
+    #         if not res_params:
+    #             return None
+
+    #         # Get phase calibration data
+    #         phase_cal = AppData.phase_calibration_data.get(calib_key)
+    #         if not phase_cal:
+    #             return None
+                
+    #         phase_params = phase_cal.get("phase_params", {})
+    #         if not phase_params:
+    #             return None
+    #         # Extract resistance parameters
+    #         a_res = res_params.get("a")  # Cubic term
+    #         c_res = res_params.get("c")  # Linear term
+    #         if c_res == 0:
+    #             print("-> Error: R0 (c) parameter is zero.")
+    #             return None
+            
+    #         # Extract phase parameters
+    #         b_param = phase_params.get("frequency", 1.0) * 2 * np.pi  # Convert Hz to rad/s
+    #         c_param = phase_params.get("phase", 0.0)  # Phase offset in radians
+    #         io_conf = phase_params.get('io_config', 'cross_state')
+    #         if b_param is None or c_param is None:
+    #             print("-> Error: Missing phase parameters (frequency, phase offset).")
+    #             return None
+    #         # Convert frequency to b in rad/mW
+    #         b = b_param * 2 * np.pi            
+
+    #         visibility   = phase_params.get('amplitude', 1.0)/phase_params.get('offset', 1.0)
+
+    #         # Heating power for Pi phase shift
+    #         P_pi = (abs((np.pi - c_param) / b))/100 #Heating power of phi phase shift
+
+    #         # Check phase range and adjust if needed
+    #         if phase_value < c_param/np.pi:
+    #             print(f"Warning: Phase {phase_value}π is less than offset phase {c_param/np.pi}π")
+    #             phase_value = phase_value + 2
+    #             print(f"Using adjusted phase value: {phase_value}π")
+
+    #         # if io_conf == 'cross_state':
+    #         #     # invert around π
+    #         #     phase_value_lin = np.pi - phase_value
+    #         #     print(f"-> Cross state adjustment: target_lin = {phase_value_lin:.4f} rad")
+    #         # else:
+    #         #     phase_value_lin = phase_value
+
+    #         P_mw = abs((phase_value*np.pi - c_param) / b)
+    #         print(f"-> Required Power: {P_mw:.4f} mW (io_config={io_conf})")
+
+    #         # Convert to Watts
+    #         P_w = P_mw / 1000.0
+
+    #         # Resistance model: P = I^2*R0 + (a_res/c_res)*I^4*R0
+    #         R0 = c_res * 1000.0
+    #         alpha = a_res / c_res
+
+    #         # Compute current
+    #         if alpha == 0:
+    #             I_A = np.sqrt(P_w / R0)
+    #         else:
+    #             I = sp.symbols('I')
+    #             eq = sp.Eq(P_pi/R0, I**2 + alpha*I**4)
+    #             # eq = sp.Eq(P_w/R0, I**2 + alpha*I**4)
+    #             # eq = sp.Eq(alpha * I**4 + I**2 - (P_w / R0), 0)
+    #             sols = sp.solve(eq, I)
+    #             real_pos = [s.evalf() for s in sols if s.is_real and s.evalf() > 0]
+    #             if not real_pos:
+    #                 print("-> Error: No valid current solution.")
+    #                 return None
+    #             I_A = real_pos[0]
+
+    #         I_mA = float(I_A * 1000)
+    #         print(f"-> Calculated Current: {I_mA:.4f} mA")
+    #         return I_mA
+
+
+    #     except Exception as e:
+    #         print(f"Error calculating current: {str(e)}")
+    #         return None
         
 
 

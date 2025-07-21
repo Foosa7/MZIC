@@ -31,27 +31,27 @@ class CalibrationUtils:
         # Cubic+linear fit
         X = np.vstack([currents**3, currents, np.ones_like(currents)]).T
         coefficients, residuals, _, _ = np.linalg.lstsq(X, voltages, rcond=None)
-        a, c, d = coefficients
+        a_res, c_res, d_res = coefficients
 
-        resistance = a * currents**2 + c
+        resistance = a_res * currents**2 + c_res
 
         # Calculate additional parameters
         rmin = np.min(resistance)
         rmax = np.max(resistance)
-        alpha = a / c if c != 0 else float('inf')
+        alpha_res = a_res / c_res if c_res != 0 else float('inf')
 
         return {
-            'a': a,
-            'c': c,
-            'd': d,
+            'a_res': a_res,
+            'c_res': c_res,
+            'd_res': d_res,
             'resistances': resistance.tolist(),
             'rmin': float(rmin),
             'rmax': float(rmax),
-            'alpha': float(alpha),
+            'alpha_res': float(alpha_res),
             'currents': currents.tolist(),
             'voltages': voltages,
             'max_current': float(end_current),
-            'resistance_parameters': [float(a), float(c), float(d)]
+            'resistance_parameters': [float(a_res), float(c_res), float(d_res)]
         }
 
 
@@ -70,21 +70,21 @@ class CalibrationUtils:
         if resistance_params is None or resistance_params == 'Null':
             raise ValueError(f"Resistance characterization required for channel {channel} before phase characterization")
         
-        # Extract resistance parameters [a, c, d] from previous characterization
+        # Extract resistance parameters [a_res, c_res, d_res] from previous characterization
         if isinstance(resistance_params, dict):
             # Check if parameters are nested (newer format)
             if 'resistance_params' in resistance_params:
                 params_dict = resistance_params['resistance_params']
-                a, c, d = params_dict.get('a'), params_dict.get('c'), params_dict.get('d')
+                a_res, c_res, d_res = params_dict.get('a_res'), params_dict.get('c_res'), params_dict.get('d_res')
             else:
                 # Direct format (older format)
-                a, c, d = resistance_params.get('a'), resistance_params.get('c'), resistance_params.get('d')
+                a_res, c_res, d_res = resistance_params.get('a_res'), resistance_params.get('c_res'), resistance_params.get('d_res')
         else:
-            a, c, d = resistance_params  # assume list or tuple
+            a_res, c_res, d_res = resistance_params  # assume list or tuple
 
         # Calculate max heating power to create uniform power spacing
         max_current = qontrol.globalcurrrentlimit
-        max_resistance = a * (max_current**2) + c
+        max_resistance = a_res * (max_current**2) + c_res
         max_heating_power = max_current**2 * max_resistance
         
         # Create uniform heating power steps
@@ -101,9 +101,9 @@ class CalibrationUtils:
                 # This becomes: aI⁴ + cI² - P = 0
                 # Let x = I², then: ax² + cx - P = 0
                 # Solution: x = (-c + √(c² + 4aP)) / (2a)
-                discriminant = c**2 + 4*a*P
+                discriminant = c_res**2 + 4*a_res*P
                 if discriminant >= 0:
-                    I_squared = (-c + np.sqrt(discriminant)) / (2*a)
+                    I_squared = (-c_res + np.sqrt(discriminant)) / (2*a_res)
                     if I_squared >= 0:
                         I = np.sqrt(I_squared)
                         currents.append(min(I, max_current))
@@ -115,7 +115,7 @@ class CalibrationUtils:
         currents = np.array(currents)
         
         # Calculate resistance values using the fitted parameters
-        resistances = a * (currents**2) + c  # R(I) = a*I^2 + c
+        resistances = a_res * (currents**2) + c_res  # R(I) = a*I^2 + c
 
         # Measure optical powers
         optical_powers = []
@@ -147,7 +147,7 @@ class CalibrationUtils:
             'resistances': resistances.tolist(),  # Keep resistances for reference
             'fitfunc': fit_result['fitfunc'],
             'rawres': fit_result['rawres'],
-            'resistance_parameters': [float(a), float(c), float(d)]  # Include resistance params
+            'resistance_parameters': [float(a_res), float(c_res), float(d_res)]  # Include resistance params
         }
 
 
@@ -232,12 +232,12 @@ class CalibrationUtils:
             resistance_entries.append((key, {
                 "pin": int(channel),
                 "resistance_params": {
-                    "a": float(params['a']),
-                    "c": float(params['c']),
-                    "d": float(params['d']),
+                    "a_res": float(params['a_res']),
+                    "c_res": float(params['c_res']),
+                    "d_res": float(params['d_res']),
                     "rmin": float(params['rmin']),
                     "rmax": float(params['rmax']),
-                    "alpha": float(params['alpha'])
+                    "alpha_res": float(params['alpha_res'])
                 },
                 "measurement_data": {
                     "currents": params['currents'],
@@ -270,7 +270,7 @@ class CalibrationUtils:
                 "phase_params": {
                     "io_config": params['io_config'],
                     "amplitude": float(params['amp']),
-                    "frequency": float(params['omega']/(2*np.pi)),
+                    "omega": float(params['omega']),
                     "phase": float(params['phase']),
                     "offset": float(params['offset'])
                 },
@@ -418,80 +418,80 @@ class CalibrationUtils:
         return resistance_params, phase_params
     
 
-    def calculate_current_for_phase(data, channel_key, target_phase_pi):
-        """
-        Calculates the required current (mA) to achieve a target phase shift (in π units)
-        for a given channel, using the linear phase model: Phase(P) = b*P + c.
-        """
-        print(f"Calculating Current for Channel: {channel_key}, Target: {target_phase_pi}π")
+    # def calculate_current_for_phase(data, channel_key, target_phase_pi):
+    #     """
+    #     Calculates the required current (mA) to achieve a target phase shift (in π units)
+    #     for a given channel, using the linear phase model: Phase(P) = b*P + c.
+    #     """
+    #     print(f"Calculating Current for Channel: {channel_key}, Target: {target_phase_pi}π")
 
-        # Load calibration data
-        res_data = AppData.resistance_calibration_data(data, 'resistance')
-        phase_data = AppData.phase_calibration_data(data, 'phase')
-        if not res_data or channel_key not in res_data:
-            print(f"-> Error: No resistance data for '{channel_key}'")
-            return None
-        if not phase_data or channel_key not in phase_data:
-            print(f"-> Error: No phase data for '{channel_key}'")
-            return None
+    #     # Load calibration data
+    #     res_data = AppData.resistance_calibration_data(data, 'resistance')
+    #     phase_data = AppData.phase_calibration_data(data, 'phase')
+    #     if not res_data or channel_key not in res_data:
+    #         print(f"-> Error: No resistance data for '{channel_key}'")
+    #         return None
+    #     if not phase_data or channel_key not in phase_data:
+    #         print(f"-> Error: No phase data for '{channel_key}'")
+    #         return None
 
-        # Extract resistance parameters
-        res_params = res_data[channel_key]['resistance_params']
-        a_res = res_params.get('a', 0)
-        c_res = res_params.get('c', 0)
-        if c_res == 0:
-            print("-> Error: R0 (c) parameter is zero.")
-            return None
+    #     # Extract resistance parameters
+    #     res_params = res_data[channel_key]['resistance_params']
+    #     a_res = res_params.get('a', 0)
+    #     c_res = res_params.get('c', 0)
+    #     if c_res == 0:
+    #         print("-> Error: R0 (c) parameter is zero.")
+    #         return None
 
-        # Extract phase calibration params
-        ph_params = phase_data[channel_key].get('phase_params', {})
-        b_param = ph_params.get('frequency')  # in cycles per mW
-        c_param = ph_params.get('phase')      # phase offset in rad
-        io_conf = ph_params.get('io_config', 'cross_state')
-        if b_param is None or c_param is None:
-            print("-> Error: Missing phase parameters (frequency, phase offset).")
-            return None
+    #     # Extract phase calibration params
+    #     ph_params = phase_data[channel_key].get('phase_params', {})
+    #     b_param = ph_params.get('omega')  # in cycles per mW
+    #     c_param = ph_params.get('phase')      # phase offset in rad
+    #     io_conf = ph_params.get('io_config', 'cross_state')
+    #     if b_param is None or c_param is None:
+    #         print("-> Error: Missing phase parameters (frequency, phase offset).")
+    #         return None
 
-        # Convert frequency to b in rad/mW
-        b = b_param * 2 * np.pi
-        # Desired phase shift in rad
-        target_phi = target_phase_pi * np.pi
+    #     # Convert frequency to b in rad/mW
+    #     b = b_param * 2 * np.pi
+    #     # Desired phase shift in rad
+    #     target_phi = target_phase_pi * np.pi
 
-        # Linear inversion: P (mW) = |target_phi - c_param| / b
-        # If bar_state, phi(P) = π - (b*P + c_param) --> adjust target_phi
-        if io_conf == 'cross_state':
-            # invert around π
-            target_phi_lin = np.pi - target_phi
-            print(f"-> Bar state adjustment: target_lin = {target_phi_lin:.4f} rad")
-        else:
-            target_phi_lin = target_phi
+    #     # Linear inversion: P (mW) = |target_phi - c_param| / b
+    #     # If bar_state, phi(P) = π - (b*P + c_param) --> adjust target_phi
+    #     if io_conf == 'cross_state':
+    #         # invert around π
+    #         target_phi_lin = np.pi - target_phi
+    #         print(f"-> Bar state adjustment: target_lin = {target_phi_lin:.4f} rad")
+    #     else:
+    #         target_phi_lin = target_phi
 
-        P_mw = abs((target_phi_lin - c_param) / b)
-        print(f"-> Required Power: {P_mw:.4f} mW (io_config={io_conf})")
+    #     P_mw = abs((target_phi_lin - c_param) / b)
+    #     print(f"-> Required Power: {P_mw:.4f} mW (io_config={io_conf})")
 
-        # Convert to Watts
-        P_w = P_mw / 1000.0
+    #     # Convert to Watts
+    #     P_w = P_mw / 1000.0
 
-        # Resistance model: P = I^2*R0 + (a_res/c_res)*I^4*R0
-        R0 = c_res * 1000.0
-        alpha = a_res / c_res
+    #     # Resistance model: P = I^2*R0 + (a_res/c_res)*I^4*R0
+    #     R0 = c_res * 1000.0
+    #     alpha = a_res / c_res
 
-        # Compute current
-        if alpha == 0:
-            I_A = np.sqrt(P_w / R0)
-        else:
-            I = sp.symbols('I')
-            eq = sp.Eq(alpha * I**4 + I**2 - (P_w / R0), 0)
-            sols = sp.solve(eq, I)
-            real_pos = [s.evalf() for s in sols if s.is_real and s.evalf() > 0]
-            if not real_pos:
-                print("-> Error: No valid current solution.")
-                return None
-            I_A = real_pos[0]
+    #     # Compute current
+    #     if alpha == 0:
+    #         I_A = np.sqrt(P_w / R0)
+    #     else:
+    #         I = sp.symbols('I')
+    #         eq = sp.Eq(alpha * I**4 + I**2 - (P_w / R0), 0)
+    #         sols = sp.solve(eq, I)
+    #         real_pos = [s.evalf() for s in sols if s.is_real and s.evalf() > 0]
+    #         if not real_pos:
+    #             print("-> Error: No valid current solution.")
+    #             return None
+    #         I_A = real_pos[0]
 
-        I_mA = float(I_A * 1000)
-        print(f"-> Calculated Current: {I_mA:.4f} mA")
-        return I_mA
+    #     I_mA = float(I_A * 1000)
+    #     print(f"-> Calculated Current: {I_mA:.4f} mA")
+    #     return I_mA
 
 
 
