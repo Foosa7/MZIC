@@ -14,6 +14,7 @@ class AppData:
     _last_selection_lock = Lock()
     last_selected = {"cross": "", "arm": ""}  # Set default starting value
     io_config = {} 
+    grid_size = "8x8"  # Default grid size
 
     @classmethod
     def update_grid_size(cls, new_size):

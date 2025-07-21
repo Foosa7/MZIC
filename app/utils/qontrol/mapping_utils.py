@@ -1,9 +1,24 @@
-def get_mapping_functions(grid_size):
+from app.utils.appdata import AppData
+
+def get_mapping_functions(grid_size=None):
     """
     Return the correct mapping functions for the given grid size.
-    Usage:
-        create_label_mapping, apply_grid_mapping = get_mapping_functions(grid_size)
+    If no grid_size is provided, uses the size from AppData.
+    
+    Args:
+        grid_size (str, optional): Grid size in format "NxN". If None, uses AppData.grid_size
+        
+    Returns:
+        tuple: (create_label_mapping, apply_grid_mapping) functions
     """
+    # If no grid_size provided, get from AppData
+    if grid_size is None:
+        if hasattr(AppData, 'grid_size'):
+            grid_size = AppData.grid_size
+        else:
+            # Default to 8x8 if not set
+            grid_size = "8x8"
+    
     n = int(str(grid_size).split('x')[0])
     if n == 12:
         from app.utils.qontrol import qmapper12x12
