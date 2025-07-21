@@ -102,7 +102,7 @@ class Window1Content(ctk.CTkFrame):
         self._update_selection_display()
         self._setup_event_bindings()
 
-        self.selected_unit = "uW"  # Default unit for power measurement
+        self.selected_unit = "mW"  # Default unit for power measurement
 
         self._initialize_live_graph() # Initialize the live graph
 
@@ -2745,8 +2745,8 @@ class Window1Content(ctk.CTkFrame):
                 if phi_val:
                     try:
                         phi_float = float(phi_val)
-                        calib_key = f"{cross_label}_phi"
-                        current_phi = self._calculate_current_for_phase_new_json(calib_key, phi_float)
+                        channel = f"{cross_label}_phi"
+                        current_phi = self._calculate_current_for_phase_new_json(channel, phi_float)
                         
                         if current_phi is not None:
                             current_phi = round(current_phi, 5)
@@ -2774,88 +2774,188 @@ class Window1Content(ctk.CTkFrame):
             traceback.print_exc()
             return None
 
-
     def _calculate_current_for_phase_new_json(self, calib_key, phase_value):
         """
         Calculate current for a phase value using the new calibration format.
-        
         Args:
             calib_key: str, calibration key (e.g. "A1_theta")
             phase_value: float, phase value in π units
-            
         Returns:
             float: Current in mA or None if calculation fails
         """
         try:
+            print(f"[DEBUG] Entering _calculate_current_for_phase_new_json with calib_key={calib_key}, phase_value={phase_value}")
+            res_cal = AppData.resistance_calibration_data.get(calib_key)
+            phase_cal = AppData.phase_calibration_data.get(calib_key)
             # Get resistance calibration data
             res_cal = AppData.resistance_calibration_data.get(calib_key)
+            print(f"[DEBUG] res_cal: {res_cal}")
             if not res_cal:
+                print(f"[ERROR] No resistance calibration for {calib_key}")
                 return None
-                
+
             res_params = res_cal.get("resistance_params", {})
+            print(f"[DEBUG] res_params: {res_params}")
             if not res_params:
+                print(f"[ERROR] No resistance_params for {calib_key}")
                 return None
 
             # Get phase calibration data
             phase_cal = AppData.phase_calibration_data.get(calib_key)
+            print(f"[DEBUG] phase_cal: {phase_cal}")
             if not phase_cal:
-                return None
-                
-            phase_params = phase_cal.get("phase_params", {})
-            if not phase_params:
+                print(f"[ERROR] No phase calibration for {calib_key}")
                 return None
 
-            # Extract resistance parameters
-            r_params = res_params.get("a_res")  # Cubic term
-            R0 = res_params.get("c_res")  # Linear term
-            # alpha_res = r_params/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
-            # R0 = r_params if R0 != 0 else 0 # Nonlinearity parameter (a/c)
-            # r_params = res_params.get("c")  # Linear term
-            if r_params == 0:
-                print("-> Error: R0 (c) parameter is zero.")
+            phase_params = phase_cal.get("phase_params", {})
+            print(f"[DEBUG] phase_params: {phase_params}")
+            if not phase_params:
+                print(f"[ERROR] No phase_params for {calib_key}")
                 return None
-            
-            # Extract phase parameters
-            b = phase_params.get("omega", 0.0) # Convert Hz to rad/s
-            c = phase_params.get("phase", 0.0)  # Phase offset in radians
-            io_conf = phase_params.get('io_config', 'cross_state')
-            if b is None or c is None:
-                print("-> Error: Missing phase parameters (frequency, phase offset).")
+
+            # --- FIX: Do not double index ---
+            try:
+                c_res = res_params['c_res'] * 1000
+                a_res = res_params['a_res'] * 1e9
+                A = phase_params['amplitude']
+                b = phase_params['omega']
+                c = phase_params['phase']
+                d = phase_params['offset']
+            except Exception as e:
+                print(f"[ERROR] Failed to extract parameters: {e}")
+                print(f"[DEBUG] res_params: {res_params}")
+                print(f"[DEBUG] phase_params: {phase_params}")
                 return None
+
+            print(f"[DEBUG] Extracted: c_res={c_res}, a_res={a_res}, A={A}, b={b}, c={c}, d={d}")
 
             if phase_value < c/np.pi:
-                print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel")
+                print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for {calib_key}")
                 phase_value = phase_value + 2
                 print(f"Using adjusted phase value: {phase_value}π")
 
+            # Calculate heating power for this phase shift
             P = abs((phase_value*np.pi - c) / b)
+            print(f"[DEBUG] Calculated heating power P={P}")
+
             # Define symbols for solving equation
             I = sp.symbols('I')
             P_watts = P/1000  # Convert to watts
-            R0 = r_params  # Linear resistance term (c)
-            alpha = r_params/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
-            
+            R0 = c_res  # Linear resistance term (c)
+            alpha = a_res/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
+            print(f"[DEBUG] P_watts={P_watts}, R0={R0}, alpha={alpha}")
+
             # Define equation: P/R0 = I^2 + alpha*I^4
             eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
-            
+            print(f"[DEBUG] Equation: {eq}")
+
             # Solve the equation
             solutions = sp.solve(eq, I)
-            
+            print(f"[DEBUG] Solutions: {solutions}")
+
             # Filter and choose the real, positive solution
             positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+            print(f"[DEBUG] Positive solutions: {positive_solutions}")
             if positive_solutions:
-                I_mA = float(1* positive_solutions[0])  # Convert to mA 
-                print(f"-> Calculated Current: {I_mA:.4f} mA")
+                print(f"-> Calculated Current for {calib_key}: {positive_solutions[0]:.4f} A")
+                I_mA = positive_solutions[0] * 1000  # Convert to mA
                 return I_mA
             else:
-                # Fallback to linear model
-                R0 = r_params
-                return float(round(1 * np.sqrt(P/(R0*1000)), 2))
+                print(f"[ERROR] No positive solution for {calib_key}, fallback to linear model")
+                return None
 
         except Exception as e:
-            print(f"Error calculating current: {str(e)}")
+            print(f"[EXCEPTION] Error calculating current for {calib_key}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
+
+    # def _calculate_current_for_phase_new_json(self, calib_key, phase_value):
+    #     """
+    #     Calculate current for a phase value using the new calibration format.
         
+    #     Args:
+    #         calib_key: str, calibration key (e.g. "A1_theta")
+    #         phase_value: float, phase value in π units
+            
+    #     Returns:
+    #         float: Current in mA or None if calculation fails
+    #     """
+    #     try:
+
+
+    #         # Get resistance calibration data
+    #         res_cal = AppData.resistance_calibration_data.get(calib_key)
+    #         if not res_cal:
+    #             return None
+                
+    #         res_params = res_cal.get("resistance_params", {})
+    #         if not res_params:
+    #             return None
+
+    #         # Get phase calibration data
+    #         phase_cal = AppData.phase_calibration_data.get(calib_key)
+    #         if not phase_cal:
+    #             return None
+                
+    #         phase_params = phase_cal.get("phase_params", {})
+    #         if not phase_params:
+    #             return None
+
+    #         c_res = res_cal[calib_key]['resistance_params']['c_res'] * 1000
+    #         a_res = res_cal[calib_key]['resistance_params']['a_res'] * 10e9   
+    #         A = phase_cal[calib_key]['phase_params']['amplitude'] 
+    #         b = phase_cal[calib_key]['phase_params']['omega']
+    #         c = phase_cal[calib_key]['phase_params']['phase']
+    #         d = phase_cal[calib_key]['phase_params']['offset']
+
+    #         # c_res = 1036.6441840655363
+    #         # a_res = 3621062.146585479 
+    #         # A = 0.6005338378507308
+    #         # b = 0.2583951254144626
+    #         # c = 0.4247100614593249 #3.1415926535897927
+    #         # d = 0.6021712385768999
+            
+
+    #             # amplitude: 0.0908441893692287, omega: 0.2762131249289536, phase offset: 3.1415926535897927, offset: 0.09066978105949058 for channel 21
+    #             # r_params[1]: 1008.6807070542391
+    #             # r_params[0]: 3419549.948304372
+    #         if phase_value < c/np.pi:
+    #             print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
+    #             phase_value = phase_value + 2
+    #             print(f"Using adjusted phase value: {phase_value}π")
+
+    #         # Calculate heating power for this phase shift
+    #         P = abs((phase_value*np.pi - c) / b)
+                
+
+    #         # Define symbols for solving equation
+    #         I = sp.symbols('I')
+    #         P_watts = P/1000  # Convert to watts
+    #         R0 = c_res  # Linear resistance term (c)
+    #         alpha = a_res/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
+            
+    #         # Define equation: P/R0 = I^2 + alpha*I^4
+    #         eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
+            
+    #         # Solve the equation
+    #         solutions = sp.solve(eq, I)
+
+    #         # Filter and choose the real, positive solution
+    #         positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+    #         if positive_solutions:
+    #             print(f"-> Calculated Current for {calib_key}: {positive_solutions[0]:.4f} A")
+    #             I_mA = positive_solutions[0] * 1000  # Convert to mA
+    #             return I_mA
+    #         else:
+    #             # Fallback to linear model
+    #             print(f"error")
+
+    #     except Exception as e:
+    #         print(f"Error calculating current: {str(e)}")
+    #         return None
+        
+
 
     # def _calculate_current_for_phase_new_json(self, calib_key, phase_value):
     #     """

@@ -64,7 +64,7 @@ class PlotUtils:
         title_str = f"Phase Characterization of {cross_label}:{channel_symbol} at Channel {target_channel} ({io_config.capitalize()})"
         ax.set_title(title_str, color='white', fontsize=12)
         ax.set_xlabel("Heating Power (mW)", color='white', fontsize=10)
-        ax.set_ylabel("Optical Power (uW)", color='white', fontsize=10)
+        ax.set_ylabel("Optical Power (mW)", color='white', fontsize=10)
 
         ax.tick_params(colors='white', which='both')
         for spine in ax.spines.values():
@@ -151,7 +151,7 @@ class PlotUtils:
 
             ax.set_title(title_str, color='white', fontsize=12)
             ax.set_xlabel("Heating Power (mW)", color='white', fontsize=10)
-            ax.set_ylabel("Optical Power (uW)", color='white', fontsize=10)
+            ax.set_ylabel("Optical Power (mW)", color='white', fontsize=10)
 
             ax.tick_params(colors='white', which='both')
             for spine in ax.spines.values():

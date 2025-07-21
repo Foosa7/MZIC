@@ -2,6 +2,7 @@
 
 from app.imports import *
 from app.utils.appdata import AppData
+from app.utils.qontrol.mapping_utils import get_mapping_functions
 import numpy as np
 from scipy import optimize
 import matplotlib.pyplot as plt
@@ -18,7 +19,7 @@ class CalibrationUtils:
         end_current = qontrol.globalcurrrentlimit
         steps = 10
         currents = np.linspace(start_current, end_current, steps).astype(float)
-        currentlist = np.linspace(start_current, end_current, steps).astype(float) #/ 1000  # Convert to Amperes
+        currentlist = np.linspace(start_current, end_current, steps).astype(float) # Convert to Amperes
         voltages = []
 
         # Current sweep measurement
@@ -37,8 +38,19 @@ class CalibrationUtils:
         coefficients, residuals, rank, s = np.linalg.lstsq(X, voltages, rcond=None)
         a_res, c_res, d_res = coefficients
 
-        resistance = a_res * currentlist**2 + c_res
+        # Convert coefficients to standard SI units for storage
+        # When I is in mA: V = a_mA*(I_mA)³ + c_mA*(I_mA) + d
+        # When I is in A:  V = a_mA*(1000*I_A)³ + c_mA*(1000*I_A) + d
+        #                  V = a_mA*10⁹*I_A³ + c_mA*10³*I_A + d
+        # So: a_res = a_mA * 10⁹ (Ω/A²), c_res = c_mA * 10³ (Ω)
+        
+        # a_res = a_mA * 1e6  # Convert from Ω/mA² to Ω/A²
+        # c_res = c_mA * 1e3  # Convert from Ω/mA to Ω/A (which equals Ω)
+        # d_res = d_mA        # Voltage offset stays the same
 
+
+        resistance = a_res * currentlist**2 + c_res
+        # resistance = resistance_mOhm * 1000  # Convert to Ohms
         # Calculate additional parameters
         rmin = np.min(resistance)
         rmax = np.max(resistance)
@@ -46,7 +58,7 @@ class CalibrationUtils:
 
         return {
             'a_res': a_res,
-            'c_res': c_res,
+            'c_res': c_res, 
             'd_res': d_res,
             'resistances': resistance.tolist(),
             'rmin': float(rmin),
@@ -86,6 +98,8 @@ class CalibrationUtils:
         else:
             a_res, c_res, d_res = resistance_params  # assume list or tuple
 
+        a_res = float(a_res) / 1e6  # Convert from Ω/mA² to Ω/A²  # Ensure float type
+        c_res = float(c_res)  # Convert from Ω/mA to Ω/A
         # Calculate max heating power to create uniform power spacing
         max_current = qontrol.globalcurrrentlimit
         max_resistance = a_res * (max_current**2) + c_res
@@ -213,10 +227,14 @@ class CalibrationUtils:
             filepath = f"calibration_data_{timestamp}.json"
 
         # Load label mapping from 12_mode_mapping.json
-        from pathlib import Path
-        mapping_file = Path(__file__).parent.parent / "qontrol" / "12_mode_mapping.json"
-        with open(mapping_file, 'r') as f:
-            label_map = json.load(f)
+        # from pathlib import Path
+        # mapping_file = Path(__file__).parent.parent / "qontrol" / "12_mode_mapping.json"
+        # with open(mapping_file, 'r') as f:
+        #     label_map = json.load(f)
+
+        create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+        label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+
 
         # Prepare resistance data with label_theta keys and channel info at the top
         resistance_entries = []
@@ -236,8 +254,8 @@ class CalibrationUtils:
             resistance_entries.append((key, {
                 "pin": int(channel),
                 "resistance_params": {
-                    "a_res": float(params['a_res']),
-                    "c_res": float(params['c_res']),
+                    "a_res": float(params['a_res']),  # Convert to Ω/A²
+                    "c_res": float(params['c_res']),  # Convert to Ω
                     "d_res": float(params['d_res']),
                     "rmin": float(params['rmin']),
                     "rmax": float(params['rmax']),
