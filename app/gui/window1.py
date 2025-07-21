@@ -1991,66 +1991,128 @@ class Window1Content(ctk.CTkFrame):
     def characterize_resistance(self):
         """Handle resistance characterization button click"""
         try:
-            # Get the currently selected channels
+            # Get current theta/phi channels
             theta_ch, phi_ch = self._get_current_channels()
             if not self.phase_selector:
                 raise ValueError("Phase selector not initialized")
-                
-            # Determine which channel to characterize based on selector widget
             channel_type = self.phase_selector.radio_var.get()
             target_channel = theta_ch if channel_type == "theta" else phi_ch
-            
             if target_channel is None:
-                raise ValueError("No valid channel selected")
-                
-            # Execute resistance characterization
+                raise ValueError("No valid channel selected for resistance characterization")
+
+            # Perform circuit characterization
             result = self.calibration_utils.characterize_resistance(
-                self.qontrol, 
-                target_channel
+                self.qontrol, target_channel
             )
-            
-            # Store results
             self.resistance_params[target_channel] = result
 
-            # --- Add this block ---
-            # label_map = create_label_mapping(8)  # Use your grid size if not 8
+            # Determine label
+            create_map, _ = get_mapping_functions(self.grid_size)
+            label_map = create_map(int(self.grid_size.split('x')[0]))
+            ch_to_label = {t: f"{lbl}_theta" for lbl,(t,_) in label_map.items()}
+            ch_to_label.update({p: f"{lbl}_phi" for lbl,(_,p) in label_map.items()})
+            label = ch_to_label.get(target_channel, str(target_channel))
 
-            create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
-            label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
-
-
-            channel_to_label = {}
-            for label, (theta_ch, phi_ch) in label_map.items():
-                channel_to_label[theta_ch] = f"{label}_theta"
-                channel_to_label[phi_ch] = f"{label}_phi"
-            label = channel_to_label.get(target_channel, str(target_channel))
+            # Update app data
             from app.utils.appdata import AppData
+            rp = result
             AppData.update_resistance_calibration(label, {
-                "pin": target_channel,
-                "resistance_params": {
-                    "a": float(result['a']),
-                    "c": float(result['c']),
-                    "d": float(result['d']),
-                    "rmin": float(result['rmin']),
-                    "rmax": float(result['rmax']),
-                    "alpha": float(result['alpha'])
+                'pin': target_channel,
+                'resistance_params': {
+                    'a': rp['a'], 'c': rp['c'], 'd': rp['d'],
+                    'rmin': rp['rmin_ohm'], 'rmax': rp['rmax_ohm'], 'alpha': rp['alpha']
                 },
-                "measurement_data": {
-                    "currents": result['currents'],
-                    "voltages": result['voltages'],
-                    "max_current": float(result['max_current'])
+                'measurement_data': {
+                    'currents': rp['currents_mA'],
+                    'voltages': rp['voltages_V'],
+                    'max_current': rp['max_current_mA']
                 }
             })
+
+            # Display
+            self.mapping_display.configure(state='normal')
+            self.mapping_display.delete('1.0', 'end')
+            self.mapping_display.insert('1.0', 'Resistance Characterization Results:')
+            self.mapping_display.insert('end', f"Channel: {target_channel}")
+            self.mapping_display.insert('end', f"Min Resistance: {rp['rmin_ohm']:.2f} Ω")
+            self.mapping_display.insert('end', f"Max Resistance: {rp['rmax_ohm']:.2f} Ω")
+            self.mapping_display.insert('end', f"Alpha: {rp['alpha']:.4f}")
+            self.mapping_display.configure(state='disabled')
+
+            # # Plot
+            # fig = self.plot_utils.plot_resistance(
+            #     rp['currents_mA'], rp['voltages_V'], [rp['a'], rp['c'], rp['d']],
+            #     target_channel, current=AppData.get_last_selection(),
+            #     channel_type=channel_type, phase_selector=self.phase_selector
+            # )
+            # self._update_graph_image(fig, self.graph_image_label1)
+
+
+
+
+    # def characterize_resistance(self):
+    #     """Handle resistance characterization button click"""
+    #     try:
+    #         # Get the currently selected channels
+    #         theta_ch, phi_ch = self._get_current_channels()
+    #         if not self.phase_selector:
+    #             raise ValueError("Phase selector not initialized")
+                
+    #         # Determine which channel to characterize based on selector widget
+    #         channel_type = self.phase_selector.radio_var.get()
+    #         target_channel = theta_ch if channel_type == "theta" else phi_ch
             
-            # Update display
-            self.mapping_display.configure(state="normal")
-            self.mapping_display.delete("1.0", "end")
-            self.mapping_display.insert("1.0", f"Resistance Characterization Results:\n\n")
-            self.mapping_display.insert("end", f"Channel: {target_channel}\n")
-            self.mapping_display.insert("end", f"Min Resistance: {result['rmin']:.2f} Ω\n")
-            self.mapping_display.insert("end", f"Max Resistance: {result['rmax']:.2f} Ω\n")
-            self.mapping_display.insert("end", f"Alpha: {result['alpha']:.4f}\n")
-            self.mapping_display.configure(state="disabled")
+    #         if target_channel is None:
+    #             raise ValueError("No valid channel selected")
+                
+    #         # Execute resistance characterization
+    #         result = self.calibration_utils.characterize_resistance(
+    #             self.qontrol, 
+    #             target_channel
+    #         )
+            
+    #         # Store results
+    #         self.resistance_params[target_channel] = result
+
+    #         # --- Add this block ---
+    #         # label_map = create_label_mapping(8)  # Use your grid size if not 8
+
+    #         create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+    #         label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+
+
+    #         channel_to_label = {}
+    #         for label, (theta_ch, phi_ch) in label_map.items():
+    #             channel_to_label[theta_ch] = f"{label}_theta"
+    #             channel_to_label[phi_ch] = f"{label}_phi"
+    #         label = channel_to_label.get(target_channel, str(target_channel))
+    #         from app.utils.appdata import AppData
+    #         AppData.update_resistance_calibration(label, {
+    #             "pin": target_channel,
+    #             "resistance_params": {
+    #                 "a": float(result['a']),
+    #                 "c": float(result['c']),
+    #                 "d": float(result['d']),
+    #                 "rmin": float(result['rmin']),
+    #                 "rmax": float(result['rmax']),
+    #                 "alpha": float(result['alpha'])
+    #             },
+    #             "measurement_data": {
+    #                 "currents": result['currents'],
+    #                 "voltages": result['voltages'],
+    #                 "max_current": float(result['max_current'])
+    #             }
+    #         })
+            
+            # # Update display
+            # self.mapping_display.configure(state="normal")
+            # self.mapping_display.delete("1.0", "end")
+            # self.mapping_display.insert("1.0", f"Resistance Characterization Results:\n\n")
+            # self.mapping_display.insert("end", f"Channel: {target_channel}\n")
+            # self.mapping_display.insert("end", f"Min Resistance: {result['rmin']:.2f} Ω\n")
+            # self.mapping_display.insert("end", f"Max Resistance: {result['rmax']:.2f} Ω\n")
+            # self.mapping_display.insert("end", f"Alpha: {result['alpha']:.4f}\n")
+            # self.mapping_display.configure(state="disabled")
             
             # Generate and display plot
             current = AppData.get_last_selection()
@@ -2083,74 +2145,209 @@ class Window1Content(ctk.CTkFrame):
             import traceback
             traceback.print_exc()
 
+
     def characterize_phase(self):
         """Handle phase characterization button click"""
         try:
-            # Get the currently selected channels
             theta_ch, phi_ch = self._get_current_channels()
             if not self.phase_selector:
                 raise ValueError("Phase selector not initialized")
-                
-            # Determine which channel to characterize based on selector
             channel_type = self.phase_selector.radio_var.get()
             target_channel = theta_ch if channel_type == "theta" else phi_ch
-            
             if target_channel is None:
-                raise ValueError("No valid channel selected")
-            
-            # Get current selection state and IO config from AppData
-            current = AppData.get_last_selection()
-            cross = current.get('cross', '')
-            io_config = AppData.get_io_config(cross)  # This will return 'cross' or 'bar'
-            
-            # --- Get resistance parameters from AppData ---
-            # label_map = create_label_mapping(8)  # Use your grid size if not 8
+                raise ValueError("No valid channel selected for phase characterization")
 
-            create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
-            label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+            # Determine IO configuration
+            from app.utils.appdata import AppData
+            sel = AppData.get_last_selection()
+            io_config = AppData.get_io_config(sel.get('cross', ''))
 
+            # Map channel to label
+            create_map, _ = get_mapping_functions(self.grid_size)
+            label_map = create_map(int(self.grid_size.split('x')[0]))
+            ch_to_lbl = {t: f"{lbl}_theta" for lbl,(t,_) in label_map.items()}
+            ch_to_lbl.update({p: f"{lbl}_phi" for lbl,(_,p) in label_map.items()})
+            label = ch_to_lbl.get(target_channel, str(target_channel))
 
-            channel_to_label = {}
-            for label, (theta_ch_map, phi_ch_map) in label_map.items():
-                channel_to_label[theta_ch_map] = f"{label}_theta"
-                channel_to_label[phi_ch_map] = f"{label}_phi"
-            label = channel_to_label.get(target_channel, str(target_channel))
-            resistance_data = AppData.get_resistance_calibration(label)
-            if not resistance_data or "resistance_params" not in resistance_data:
-                self._show_error(
-                    f"No valid resistance calibration data found for {label}.\n"
-                    "Please run resistance calibration first."
-                )
+            # Fetch resistance data
+            res_data = AppData.get_resistance_calibration(label)
+            if not res_data or 'resistance_params' not in res_data:
+                self._show_error("No resistance data: run resistance characterization first.")
                 return
 
-            print(f"Running phase calibration for channel {target_channel} ({io_config})")
-
-            # Execute phase characterization
+            # Perform phase characterization
             result = self.calibration_utils.characterize_phase(
-                self.qontrol,
-                self.thorlabs,
-                target_channel,
-                io_config,
-                resistance_data  # pass full dict now
+                self.qontrol, self.thorlabs,
+                target_channel, io_config, res_data
             )
-            
-            # Store results
             self.phase_params[target_channel] = result
 
+            # Update AppData
             AppData.update_phase_calibration(label, {
-                "pin": target_channel,
-                "phase_params": {
-                    "io_config": result['io_config'],
-                    "amplitude": float(result['amp']),
-                    "frequency": float(result['omega']/(2*np.pi)),
-                    "phase": float(result['phase']),
-                    "offset": float(result['offset'])
+                'pin': target_channel,
+                'phase_params': {
+                    'io_config': result['io_config'],
+                    'amplitude': result['amp'],
+                    'frequency': result['omega']/(2*np.pi),
+                    'phase': result['phase'],
+                    'offset': result['offset']
                 },
-                "measurement_data": {
-                    "currents": result['currents'],
-                    "optical_powers": result['optical_powers']
+                'measurement_data': {
+                    'currents': result['currents_mA'],
+                    'optical_powers': result['optical_powers']
                 }
             })
+
+            # Display results
+            self._display_results(
+                title="Phase Characterization Results",
+                lines=[
+                    f"Channel: {target_channel}",
+                    f"IO Config: {io_config}",
+                    f"Amplitude: {result['amp']:.4f}",
+                    f"Frequency: {result['omega']/(2*np.pi):.4f} Hz",
+                    f"Phase Offset: {result['phase']:.4f} rad"
+                ]
+            )
+
+
+    # def characterize_phase(self):
+    #     """Handle phase characterization button click"""
+    #     try:
+    #         theta_ch, phi_ch = self._get_current_channels()
+    #         if not self.phase_selector:
+    #             raise ValueError("Phase selector not initialized")
+    #         channel_type = self.phase_selector.radio_var.get()
+    #         target_channel = theta_ch if channel_type == "theta" else phi_ch
+    #         if target_channel is None:
+    #             raise ValueError("No valid channel selected for phase characterization")
+
+    #         # Determine IO configuration
+    #         from app.utils.appdata import AppData
+    #         sel = AppData.get_last_selection()
+    #         io_config = AppData.get_io_config(sel.get('cross', ''))
+
+    #         # Map channel to label
+    #         create_map, _ = get_mapping_functions(self.grid_size)
+    #         label_map = create_map(int(self.grid_size.split('x')[0]))
+    #         ch_to_lbl = {t: f"{lbl}_theta" for lbl,(t,_) in label_map.items()}
+    #         ch_to_lbl.update({p: f"{lbl}_phi" for lbl,(_,p) in label_map.items()})
+    #         label = ch_to_lbl.get(target_channel, str(target_channel))
+
+    #         # Fetch resistance data
+    #         res_data = AppData.get_resistance_calibration(label)
+    #         if not res_data or 'resistance_params' not in res_data:
+    #             self._show_error("No resistance data: run resistance characterization first.")
+    #             return
+
+    #         # Perform phase characterization
+    #         result = self.calibration_utils.characterize_phase(
+    #             self.qontrol, self.thorlabs,
+    #             target_channel, io_config, res_data
+    #         )
+    #         self.phase_params[target_channel] = result
+
+    #         # Update AppData
+    #         AppData.update_phase_calibration(label, {
+    #             'pin': target_channel,
+    #             'phase_params': {
+    #                 'io_config': result['io_config'],
+    #                 'amplitude': result['amp'],
+    #                 'frequency': result['omega']/(2*np.pi),
+    #                 'phase': result['phase'],
+    #                 'offset': result['offset']
+    #             },
+    #             'measurement_data': {
+    #                 'currents': result['currents_mA'],
+    #                 'optical_powers': result['optical_powers']
+    #             }
+    #         })
+
+            # Display results
+            self._display_results(
+                title="Phase Characterization Results",
+                lines=[
+                    f"Channel: {target_channel}",
+                    f"IO Config: {io_config}",
+                    f"Amplitude: {result['amp']:.4f}",
+                    f"Frequency: {result['omega']/(2*np.pi):.4f} Hz",
+                    f"Phase Offset: {result['phase']:.4f} rad"
+                ]
+            )
+
+        except Exception as e:
+            self._show_error(f"Phase characterization failed: {e}")
+            import traceback; traceback.print_exc()
+
+
+    # def characterize_phase(self):
+    #     """Handle phase characterization button click"""
+    #     try:
+    #         # Get the currently selected channels
+    #         theta_ch, phi_ch = self._get_current_channels()
+    #         if not self.phase_selector:
+    #             raise ValueError("Phase selector not initialized")
+                
+    #         # Determine which channel to characterize based on selector
+    #         channel_type = self.phase_selector.radio_var.get()
+    #         target_channel = theta_ch if channel_type == "theta" else phi_ch
+            
+    #         if target_channel is None:
+    #             raise ValueError("No valid channel selected")
+            
+    #         # Get current selection state and IO config from AppData
+    #         current = AppData.get_last_selection()
+    #         cross = current.get('cross', '')
+    #         io_config = AppData.get_io_config(cross)  # This will return 'cross' or 'bar'
+            
+    #         # --- Get resistance parameters from AppData ---
+    #         # label_map = create_label_mapping(8)  # Use your grid size if not 8
+
+    #         create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+    #         label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+
+
+    #         channel_to_label = {}
+    #         for label, (theta_ch_map, phi_ch_map) in label_map.items():
+    #             channel_to_label[theta_ch_map] = f"{label}_theta"
+    #             channel_to_label[phi_ch_map] = f"{label}_phi"
+    #         label = channel_to_label.get(target_channel, str(target_channel))
+    #         resistance_data = AppData.get_resistance_calibration(label)
+    #         if not resistance_data or "resistance_params" not in resistance_data:
+    #             self._show_error(
+    #                 f"No valid resistance calibration data found for {label}.\n"
+    #                 "Please run resistance calibration first."
+    #             )
+    #             return
+
+    #         print(f"Running phase calibration for channel {target_channel} ({io_config})")
+
+    #         # Execute phase characterization
+    #         result = self.calibration_utils.characterize_phase(
+    #             self.qontrol,
+    #             self.thorlabs,
+    #             target_channel,
+    #             io_config,
+    #             resistance_data  # pass full dict now
+    #         )
+            
+    #         # Store results
+    #         self.phase_params[target_channel] = result
+
+    #         AppData.update_phase_calibration(label, {
+    #             "pin": target_channel,
+    #             "phase_params": {
+    #                 "io_config": result['io_config'],
+    #                 "amplitude": float(result['amp']),
+    #                 "frequency": float(result['omega']/(2*np.pi)),
+    #                 "phase": float(result['phase']),
+    #                 "offset": float(result['offset'])
+    #             },
+    #             "measurement_data": {
+    #                 "currents": result['currents'],
+    #                 "optical_powers": result['optical_powers']
+    #             }
+    #         })
             # Update display
             self.mapping_display.configure(state="normal")
             self.mapping_display.delete("1.0", "end")
@@ -2161,7 +2358,7 @@ class Window1Content(ctk.CTkFrame):
             self.mapping_display.insert("end", f"Frequency: {result['omega']/(2*np.pi):.4f} Hz\n")
             self.mapping_display.insert("end", f"Phase: {result['phase']:.4f} rad\n")
             self.mapping_display.configure(state="disabled")
-            
+            current = AppData.get_last_selection()
             # Generate and display plot
             fig = self.plot_utils.plot_phase(
                 result['heating_powers'],
@@ -2322,8 +2519,8 @@ class Window1Content(ctk.CTkFrame):
             return
 
         fig = self.plot_utils.plot_resistance(
-            result['currents'],
-            result['voltages'],
+            result['currents_mA'],
+            result['voltages_V'],
             [result['a'], result['c'], result['d']],
             result['pin'],  # or result['target_channel'] if that's your key
             channel_type=channel_type
@@ -2365,7 +2562,7 @@ class Window1Content(ctk.CTkFrame):
 
         # Generate the plot
         fig = self.plot_utils.plot_phase(
-            result['currents'],
+            result['currents_mA'],
             result['optical_powers'],
             result['fitfunc'],
             result['rawres'][1],
