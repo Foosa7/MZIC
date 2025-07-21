@@ -311,7 +311,11 @@ class MainWindow(ctk.CTk):
         print("[INFO] Export function triggered.")
 
     def mesh_changed(self, new_mesh_size):
+        """Handle mesh size changes."""
         print("[INFO] Mesh size changed to:", new_mesh_size)
+        
+        # Update AppData grid size
+        AppData.update_grid_size(new_mesh_size)
     
         # If the current tab is Window 1 => update
         if isinstance(self.current_content, Window1Content):

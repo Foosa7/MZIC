@@ -418,122 +418,78 @@ class CalibrationUtils:
         return resistance_params, phase_params
     
 
-    def calculate_current_for_phase(data, channel_key, target_phase_pi):
-        """
-        Calculates the required current (mA) to achieve a target phase shift (in π units)
-        for a given channel, using the linear phase model: Phase(P) = b*P + c.
-        """
-        print(f"Calculating Current for Channel: {channel_key}, Target: {target_phase_pi}π")
+def calculate_current_for_phase(data, channel_key, target_phase_pi):
+    """
+    Calculates the required current (mA) to achieve a target phase shift (in π units)
+    for a given channel, using the linear phase model: Phase(P) = b*P + c.
+    """
+    print(f"Calculating Current for Channel: {channel_key}, Target: {target_phase_pi}π")
 
-        # Load calibration data
-        res_data = AppData.resistance_calibration_data(data, 'resistance')
-        phase_data = AppData.phase_calibration_data(data, 'phase')
-        if not res_data or channel_key not in res_data:
-            print(f"-> Error: No resistance data for '{channel_key}'")
+    # Load calibration data
+    res_data = AppData.resistance_calibration_data(data, 'resistance')
+    phase_data = AppData.phase_calibration_data(data, 'phase')
+    if not res_data or channel_key not in res_data:
+        print(f"-> Error: No resistance data for '{channel_key}'")
+        return None
+    if not phase_data or channel_key not in phase_data:
+        print(f"-> Error: No phase data for '{channel_key}'")
+        return None
+
+    # Extract resistance parameters
+    res_params = res_data[channel_key]['resistance_params']
+    a_res = res_params.get('a', 0)
+    c_res = res_params.get('c', 0)
+    if c_res == 0:
+        print("-> Error: R0 (c) parameter is zero.")
+        return None
+
+    # Extract phase calibration params
+    ph_params = phase_data[channel_key].get('phase_params', {})
+    b_param = ph_params.get('frequency')  # in cycles per mW
+    c_param = ph_params.get('phase')      # phase offset in rad
+    io_conf = ph_params.get('io_config', 'cross_state')
+    if b_param is None or c_param is None:
+        print("-> Error: Missing phase parameters (frequency, phase offset).")
+        return None
+
+    # Convert frequency to b in rad/mW
+    b = b_param * 2 * np.pi
+    # Desired phase shift in rad
+    target_phi = target_phase_pi * np.pi
+
+    # Linear inversion: P (mW) = |target_phi - c_param| / b
+    # If bar_state, phi(P) = π - (b*P + c_param) --> adjust target_phi
+    if io_conf == 'bar_state':
+        # invert around π
+        target_phi_lin = np.pi - target_phi
+        print(f"-> Bar state adjustment: target_lin = {target_phi_lin:.4f} rad")
+    else:
+        target_phi_lin = target_phi
+
+    P_mw = abs((target_phi_lin - c_param) / b)
+    print(f"-> Required Power: {P_mw:.4f} mW (io_config={io_conf})")
+
+    # Convert to Watts
+    P_w = P_mw / 1000.0
+
+    # Resistance model: P = I^2*R0 + (a_res/c_res)*I^4*R0
+    R0 = c_res * 1000.0
+    alpha = a_res / c_res
+
+    # Compute current
+    if alpha == 0:
+        I_A = np.sqrt(P_w / R0)
+    else:
+        I = sp.symbols('I')
+        eq = sp.Eq(alpha * I**4 + I**2 - (P_w / R0), 0)
+        sols = sp.solve(eq, I)
+        real_pos = [s.evalf() for s in sols if s.is_real and s.evalf() > 0]
+        if not real_pos:
+            print("-> Error: No valid current solution.")
             return None
-        if not phase_data or channel_key not in phase_data:
-            print(f"-> Error: No phase data for '{channel_key}'")
-            return None
+        I_A = real_pos[0]
 
-        # Extract resistance parameters
-        res_params = res_data[channel_key]['resistance_params']
-        a_res = res_params.get('a', 0)
-        c_res = res_params.get('c', 0)
-        if c_res == 0:
-            print("-> Error: R0 (c) parameter is zero.")
-            return None
+    I_mA = float(I_A * 1000)
+    print(f"-> Calculated Current: {I_mA:.4f} mA")
+    return I_mA
 
-        # Extract phase calibration params
-        ph_params = phase_data[channel_key].get('phase_params', {})
-        b_param = ph_params.get('frequency')  # in cycles per mW
-        c_param = ph_params.get('phase')      # phase offset in rad
-        io_conf = ph_params.get('io_config', 'cross_state')
-        if b_param is None or c_param is None:
-            print("-> Error: Missing phase parameters (frequency, phase offset).")
-            return None
-
-        # Convert frequency to b in rad/mW
-        b = b_param * 2 * np.pi
-        # Desired phase shift in rad
-        target_phi = target_phase_pi * np.pi
-
-        # Linear inversion: P (mW) = |target_phi - c_param| / b
-        # If bar_state, phi(P) = π - (b*P + c_param) --> adjust target_phi
-        if io_conf == 'cross_state':
-            # invert around π
-            target_phi_lin = np.pi - target_phi
-            print(f"-> Bar state adjustment: target_lin = {target_phi_lin:.4f} rad")
-        else:
-            target_phi_lin = target_phi
-
-        P_mw = abs((target_phi_lin - c_param) / b)
-        print(f"-> Required Power: {P_mw:.4f} mW (io_config={io_conf})")
-
-        # Convert to Watts
-        P_w = P_mw / 1000.0
-
-        # Resistance model: P = I^2*R0 + (a_res/c_res)*I^4*R0
-        R0 = c_res * 1000.0
-        alpha = a_res / c_res
-
-        # Compute current
-        if alpha == 0:
-            I_A = np.sqrt(P_w / R0)
-        else:
-            I = sp.symbols('I')
-            eq = sp.Eq(alpha * I**4 + I**2 - (P_w / R0), 0)
-            sols = sp.solve(eq, I)
-            real_pos = [s.evalf() for s in sols if s.is_real and s.evalf() > 0]
-            if not real_pos:
-                print("-> Error: No valid current solution.")
-                return None
-            I_A = real_pos[0]
-
-        I_mA = float(I_A * 1000)
-        print(f"-> Calculated Current: {I_mA:.4f} mA")
-        return I_mA
-
-
-
-# def calculate_current_for_phase(data, channel_key, target_phase_pi):
-#     """
-#     Compute the current (mA) to reach target phase (in units of π) using linear model.
-#     """
-#     res_data = get_calibration_data(data, 'resistance')
-#     ph_data = get_calibration_data(data, 'phase')
-#     if channel_key not in res_data or channel_key not in ph_data:
-#         raise KeyError(f"Channel '{channel_key}' not found in calibration.")
-
-#     c_res = res_data[channel_key]['resistance_params']['c']
-#     R0 = c_res * 1000.0
-
-#     ph = ph_data[channel_key]['phase_params']
-#     f = ph['frequency']
-#     phi0 = ph['phase']
-#     io_conf = ph.get('io_config', 'cross_state')
-
-#     target_phi = target_phase_pi * np.pi
-#     if io_conf == 'cross_state':
-#         target_phi_eff = np.pi - target_phi
-#     else:
-#         target_phi_eff = target_phi
-
-#     b = 2 * np.pi * f
-#     P_mW = abs((target_phi_eff - phi0) / b)
-#     P_W = P_mW / 1000.0
-
-#     a_res = res_data[channel_key]['resistance_params']['a']
-#     alpha = a_res / c_res
-
-#     if alpha == 0:
-#         I_A = np.sqrt(P_W / R0)
-#     else:
-#         I = sp.symbols('I', real=True, positive=True)
-#         eq = sp.Eq(alpha * I**4 + I**2 - (P_W / R0), 0)
-#         sols = sp.solve(eq, I)
-#         sol = [s.evalf() for s in sols if s.is_real and s > 0]
-#         if not sol:
-#             raise RuntimeError("No valid current solution.")
-#         I_A = sol[0]
-
-#     return float(I_A * 1000.0)

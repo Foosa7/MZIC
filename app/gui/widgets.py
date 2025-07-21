@@ -280,6 +280,20 @@ class AppControlWidget(ctk.CTkFrame):
         )
         self.export_button.pack(fill="x", pady=2)
 
+    def on_mesh_change(self, new_size):
+        """Handle mesh size changes."""
+        # Update AppData grid size
+        AppData.update_grid_size(new_size)
+        
+        # Call the external change command if provided
+        if self.mesh_change_command:
+            self.mesh_change_command(new_size)
+            
+    def get_current_mesh_size(self):
+        """Get the current mesh size."""
+        return self.mesh_optionmenu.get()
+
+
 class WindowSelectionWidget(ctk.CTkFrame):
     def __init__(self, master, change_command=None, *args, **kwargs):
         """

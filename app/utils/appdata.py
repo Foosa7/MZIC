@@ -15,6 +15,12 @@ class AppData:
     last_selected = {"cross": "", "arm": ""}  # Set default starting value
     io_config = {} 
 
+    @classmethod
+    def update_grid_size(cls, new_size):
+        """Update the grid size."""
+        cls.grid_size = new_size
+        return cls.grid_size
+    
     selected_input_pins = set() # store which pin is selected
     selected_output_pins = set() # store which pin is selected
     prev_selected_idx = None

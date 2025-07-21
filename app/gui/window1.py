@@ -2738,15 +2738,6 @@ class Window1Content(ctk.CTkFrame):
             float: Current in mA or None if calculation fails
         """
         try:
-            # Get phase calibration data
-            phase_cal = AppData.phase_calibration_data.get(calib_key)
-            if not phase_cal:
-                return None
-                
-            phase_params = phase_cal.get("phase_params", {})
-            if not phase_params:
-                return None
-
             # Get resistance calibration data
             res_cal = AppData.resistance_calibration_data.get(calib_key)
             if not res_cal:
@@ -2756,45 +2747,70 @@ class Window1Content(ctk.CTkFrame):
             if not res_params:
                 return None
 
+            # Get phase calibration data
+            phase_cal = AppData.phase_calibration_data.get(calib_key)
+            if not phase_cal:
+                return None
+                
+            phase_params = phase_cal.get("phase_params", {})
+            if not phase_params:
+                return None
+            # Extract resistance parameters
+            a_res = res_params.get("a")  # Cubic term
+            c_res = res_params.get("c")  # Linear term
+            if c_res == 0:
+                print("-> Error: R0 (c) parameter is zero.")
+                return None
+            
             # Extract phase parameters
-            b = phase_params.get("frequency", 1.0) * 2 * np.pi  # Convert Hz to rad/s
-            c = phase_params.get("phase", 0.0)  # Phase offset in radians
-
+            b_param = phase_params.get("frequency", 1.0) * 2 * np.pi  # Convert Hz to rad/s
+            c_param = phase_params.get("phase", 0.0)  # Phase offset in radians
+            io_conf = phase_params.get('io_config', 'cross_state')
+            if b_param is None or c_param is None:
+                print("-> Error: Missing phase parameters (frequency, phase offset).")
+                return None
+            # Convert frequency to b in rad/mW
+            b = b_param * 2 * np.pi            
             # Check phase range and adjust if needed
-            if phase_value < c/np.pi:
-                print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π")
+            if phase_value < c_param/np.pi:
+                print(f"Warning: Phase {phase_value}π is less than offset phase {c_param/np.pi}π")
                 phase_value = phase_value + 2
                 print(f"Using adjusted phase value: {phase_value}π")
 
-            # Calculate required heating power
-            P = abs((phase_value*np.pi - c) / b)  # Power in mW
-
-            # Extract resistance parameters
-            a = res_params.get("a")  # Cubic term
-            c_res = res_params.get("c")  # Linear term
-            
-            if a is not None and c_res is not None:
-                # Solve nonlinear equation using sympy
-                I = sp.symbols('I')
-                P_watts = P/1000  # Convert mW to W
-                R0 = c_res  # Linear resistance
-                alpha = a/R0 if R0 != 0 else 0  # Nonlinearity parameter
-
-                # Define equation: P/R0 = I^2 + alpha*I^4
-                eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
-                solutions = sp.solve(eq, I)
-
-                # Get positive real solution
-                positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
-                if positive_solutions:
-                    return float(1000 * positive_solutions[0])  # Convert to mA
-                else:
-                    # Fallback to linear model
-                    return float(round(1000 * np.sqrt(P/(R0*1000)), 2))
+            if io_conf == 'cross_state':
+                # invert around π
+                phase_value_lin = np.pi - phase_value
+                print(f"-> Bar state adjustment: target_lin = {phase_value_lin:.4f} rad")
             else:
-                # Use default linear resistance
-                R = 50.0  # Default resistance in Ohms
-                return float(round(1000 * np.sqrt(P/(R*1000)), 2))
+                phase_value_lin = phase_value
+
+            P_mw = abs((phase_value_lin - c_param) / b)
+            print(f"-> Required Power: {P_mw:.4f} mW (io_config={io_conf})")
+
+            # Convert to Watts
+            P_w = P_mw / 1000.0
+
+            # Resistance model: P = I^2*R0 + (a_res/c_res)*I^4*R0
+            R0 = c_res * 1000.0
+            alpha = a_res / c_res
+
+            # Compute current
+            if alpha == 0:
+                I_A = np.sqrt(P_w / R0)
+            else:
+                I = sp.symbols('I')
+                eq = sp.Eq(alpha * I**4 + I**2 - (P_w / R0), 0)
+                sols = sp.solve(eq, I)
+                real_pos = [s.evalf() for s in sols if s.is_real and s.evalf() > 0]
+                if not real_pos:
+                    print("-> Error: No valid current solution.")
+                    return None
+                I_A = real_pos[0]
+
+            I_mA = float(I_A * 1000)
+            print(f"-> Calculated Current: {I_mA:.4f} mA")
+            return I_mA
+
 
         except Exception as e:
             print(f"Error calculating current: {str(e)}")
@@ -2816,7 +2832,6 @@ class Window1Content(ctk.CTkFrame):
                 self.mapping_display.insert("end", f"• {channel}\n")
                 
         self.mapping_display.configure(state="disabled")
-
 
 
 
