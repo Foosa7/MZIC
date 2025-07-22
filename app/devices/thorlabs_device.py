@@ -198,6 +198,7 @@ class ThorlabsDevice:
                 power_in_watts = self.device.read  # Read power in watts
             except AttributeError:
                 power_in_watts = self.device.power  # Fallback to another attribute
+                print(f"[INFO][Thorlabs] Using fallback power reading method: {power_in_watts} W")
 
             # Convert to the desired unit
             if unit == "mW":

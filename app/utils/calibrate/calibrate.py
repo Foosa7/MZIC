@@ -46,7 +46,7 @@ class CalibrationUtils:
         rmin = np.min(resistance) #kΩ
         rmax = np.max(resistance) #kΩ
         alpha_res = a_res / c_res if c_res != 0 else float('inf') #unitless
-
+        print(a_res, c_res, d_res, rmin, rmax, alpha_res)
         return {
             'a_res': a_res, # V/(mA)³ = GΩ/A²
             'c_res': c_res, # V/mA = kΩ
@@ -129,8 +129,8 @@ class CalibrationUtils:
         for I in currents:
             qontrol.set_current(channel, float(I)) # Set current in mA
             time.sleep(delay)
-            optical_powers.append(thorlabs[0].read_power(unit='mW'))  # Read power in mW
-
+            optical_powers.append(thorlabs[0].read_power(unit='W') * 1000)  # Read power in W, convert to mW
+            print(optical_powers[-1])
         # Reset current to zero
         qontrol.set_current(channel, 0.0)
 

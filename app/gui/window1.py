@@ -102,7 +102,7 @@ class Window1Content(ctk.CTkFrame):
         self._update_selection_display()
         self._setup_event_bindings()
 
-        self.selected_unit = "mW"  # Default unit for power measurement
+        self.selected_unit = "uW"  # Default unit for power measurement
 
         self._initialize_live_graph() # Initialize the live graph
 
@@ -1930,6 +1930,8 @@ class Window1Content(ctk.CTkFrame):
 
         # Calculate heating power for this phase shift
         P = abs((phase_value*np.pi - c) / b)
+        print(f"[DEBUG] Calculated heating power P={P} mW")
+        print(f"[DEBIG] Using parameters: A={A}, b={b}, c={c}, d={d}")
 
         # Get resistance parameters
         if channel < len(self.app.resistance_parameter_list):
@@ -2817,6 +2819,7 @@ class Window1Content(ctk.CTkFrame):
             try:
                 c_res = res_params['c_res']     # kΩ
                 a_res = res_params['a_res']     # V/(mA)³
+                alpha_res = res_params['alpha_res'] # 1/mA²
                 A = phase_params['amplitude']   # mW
                 b = phase_params['omega']       # rad/mW
                 c = phase_params['phase']       # rad
@@ -2837,18 +2840,20 @@ class Window1Content(ctk.CTkFrame):
             # Calculate heating power for this phase shift
             P_mW = abs((phase_value*np.pi - c) / b)    # Power in mW
             print(f"[DEBUG] Calculated heating power P={P_mW} mW")
+            print(f"[DEBIG] Using parameters: A={A}, b={b}, c={c}, d={d}")
+
 
             # Define symbols for solving equation
             I = sp.symbols('I', real=True, positive=True)
 
             # R0 is the linear resistance (same as c_res)
-            R0 = c_res  # kΩ
-            alpha = a_res/R0 if R0 != 0 else 0  
-            print(f"[DEBUG] P_mW={P_mW} mW, R0={R0} kΩ, alpha={alpha} (1/mA²)")
+            #R0 = c_res  # kΩ
+            #alpha = a_res/R0 if R0 != 0 else 0  
+            print(f"[DEBUG] P_mW={P_mW} mW, R0={c_res} kΩ, alpha={alpha_res} (1/mA²)")
 
             # Define equation: P/R0 = I²(1 + alpha*I²)
-            eq = sp.Eq(P_mW/R0, I**2 * (1 + alpha * I**2))
-            print(f"[DEBUG] Equation: {P_mW}/{R0} = I² × (1 + {alpha}×I²)")
+            eq = sp.Eq(P_mW/c_res, I**2 * (1 + alpha_res * I**2))
+            print(f"[DEBUG] Equation: {P_mW}/{c_res} = I² × (1 + {alpha_res}×I²)")
 
             # Solve the equation
             solutions = sp.solve(eq, I)
