@@ -1914,12 +1914,13 @@ class Window1Content(ctk.CTkFrame):
         P = delta_phase / b;
         '''
         
+        print(f"Target phase is {phase_value}π for channel {channel}")
 
         print(f"amplitude: {A}, omega: {b}, phase offset: {c}, offset: {d} for channel {channel}")
-        print(f"xdatalist_IObar: {self.app.xdatalist_IObar}")
-        print(f"xdatalist_IOcross: {self.app.xdatalist_IOcross}")
-        print(f"lincubchar_voltage: {self.app.lincubchar_voltage}"  )
-        print(f"lincubchar_current: {self.app.lincubchar_current}")
+        #print(f"xdatalist_IObar: {self.app.xdatalist_IObar}")
+        #print(f"xdatalist_IOcross: {self.app.xdatalist_IOcross}")
+        #print(f"lincubchar_voltage: {self.app.lincubchar_voltage}"  )
+        #print(f"lincubchar_current: {self.app.lincubchar_current}")
         # print(f"resistancelist: {self.resistancelist}")
 
         # Check if phase is within valid range
