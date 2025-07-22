@@ -1901,7 +1901,7 @@ class Window1Content(ctk.CTkFrame):
     def _calculate_current_from_params(self, channel, phase_value, params):
         """Calculate current from phase parameters"""
         # Extract calibration parameters     
-        A = params['amp']
+        A = params['amp']   
         b = params['omega']
         c = params['phase']     # offset phase in radians
         d = params['offset']
@@ -2815,12 +2815,12 @@ class Window1Content(ctk.CTkFrame):
 
             # --- FIX: Do not double index ---
             try:
-                c_res = res_params['c_res'] * 1000
-                a_res = res_params['a_res'] * 1e9
-                A = phase_params['amplitude']
-                b = phase_params['omega']
-                c = phase_params['phase']
-                d = phase_params['offset']
+                c_res = res_params['c_res']     # kΩ
+                a_res = res_params['a_res']     # V/(mA)³
+                A = phase_params['amplitude']   # mW
+                b = phase_params['omega']       # rad/mW
+                c = phase_params['phase']       # rad
+                d = phase_params['offset']      # mW
             except Exception as e:
                 print(f"[ERROR] Failed to extract parameters: {e}")
                 print(f"[DEBUG] res_params: {res_params}")
@@ -2835,19 +2835,20 @@ class Window1Content(ctk.CTkFrame):
                 print(f"Using adjusted phase value: {phase_value}π")
 
             # Calculate heating power for this phase shift
-            P = abs((phase_value*np.pi - c) / b)
-            print(f"[DEBUG] Calculated heating power P={P}")
+            P_mW = abs((phase_value*np.pi - c) / b)    # Power in mW
+            print(f"[DEBUG] Calculated heating power P={P_mW} mW")
 
             # Define symbols for solving equation
-            I = sp.symbols('I')
-            P_watts = P/1000  # Convert to watts
-            R0 = c_res  # Linear resistance term (c)
-            alpha = a_res/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
-            print(f"[DEBUG] P_watts={P_watts}, R0={R0}, alpha={alpha}")
+            I = sp.symbols('I', real=True, positive=True)
 
-            # Define equation: P/R0 = I^2 + alpha*I^4
-            eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
-            print(f"[DEBUG] Equation: {eq}")
+            # R0 is the linear resistance (same as c_res)
+            R0 = c_res  # kΩ
+            alpha = a_res/R0 if R0 != 0 else 0  
+            print(f"[DEBUG] P_mW={P_mW} mW, R0={R0} kΩ, alpha={alpha} (1/mA²)")
+
+            # Define equation: P/R0 = I²(1 + alpha*I²)
+            eq = sp.Eq(P_mW/R0, I**2 * (1 + alpha * I**2))
+            print(f"[DEBUG] Equation: {P_mW}/{R0} = I² × (1 + {alpha}×I²)")
 
             # Solve the equation
             solutions = sp.solve(eq, I)
@@ -2857,8 +2858,8 @@ class Window1Content(ctk.CTkFrame):
             positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
             print(f"[DEBUG] Positive solutions: {positive_solutions}")
             if positive_solutions:
-                print(f"-> Calculated Current for {calib_key}: {positive_solutions[0]:.4f} A")
-                I_mA = positive_solutions[0] * 1000  # Convert to mA
+                print(f"-> Calculated Current for {calib_key}: {positive_solutions[0]:.4f} mA")
+                I_mA = positive_solutions[0] 
                 return I_mA
             else:
                 print(f"[ERROR] No positive solution for {calib_key}, fallback to linear model")

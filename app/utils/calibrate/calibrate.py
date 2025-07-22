@@ -19,7 +19,6 @@ class CalibrationUtils:
         end_current = qontrol.globalcurrrentlimit
         steps = 10
         currents = np.linspace(start_current, end_current, steps).astype(float)
-        currentlist = np.linspace(start_current, end_current, steps).astype(float) # Convert to Amperes
         voltages = []
 
         # Current sweep measurement
@@ -30,43 +29,35 @@ class CalibrationUtils:
         
         # Reset current to zero
         qontrol.set_current(channel, 0.0)
-        # currents = np.array(currents)  / 1000 # Convert to Amperes
+
         # Cubic+linear fit
-        # X = np.vstack([currents**3, currents, np.ones_like(currents)]).T
-        X = np.vstack([currentlist**3, currentlist, np.ones_like(currentlist)]).T
-        # coefficients, residuals, _, _ = np.linalg.lstsq(X, voltages, rcond=None)
+        X = np.vstack([currents**3, currents, np.ones_like(currents)]).T
         coefficients, residuals, rank, s = np.linalg.lstsq(X, voltages, rcond=None)
         a_res, c_res, d_res = coefficients
+        # UNITS:
+        # [a_res] = V/(mA)³ = 1e9*Ω/A² = GΩ/A²
+        # [c_res] = V/mA = 1e3*Ω = kΩ
+        # [d_res] = V
 
-        # Convert coefficients to standard SI units for storage
-        # When I is in mA: V = a_mA*(I_mA)³ + c_mA*(I_mA) + d
-        # When I is in A:  V = a_mA*(1000*I_A)³ + c_mA*(1000*I_A) + d
-        #                  V = a_mA*10⁹*I_A³ + c_mA*10³*I_A + d
-        # So: a_res = a_mA * 10⁹ (Ω/A²), c_res = c_mA * 10³ (Ω)
+        resistance = a_res * currents**2 + c_res
+        # [resistance] = V/mA = 1e3*Ω = kΩ
         
-        # a_res = a_mA * 1e6  # Convert from Ω/mA² to Ω/A²
-        # c_res = c_mA * 1e3  # Convert from Ω/mA to Ω/A (which equals Ω)
-        # d_res = d_mA        # Voltage offset stays the same
-
-
-        resistance = a_res * currentlist**2 + c_res
-        # resistance = resistance_mOhm * 1000  # Convert to Ohms
         # Calculate additional parameters
-        rmin = np.min(resistance)
-        rmax = np.max(resistance)
-        alpha_res = a_res / c_res if c_res != 0 else float('inf')
+        rmin = np.min(resistance) #kΩ
+        rmax = np.max(resistance) #kΩ
+        alpha_res = a_res / c_res if c_res != 0 else float('inf') #unitless
 
         return {
-            'a_res': a_res,
-            'c_res': c_res, 
-            'd_res': d_res,
-            'resistances': resistance.tolist(),
-            'rmin': float(rmin),
-            'rmax': float(rmax),
-            'alpha_res': float(alpha_res),
-            'currents': currentlist.tolist(),
-            'voltages': voltages,
-            'max_current': float(end_current),
+            'a_res': a_res, # V/(mA)³ = GΩ/A²
+            'c_res': c_res, # V/mA = kΩ
+            'd_res': d_res, # V
+            'resistances': resistance.tolist(), # kΩ
+            'rmin': float(rmin), # kΩ
+            'rmax': float(rmax), # kΩ
+            'alpha_res': float(alpha_res), # unitless
+            'currents': currents.tolist(), # mA
+            'voltages': voltages, # V
+            'max_current': float(end_current), # mA
             'resistance_parameters': [float(a_res), float(c_res), float(d_res)]
         }
 
@@ -98,12 +89,10 @@ class CalibrationUtils:
         else:
             a_res, c_res, d_res = resistance_params  # assume list or tuple
 
-        a_res = float(a_res) / 1e6  # Convert from Ω/mA² to Ω/A²  # Ensure float type
-        c_res = float(c_res)  # Convert from Ω/mA to Ω/A
         # Calculate max heating power to create uniform power spacing
-        max_current = qontrol.globalcurrrentlimit
-        max_resistance = a_res * (max_current**2) + c_res
-        max_heating_power = max_current**2 * max_resistance
+        max_current = qontrol.globalcurrrentlimit # mA
+        max_resistance = a_res * (max_current**2) + c_res # kΩ
+        max_heating_power = max_current**2 * max_resistance # mW
         
         # Create uniform heating power steps
         steps = 50
@@ -111,19 +100,19 @@ class CalibrationUtils:
         
         # Calculate corresponding currents for each power level
         currents = []
-        for P in heating_powers_mw:
-            if P == 0:
+        for P_mW in heating_powers_mw:
+            if P_mW == 0:
                 currents.append(0.0)
             else:
                 # Solve: P = I²(aI² + c) = aI⁴ + cI² for I
                 # This becomes: aI⁴ + cI² - P = 0
                 # Let x = I², then: ax² + cx - P = 0
                 # Solution: x = (-c + √(c² + 4aP)) / (2a)
-                discriminant = c_res**2 + 4*a_res*P
+                discriminant = c_res**2 + 4*a_res*P_mW
                 if discriminant >= 0:
-                    I_squared = (-c_res + np.sqrt(discriminant)) / (2*a_res)
+                    I_squared = (-c_res + np.sqrt(discriminant)) / (2*a_res) # (mA)²
                     if I_squared >= 0:
-                        I = np.sqrt(I_squared)
+                        I = np.sqrt(I_squared) # mA
                         currents.append(min(I, max_current))
                     else:
                         currents.append(0.0)
@@ -138,9 +127,9 @@ class CalibrationUtils:
         # Measure optical powers
         optical_powers = []
         for I in currents:
-            qontrol.set_current(channel, float(I))
+            qontrol.set_current(channel, float(I)) # Set current in mA
             time.sleep(delay)
-            optical_powers.append(thorlabs[0].read_power())
+            optical_powers.append(thorlabs[0].read_power(unit='mW'))  # Read power in mW
 
         # Reset current to zero
         qontrol.set_current(channel, 0.0)
@@ -155,12 +144,12 @@ class CalibrationUtils:
         # Return results with power data
         return {
             'io_config': io_config,
-            'amp': fit_result['amp'],
-            'omega': fit_result['omega'],
-            'phase': fit_result['phase'],
-            'offset': fit_result['offset'],
-            'heating_powers': heating_powers_mw.tolist(),  # Power in mW
-            'optical_powers': optical_powers,
+            'amp': fit_result['amp'], # mW
+            'omega': fit_result['omega'], # in rad/mW
+            'phase': fit_result['phase'], # rad
+            'offset': fit_result['offset'], # mW
+            'heating_powers': heating_powers_mw.tolist(),  # power in mW
+            'optical_powers': optical_powers,              # mW
             'currents': currents.tolist(),  # Keep currents for reference
             'resistances': resistances.tolist(),  # Keep resistances for reference
             'fitfunc': fit_result['fitfunc'],
@@ -254,8 +243,8 @@ class CalibrationUtils:
             resistance_entries.append((key, {
                 "pin": int(channel),
                 "resistance_params": {
-                    "a_res": float(params['a_res']),  # Convert to Ω/A²
-                    "c_res": float(params['c_res']),  # Convert to Ω
+                    "a_res": float(params['a_res']),  
+                    "c_res": float(params['c_res']),  
                     "d_res": float(params['d_res']),
                     "rmin": float(params['rmin']),
                     "rmax": float(params['rmax']),
