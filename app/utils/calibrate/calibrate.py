@@ -136,10 +136,12 @@ class CalibrationUtils:
 
         # Use heating power as x-data instead of current
         # Perform cosine fit with power data
-        if io_config == "cross":
+        if io_config == "cross_state":
             fit_result = self.fit_cos(heating_powers_mw, optical_powers)
+            print(f"[DEBUG] Using positive cosine fit for io_config={io_config}")
         else:
             fit_result = self.fit_cos_negative(heating_powers_mw, optical_powers)
+            print(f"[DEBUG] Using negative cosine fit for io_config={io_config}")
 
         # Return results with power data
         return {
