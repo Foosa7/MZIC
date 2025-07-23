@@ -136,7 +136,7 @@ class CalibrationUtils:
 
         # Use heating power as x-data instead of current
         # Perform cosine fit with power data
-        if io_config == "cross_state":
+        if io_config == "cross":
             fit_result = self.fit_cos(heating_powers_mw, optical_powers)
             print(f"[DEBUG] Using positive cosine fit for io_config={io_config}")
         else:
@@ -418,7 +418,7 @@ class CalibrationUtils:
             if 'phase_calibration_data' in data:
                 for key, params in data['phase_calibration_data'].items():
                     # Recreate fit function based on io_config
-                    if params['phase_params']['io_config'] == 'cross_state':
+                    if params['phase_params']['io_config'] == 'cross':
                         fit_func = self.fit_cos
                     else:
                         fit_func = self.fit_cos_negative

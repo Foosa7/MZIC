@@ -368,11 +368,11 @@ class Example(Frame):
             if len(arm_set) != 2 and len(arm_set) != 3:
                 continue  # Only consider pairs or triplets.
             if arm_set in [{'BR', 'BL'}, {'TR', 'TL'}]:
-                modes[cross] = 'bar_state'
+                modes[cross] = 'bar'
             elif arm_set in [{'TL', 'BR'}, {'TR', 'BL'}]:
-                modes[cross] = 'cross_state'
+                modes[cross] = 'cross'
             elif arm_set in [{'TR', 'BR', 'TL'}, {'TR', 'BR', 'BL'}]:  
-                modes[cross] = 'split_state'
+                modes[cross] = 'split'
         
         print("Computed cross modes:", modes)
         return modes
@@ -586,7 +586,7 @@ class Example(Frame):
 
     def update_input_box_mode(self, visible_label):
         """Updates the theta input box for the given cross (by visible label) with the default value.
-        Inserts 1 if mode is 'bar_state' and 2 if mode is 'cross_state'."""
+        Inserts 1 if mode is 'bar' and 2 if mode is 'cross_state'."""
         if visible_label not in self.input_boxes:
             return
         modes = self.get_cross_modes()  # modes keyed by visible labels (e.g. "A1", "A2")
@@ -596,13 +596,13 @@ class Example(Frame):
         # Clear any current value.
         theta_entry.delete(0, "end")
         
-        if mode == 'bar_state':
+        if mode == 'bar':
             theta_entry.insert(0, "1")
             print(f"{visible_label}: Bar mode detected. Inserting 1.")
-        elif mode == 'cross_state':
+        elif mode == 'cross':
             theta_entry.insert(0, "2")
             print(f"{visible_label}: Cross mode detected. Inserting 2.")
-        elif mode == 'split_state':
+        elif mode == 'split':
             theta_entry.insert(0, "0.5")
             print(f"{visible_label}: Split mode detected. Inserting 1.5.")            
         else:
@@ -820,10 +820,10 @@ class Example(Frame):
         mode = modes.get(actual_label)
         print(f"Mode for {actual_label} is: {mode}")
         
-        if mode == 'bar_state':
+        if mode == 'bar':
             theta_entry.insert(0, "1")
             print("Bar")
-        elif mode == 'cross_state':
+        elif mode == 'cross':
             theta_entry.insert(0, "2")
             print("Cross")
         else:
