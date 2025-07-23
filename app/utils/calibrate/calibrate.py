@@ -210,102 +210,117 @@ class CalibrationUtils:
             'rawres': (guess, popt, pcov)
         }
 
-
-    def export_calibration(self, resistance_params, phase_params, filepath=None):
+    def export_calibration(self, resistance_params, phase_params, filepath=None, grid_size='8x8'):
         """Export calibration data to JSON format"""
         if filepath is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filepath = f"calibration_data_{timestamp}.json"
 
-        # Load label mapping from 12_mode_mapping.json
-        # from pathlib import Path
-        # mapping_file = Path(__file__).parent.parent / "qontrol" / "12_mode_mapping.json"
-        # with open(mapping_file, 'r') as f:
-        #     label_map = json.load(f)
+        # Load label mapping from the appropriate grid size
+        create_label_mapping, apply_grid_mapping = get_mapping_functions(grid_size)
+        label_map = create_label_mapping(int(grid_size.split('x')[0]))
 
-        create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
-        label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+        # Check if data is already in AppData format (with keys like "A1_theta")
+        # or in raw calibration format (with integer keys)
+        if isinstance(resistance_params, dict) and any(isinstance(k, str) and '_' in k for k in resistance_params.keys()):
+            # Already in AppData format - use directly
+            resistance_data = resistance_params
+            phase_data = phase_params
+        else:
+            # Convert from raw calibration format (integer keys) to labeled format
+            resistance_entries = []
+            for channel, params in resistance_params.items():
+                # Find the label for this channel
+                label = None
+                channel_type = None
+                for k, v in label_map.items():
+                    if v.get("theta") == int(channel):
+                        label = k
+                        channel_type = "theta"
+                        break
+                    elif v.get("phi") == int(channel):
+                        label = k
+                        channel_type = "phi"
+                        break
+                
+                key = f"{label}_{channel_type}" if label and channel_type else str(channel)
+                
+                # Check if data is nested (from AppData) or flat (from calibration)
+                if 'resistance_params' in params:
+                    # Nested structure from AppData
+                    resistance_entries.append((key, params))
+                else:
+                    # Flat structure from direct calibration
+                    resistance_entries.append((key, {
+                        "pin": int(channel),
+                        "resistance_params": {
+                            "a_res": float(params['a_res']),
+                            "c_res": float(params['c_res']),
+                            "d_res": float(params['d_res']),
+                            "rmin": float(params['rmin']),
+                            "rmax": float(params['rmax']),
+                            "alpha_res": float(params['alpha_res'])
+                        },
+                        "measurement_data": {
+                            "currents": params['currents'],
+                            "voltages": params['voltages'],
+                            "max_current": float(params['max_current'])
+                        }
+                    }))
 
+            # Sort by label alphabetically
+            resistance_entries.sort(key=lambda x: x[0])
+            resistance_data = {k: v for k, v in resistance_entries}
 
-        # Prepare resistance data with label_theta keys and channel info at the top
-        resistance_entries = []
-        for channel, params in resistance_params.items():
-            label = None
-            channel_type = None
-            for k, v in label_map.items():
-                if "theta" in v and v["theta"] == int(channel):
-                    label = k
-                    channel_type = "theta"
-                    break
-                elif "phi" in v and v["phi"] == int(channel):
-                    label = k
-                    channel_type = "phi"
-                    break
-            key = f"{label}_{channel_type}" if label and channel_type else str(channel)
-            resistance_entries.append((key, {
-                "pin": int(channel),
-                "resistance_params": {
-                    "a_res": float(params['a_res']),  
-                    "c_res": float(params['c_res']),  
-                    "d_res": float(params['d_res']),
-                    "rmin": float(params['rmin']),
-                    "rmax": float(params['rmax']),
-                    "alpha_res": float(params['alpha_res'])
-                },
-                "measurement_data": {
-                    "currents": params['currents'],
-                    "voltages": params['voltages'],
-                    "max_current": float(params['max_current'])
-                }
-            }))
+            # Convert phase data
+            phase_entries = []
+            for channel, params in phase_params.items():
+                # Find the label for this channel
+                label = None
+                channel_type = None
+                for k, v in label_map.items():
+                    if v.get("theta") == int(channel):
+                        label = k
+                        channel_type = "theta"
+                        break
+                    elif v.get("phi") == int(channel):
+                        label = k
+                        channel_type = "phi"
+                        break
+                
+                key = f"{label}_{channel_type}" if label and channel_type else str(channel)
+                
+                # Check if data is nested or flat
+                if 'phase_params' in params:
+                    # Nested structure from AppData
+                    phase_entries.append((key, params))
+                else:
+                    # Flat structure from direct calibration
+                    phase_entries.append((key, {
+                        "pin": int(channel),
+                        "phase_params": {
+                            "io_config": params['io_config'],
+                            "amplitude": float(params['amp']),
+                            "omega": float(params['omega']),
+                            "phase": float(params['phase']),
+                            "offset": float(params['offset'])
+                        },
+                        "measurement_data": {
+                            "heating_powers": params.get('heating_powers', params.get('currents', [])),
+                            "optical_powers": params['optical_powers']
+                        }
+                    }))
 
-        # Sort by label (alphabetically)
-        resistance_entries.sort(key=lambda x: x[0])
-        resistance_data = {k: v for k, v in resistance_entries}
-
-        # Prepare phase data (unchanged)
-        phase_entries = []
-        for channel, params in phase_params.items():
-            label = None
-            channel_type = None
-            for k, v in label_map.items():
-                if "theta" in v and v["theta"] == int(channel):
-                    label = k
-                    channel_type = "theta"
-                    break
-                elif "phi" in v and v["phi"] == int(channel):
-                    label = k
-                    channel_type = "phi"
-                    break
-            key = f"{label}_{channel_type}" if label and channel_type else str(channel)
-            phase_entries.append((key, {
-                "pin": int(channel),
-                "phase_params": {
-                    "io_config": params['io_config'],
-                    "amplitude": float(params['amp']),
-                    "omega": float(params['omega']),
-                    "phase": float(params['phase']),
-                    "offset": float(params['offset'])
-                },
-                "measurement_data": {
-                    "currents": params['currents'],
-                    "optical_powers": params['optical_powers']
-                }
-            }))
-
-        # Sort by label (alphabetically)
-        phase_entries.sort(key=lambda x: x[0])
-        phase_data = {k: v for k, v in phase_entries}
-
+            # Sort by label alphabetically
+            phase_entries.sort(key=lambda x: x[0])
+            phase_data = {k: v for k, v in phase_entries}
 
         # Combine all calibration data
-        # mesh_options = self.config.get("options", ["6x6", "8x8", "12x12"])
         calibration_data = {
             "metadata": {
                 "timestamp": datetime.now().isoformat(),
-                "version": "1.0",
-                # "default_mesh": self.config.get("default_mesh", mesh_options[1])
-
+                "version": "2.0",
+                "grid_size": grid_size
             },
             "resistance_calibration": resistance_data,
             "phase_calibration": phase_data
@@ -316,6 +331,56 @@ class CalibrationUtils:
             json.dump(calibration_data, f, indent=4)
 
         return filepath
+
+
+    def import_calibration(self, filepath):
+        """
+        Import calibration data from JSON format and save to AppData.
+        
+        Args:
+            filepath: str, path to JSON calibration file
+            
+        Returns:
+            Tuple of (resistance_params, phase_params) dictionaries
+        """
+        try:
+            # Load JSON data
+            with open(filepath, 'r') as f:
+                data = json.load(f)
+            
+            # Get calibration data sections
+            resistance_data = data.get('resistance_calibration', {})
+            phase_data = data.get('phase_calibration', {})
+            
+            # Clear existing calibration data in AppData
+            AppData.resistance_calibration_data.clear()
+            AppData.phase_calibration_data.clear()
+            
+            # Import resistance data directly to AppData
+            for key, params in resistance_data.items():
+                AppData.resistance_calibration_data[key] = params
+            
+            # Import phase data directly to AppData
+            for key, params in phase_data.items():
+                AppData.phase_calibration_data[key] = params
+            
+            print(f"Successfully imported calibration data from {filepath}")
+            print(f"Loaded {len(resistance_data)} resistance and {len(phase_data)} phase calibrations")
+            
+            # Return the data for backward compatibility
+            return resistance_data, phase_data
+            
+        except FileNotFoundError:
+            print(f"Error: File not found - {filepath}")
+            return None, None
+        except json.JSONDecodeError as e:
+            print(f"Error: Invalid JSON format - {str(e)}")
+            return None, None
+        except Exception as e:
+            print(f"Error importing calibration data: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None, None
 
     # def export_calibration(self, resistance_params, phase_params, filepath=None):
     #     """Export calibration data to JSON format"""
@@ -374,83 +439,6 @@ class CalibrationUtils:
     #         json.dump(calibration_data, f, indent=4)
         
     #     return filepath
-
-
-    def import_calibration(self, filepath):
-        """
-        Import calibration data from JSON format and save to AppData.
-        
-        Args:
-            filepath: str, path to JSON calibration file
-            
-        Returns:
-            Tuple of (resistance_params, phase_params) dictionaries
-        """
-        try:
-            # Load JSON data
-            with open(filepath, 'r') as f:
-                data = json.load(f)
-            
-            resistance_params = {}
-            phase_params = {}
-            
-            # Import resistance calibration data
-            if 'resistance_calibration_data' in data:
-                for key, params in data['resistance_calibration_data'].items():
-                    resistance_params[key] = {
-                        'resistance_params': {
-                            'a_res': float(params['resistance_params']['a']),
-                            'c_res': float(params['resistance_params']['c']),
-                            'd_res': float(params['resistance_params']['d']),
-                            'rmin': float(params['resistance_params']['rmin']),
-                            'rmax': float(params['resistance_params']['rmax']),
-                            'alpha_res': float(params['resistance_params']['alpha'])
-                        },
-                        'measurement_data': {
-                            'currents': params['measurement_data']['currents'],
-                            'voltages': params['measurement_data']['voltages'],
-                            'max_current': float(params['measurement_data']['max_current'])
-                        },
-                        'pin': int(params['pin'])
-                    }
-            
-            # Import phase calibration data
-            if 'phase_calibration_data' in data:
-                for key, params in data['phase_calibration_data'].items():
-                    # Recreate fit function based on io_config
-                    if params['phase_params']['io_config'] == 'cross':
-                        fit_func = self.fit_cos
-                    else:
-                        fit_func = self.fit_cos_negative
-                        
-                    phase_params[key] = {
-                        'phase_params': {
-                            'io_config': params['phase_params']['io_config'],
-                            'amplitude': float(params['phase_params']['amplitude']),
-                            'omega': float(params['phase_params']['omega']),
-                            'phase': float(params['phase_params']['phase']),
-                            'offset': float(params['phase_params']['offset'])
-                        },
-                        'measurement_data': {
-                            'currents': params['measurement_data']['currents'],
-                            'optical_powers': params['measurement_data']['optical_powers']
-                        },
-                        'pin': int(params['pin']),
-                        'fitfunc': fit_func
-                    }
-            
-            # Save to AppData
-            AppData.resistance_calibration_data = resistance_params
-            AppData.phase_calibration_data = phase_params
-            
-            print(f"Successfully imported calibration data from {filepath}")
-            print(f"Loaded {len(resistance_params)} resistance and {len(phase_params)} phase calibrations")
-            
-            return resistance_params, phase_params
-            
-        except Exception as e:
-            print(f"Error importing calibration data: {str(e)}")
-            return None, None
 
 
     # def import_calibration(self, filepath):

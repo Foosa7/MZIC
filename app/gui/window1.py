@@ -2246,40 +2246,143 @@ class Window1Content(ctk.CTkFrame):
             traceback.print_exc()
 
     def export_calibration_data(self):
-        """Export calibration data to JSON file"""
+        """Export calibration data from AppData to JSON file"""
         try:
+            # Get data directly from AppData
+            resistance_data = AppData.resistance_calibration_data
+            phase_data = AppData.phase_calibration_data
+            
+            if not resistance_data and not phase_data:
+                self._show_error("No calibration data to export")
+                return
+            
+            # Ask user for file location
             file_path = filedialog.asksaveasfilename(
                 title="Export Calibration Data",
                 defaultextension=".json",
                 filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
             )
+            
             if file_path:
+                # Use calibration_utils to export with current grid size
                 saved_path = self.calibration_utils.export_calibration(
-                    self.resistance_params,
-                    self.phase_params,
-                    file_path
+                    resistance_data,
+                    phase_data,
+                    file_path,
+                    grid_size=self.grid_size
                 )
-                print(f"Calibration data exported to {saved_path}")
+                
+                if saved_path:
+                    self._show_success(f"Calibration data exported to:\n{saved_path}")
+                    print(f"Calibration data exported to {saved_path}")
+                else:
+                    self._show_error("Failed to export calibration data")
+                    
         except Exception as e:
             self._show_error(f"Failed to export calibration data: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
     def import_calibration_data(self):
-        """Import calibration data from JSON file"""
+        """Import calibration data from JSON file to AppData"""
         try:
+            # Ask user for file location
             file_path = filedialog.askopenfilename(
                 title="Import Calibration Data",
                 filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
             )
+            
             if file_path:
-                resistance_params, phase_params = self.calibration_utils.import_calibration(file_path)
-                self.resistance_params = resistance_params
-                self.phase_params = phase_params
-                print(f"Calibration data imported from {file_path}")
-                # Clear selection after import
-                AppData.update_last_selection("", "")
-                self.replot_current_selection()  # Show "No plot to display"
+                # Use calibration_utils to import
+                resistance_data, phase_data = self.calibration_utils.import_calibration(file_path)
+                
+                if resistance_data is not None and phase_data is not None:
+                    # Update local references if needed
+                    self.resistance_params = resistance_data
+                    self.phase_params = phase_data
+                    
+                    # Update UI to show import success
+                    self.mapping_display.configure(state="normal")
+                    self.mapping_display.delete("1.0", "end")
+                    self.mapping_display.insert("1.0", f"Calibration Import Results:\n\n")
+                    self.mapping_display.insert("end", f"Imported from: {file_path}\n\n")
+                    self.mapping_display.insert("end", f"Resistance calibrations: {len(resistance_data)}\n")
+                    for key in sorted(resistance_data.keys()):
+                        self.mapping_display.insert("end", f"  • {key}\n")
+                    self.mapping_display.insert("end", f"\nPhase calibrations: {len(phase_data)}\n")
+                    for key in sorted(phase_data.keys()):
+                        self.mapping_display.insert("end", f"  • {key}\n")
+                    self.mapping_display.configure(state="disabled")
+                    
+                    self._show_success(f"Calibration data imported successfully!")
+                    print(f"Calibration data imported from {file_path}")
+                    
+                    # Clear selection after import to reset plots
+                    AppData.update_last_selection("", "")
+                    self.replot_current_selection()
+                else:
+                    self._show_error("Failed to import calibration data")
+                    
         except Exception as e:
             self._show_error(f"Failed to import calibration data: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    def export_appdata_calibration(self):
+        """
+        Direct export of AppData calibration (for debugging or backup).
+        This exports the raw AppData without any processing.
+        """
+        try:
+            file_path = filedialog.asksaveasfilename(
+                title="Export AppData Calibration (Raw)",
+                defaultextension=".json",
+                initialfile=f"appdata_calibration_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+            )
+            
+            if not file_path:
+                return
+            
+            data = {
+                "metadata": {
+                    "timestamp": datetime.now().isoformat(),
+                    "type": "appdata_raw",
+                    "grid_size": self.grid_size
+                },
+                "resistance_calibration_data": AppData.resistance_calibration_data,
+                "phase_calibration_data": AppData.phase_calibration_data
+            }
+            
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4)
+                
+            self._show_success(f"AppData calibration exported to:\n{file_path}")
+            print(f"AppData calibration exported to {file_path}")
+            
+        except Exception as e:
+            self._show_error(f"Failed to export AppData calibration: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+    def _show_success(self, message):
+        """Display success message in compact dialog"""
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Success")
+        dialog.geometry("400x100")
+        
+        ctk.CTkLabel(dialog, text=message, wraplength=380).pack(pady=10)
+        ctk.CTkButton(dialog, text="OK", command=dialog.destroy, width=80).pack(pady=5)
+        
+        # Center the dialog
+        dialog.transient(self)
+        dialog.grab_set()
+        
+        # Update position after window is mapped
+        dialog.update_idletasks()
+        x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
+        y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
 
     def replot_current_selection(self):
         """Replot the graph for the currently selected node using imported calibration data."""
