@@ -143,16 +143,16 @@ class Window1Content(ctk.CTkFrame):
 
         # Add to your controls list in _create_compact_control_panel method:
         controls = [
-            ("Import", self.import_calibration_data),
-            ("Export", self.export_calibration_data),
-            ("Current", self._apply_config),
-            ("Appdata", self.export_appdata_calibration),
+            ("Imp", self.import_calibration_data),
+            ("Exp", self.export_calibration_data),
+            ("Curr", self._apply_config),
+            #("Appdata", self.export_appdata_calibration),
             ("RP", self.run_rp_calibration),  # Run Resistance and Phase calibration
-            ("Status", self._show_full_status),
-            ("Clear", self._clear_grid),
+            #("Status", self._show_full_status),
+            ("Clr", self._clear_grid),
             ("R", self.characterize_resistance),
-            # ("P", self.characterize_phase),
-            ("AP", self.apply_phase_new),
+            ("P", self.characterize_phase),
+            #("AP", self.apply_phase_new),
             ("Phase", self.apply_phase_new_json)  # Add this new button
         ]
 
