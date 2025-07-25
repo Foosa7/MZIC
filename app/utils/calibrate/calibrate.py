@@ -46,7 +46,6 @@ class CalibrationUtils:
         rmin = np.min(resistance) #kΩ
         rmax = np.max(resistance) #kΩ
         alpha_res = a_res / c_res if c_res != 0 else float('inf') #unitless
-        print(a_res, c_res, d_res, rmin, rmax, alpha_res)
         return {
             'a_res': a_res, # V/(mA)³ = GΩ/A²
             'c_res': c_res, # V/mA = kΩ
@@ -130,7 +129,6 @@ class CalibrationUtils:
             qontrol.set_current(channel, float(I)) # Set current in mA
             time.sleep(delay)
             optical_powers.append(thorlabs[0].read_power(unit='W') * 1000)  # Read power in W, convert to mW
-            print(optical_powers[-1])
         # Reset current to zero
         qontrol.set_current(channel, 0.0)
 
@@ -138,10 +136,10 @@ class CalibrationUtils:
         # Perform cosine fit with power data
         if io_config == "cross":
             fit_result = self.fit_cos(heating_powers_mw, optical_powers)
-            print(f"[DEBUG] Using positive cosine fit for io_config={io_config}")
+            logging.info(f"Using positive cosine fit for io_config={io_config}")
         else:
             fit_result = self.fit_cos_negative(heating_powers_mw, optical_powers)
-            print(f"[DEBUG] Using negative cosine fit for io_config={io_config}")
+            logging.info(f"Using negative cosine fit for io_config={io_config}")
 
         # Return results with power data
         return {
@@ -208,9 +206,9 @@ class CalibrationUtils:
                 bounds=([0, 0, -2*np.pi, -np.inf], [np.inf, np.inf, 2*np.pi, np.inf]),
                 maxfev=5000
             )
-            print(f"Fit successful with FFT-based guess ({'positive' if positive else 'negative'} cosine)")
+            logging.info(f"Fit successful with FFT-based guess ({'positive' if positive else 'negative'} cosine)")
         except Exception as e:
-            print(f"Fit failed with FFT guess: {e}")
+            logging.info(f"Fit failed with FFT guess: {e}")
             # Could add fallback strategy here
             raise
         
@@ -219,7 +217,7 @@ class CalibrationUtils:
         # Normalize phase to [-π, π] then convert to [-1, 1]
         c_normalized = np.arctan2(np.sin(c), np.cos(c)) / np.pi
         
-        print(f"Final parameters: A={A:.4f}, ω={b:.4f}, φ={c_normalized:.4f}π, d={d:.4f}")
+        logging.info(f"Final parameters: A={A:.4f}, ω={b:.4f}, φ={c_normalized:.4f}π, d={d:.4f}")
         
         return self._create_fit_result(A, b, c_normalized, d, cos_func, popt, pcov, guess)
 
@@ -280,13 +278,13 @@ class CalibrationUtils:
             # Ensure phase is in [-2π, 2π] for the bounds
             fft_phase = np.arctan2(np.sin(fft_phase), np.cos(fft_phase))
             
-            print(f"FFT detected frequency: {dominant_freq:.4f} cycles/mW")
-            print(f"FFT detected phase: {fft_phase:.4f} rad ({'positive' if positive else 'negative'} cosine)")
+            logging.info(f"FFT detected frequency: {dominant_freq:.4f} cycles/mW")
+            logging.info(f"FFT detected phase: {fft_phase:.4f} rad ({'positive' if positive else 'negative'} cosine)")
             
             return abs(dominant_freq), fft_phase
             
         except Exception as e:
-            print(f"FFT estimation failed: {e}")
+            logging.info(f"FFT estimation failed: {e}")
             return default_freq, default_phase
 
     def _create_fit_result(self, A, b, c, d, cos_func, popt, pcov, guess):
@@ -457,20 +455,20 @@ class CalibrationUtils:
             for key, params in phase_data.items():
                 AppData.phase_calibration_data[key] = params
             
-            print(f"Successfully imported calibration data from {filepath}")
-            print(f"Loaded {len(resistance_data)} resistance and {len(phase_data)} phase calibrations")
+            logging.info(f"Successfully imported calibration data from {filepath}")
+            logging.info(f"Loaded {len(resistance_data)} resistance and {len(phase_data)} phase calibrations")
             
             # Return the data for backward compatibility
             return resistance_data, phase_data
             
         except FileNotFoundError:
-            print(f"Error: File not found - {filepath}")
+            logging.error(f"File not found - {filepath}")
             return None, None
         except json.JSONDecodeError as e:
-            print(f"Error: Invalid JSON format - {str(e)}")
+            logging.error(f"Invalid JSON format - {str(e)}")
             return None, None
         except Exception as e:
-            print(f"Error importing calibration data: {str(e)}")
+            logging.error(f"Failed to import calibration data: {str(e)}")
             import traceback
             traceback.print_exc()
             return None, None

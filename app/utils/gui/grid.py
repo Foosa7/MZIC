@@ -5,6 +5,7 @@ from collections import defaultdict
 import json
 import customtkinter as ctk
 import tkinter.messagebox as messagebox
+import logging
 
 class Node:
     """Represents a node."""
@@ -344,7 +345,7 @@ class Example(Frame):
         else:
             AppData.selected_labels.add(label)
             self.canvas.itemconfig(label_id, fill="red")
-        print("Selected labels:", AppData.selected_labels)
+        #logging.info("Selected labels:", AppData.selected_labels)
 
     def get_cross_modes(self):
         """Returns a dict mapping cross labels to their selection type (bar/cross/split)."""
@@ -374,7 +375,6 @@ class Example(Frame):
             elif arm_set in [{'TR', 'BR', 'TL'}, {'TR', 'BR', 'BL'}]:  
                 modes[cross] = 'split'
         
-        print("Computed cross modes:", modes)
         return modes
 
 
@@ -459,13 +459,13 @@ class Example(Frame):
 
         # If the clicked pin was already selected, it was just unselected — so we're done
         if in_pin_idx == prev_selected_idx:
-            print(f"Input Unpinned channel {in_pin_idx}")
+            logging.info(f"Input Unpinned channel {in_pin_idx}")
             return
 
         # Otherwise, select the new pin
         AppData.selected_input_pins.add(in_pin_idx)
         self.canvas.itemconfig(label_tag, fill="red")
-        print(f"Input Pinned channel {in_pin_idx}")
+        logging.info(f"Input Pinned channel {in_pin_idx}")
 
 
     def handle_output_label_selection(self, label_number):
@@ -502,13 +502,13 @@ class Example(Frame):
 
         # If the clicked pin was already selected, it was just unselected — so we're done
         if in_pin_idx == prev_selected_idx:
-            print(f"Output Unpinned channel {in_pin_idx}")
+            logging.info(f"Output Unpinned channel {in_pin_idx}")
             return
 
         # Otherwise, select the new pin
         AppData.selected_output_pins.add(in_pin_idx)
         self.canvas.itemconfig(label_tag, fill="red")
-        print(f"Output Pinned channel {in_pin_idx}")
+        logging.info(f"Output Pinned channel {in_pin_idx}")
 
 
     # def handle_output_label_selection(self, label_number):
@@ -598,15 +598,15 @@ class Example(Frame):
         
         if mode == 'bar':
             theta_entry.insert(0, "1")
-            print(f"{visible_label}: Bar mode detected. Inserting 1.")
+            logging.info(f"{visible_label}: Bar mode detected. Inserting 1.")
         elif mode == 'cross':
             theta_entry.insert(0, "2")
-            print(f"{visible_label}: Cross mode detected. Inserting 2.")
+            logging.info(f"{visible_label}: Cross mode detected. Inserting 2.")
         elif mode == 'split':
             theta_entry.insert(0, "0.5")
-            print(f"{visible_label}: Split mode detected. Inserting 1.5.")            
+            logging.info(f"{visible_label}: Split mode detected. Inserting 1.5.")            
         else:
-            print(f"{visible_label}: No matching mode. Mode value: {mode}")
+            logging.info(f"{visible_label}: No matching mode. Mode value: {mode}")
 
 
 
@@ -802,7 +802,7 @@ class Example(Frame):
                     center_key = key
                     break
             if not center_key:
-                print("No center key found for", cross_label)
+                logging.info("No center key found for", cross_label)
                 return
             actual_label = cross_label
 
@@ -818,16 +818,16 @@ class Example(Frame):
         # Get the mode using the visible label (e.g. "A1")
         modes = self.get_cross_modes()  # modes keyed by visible labels (like "A1", "A2", etc.)
         mode = modes.get(actual_label)
-        print(f"Mode for {actual_label} is: {mode}")
+        logging.info(f"Mode for {actual_label} is: {mode}")
         
         if mode == 'bar':
             theta_entry.insert(0, "1")
-            print("Bar")
+            logging.info("Bar")
         elif mode == 'cross':
             theta_entry.insert(0, "2")
-            print("Cross")
+            logging.info("Cross")
         else:
-            print(f"No matching mode for {actual_label}. Mode value: {mode}")
+            logging.info(f"No matching mode for {actual_label}. Mode value: {mode}")
         
         # Phi input.
         phi_label_id = self.canvas.create_text(input_x, y + 20, text="φ:", anchor='w', font=("Arial", 14), fill="white")
@@ -983,7 +983,7 @@ class Example(Frame):
         try:
             imported = json.loads(json_str) #default_json_grid 
         except Exception as e:
-            print("Invalid JSON:", e)
+            logging.error("Invalid JSON:", e)
             return
 
         # Clear current selection.

@@ -6,6 +6,12 @@ from nidaqmx.errors import DaqNotFoundError
 from app.devices.switch_device import Switch
 import serial.tools.list_ports
 
+# Logging configuration
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+
 SETTINGS_PATH = os.path.join(os.path.dirname(__file__), "config", "settings.json")
 
 def initialize_switch(port=None, switch_name="Switch"):
@@ -16,10 +22,10 @@ def initialize_switch(port=None, switch_name="Switch"):
             # Test connection
             channel = switch.get_channel()
             if channel is not None:
-                print(f"[INFO][{switch_name}] Connected to {port}, current channel: {channel}")
+                logging.info(f"[{switch_name}] Connected to {port}, current channel: {channel}")
                 return switch
         except Exception as e:
-            print(f"[ERROR][{switch_name}] Failed to connect to {port}: {e}")
+            logging.error(f"[{switch_name}] Failed to connect to {port}: {e}")
             return None
     else:
         # Auto-detect switch
@@ -29,11 +35,11 @@ def initialize_switch(port=None, switch_name="Switch"):
                 switch = Switch(port_info.device)
                 channel = switch.get_channel()
                 if channel is not None:
-                    print(f"[INFO][{switch_name}] Auto-detected on {port_info.device}")
+                    logging.info(f"[{switch_name}] Auto-detected on {port_info.device}")
                     return switch
             except:
                 continue
-        print(f"[WARNING][{switch_name}] No switch device detected")
+        logging.warning(f"[{switch_name}] No switch device detected")
         return None
 
 def initialize_dual_switches(config):
@@ -48,7 +54,7 @@ def initialize_dual_switches(config):
     
     # If ports are not specified in config, try to auto-detect
     if not input_port and not output_port:
-        print("[INFO] Auto-detecting switches...")
+        logging.info("Auto-detecting switches...")
         ports = serial.tools.list_ports.comports()
         available_ports = [p.device for p in ports]
         
@@ -58,7 +64,7 @@ def initialize_dual_switches(config):
             if "COM" in port or "ttyUSB" in port or "tty.usbserial" in port:
                 switch_ports.append(port)
         
-        print(f"[INFO] Found potential switch ports: {switch_ports}")
+        logging.info(f"Found potential switch ports: {switch_ports}")
         
         # Try to assign switches to available ports
         for port in switch_ports:
@@ -74,17 +80,17 @@ def initialize_dual_switches(config):
                     if not switch_output:  # Assign first working port to output
                         switch_output = test_switch
                         used_ports.append(port)
-                        print(f"[INFO][Output Switch] Connected to {port}, current channel: {channel}")
+                        logging.info(f"[Output Switch] Connected to {port}, current channel: {channel}")
                     elif not switch_input:  # Assign second working port to input
                         switch_input = test_switch
                         used_ports.append(port)
-                        print(f"[INFO][Input Switch] Connected to {port}, current channel: {channel}")
+                        logging.info(f"[Input Switch] Connected to {port}, current channel: {channel}")
                     else:
                         # Both switches assigned, close this connection
                         test_switch = None
                         break
             except Exception as e:
-                print(f"[ERROR] Failed to connect to {port}: {e}")
+                logging.error(f"Failed to connect to {port}: {e}")
                 continue
     else:
         # Use specified ports
@@ -123,10 +129,10 @@ def main():
 
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
-        print("[INFO] Set DPI awareness")
+        logging.info("Set DPI awareness")
     except:
         pass
-        print("[INFO] Failed to set DPI awareness")
+        logging.info("Failed to set DPI awareness")
     # Initialize the GUI theme
 
     ctk.set_appearance_mode("dark")
@@ -138,9 +144,9 @@ def main():
 
     # List available Thorlabs devices
     available_devices = ThorlabsDevice.list_available_devices()
-    print(f"[INFO][Thorlabs] Found {len(available_devices)} Thorlabs devices:")
+    logging.info(f"[Thorlabs] Found {len(available_devices)} Thorlabs devices:")
     for i, device in enumerate(available_devices):
-        print(f"{i+1}. {device['model']} (SN: {device['serial']})")
+        logging.info(f"{i+1}. {device['model']} (SN: {device['serial']})")
     
     # Initialize devices
     qontrol = QontrolDevice(config=config)
@@ -183,30 +189,30 @@ def main():
     # Attempt to use a DAQ device or mock if unavailable
     try:
         daq_devices_info = DAQ.list_available_devices()
-        print(f"[INFO][DAQ] Found {len(daq_devices_info)} NI-DAQ device(s):")
+        logging.info(f"[DAQ] Found {len(daq_devices_info)} NI-DAQ device(s):")
         for i, dev_info in enumerate(daq_devices_info):
-            print(f"{i+1}. {dev_info['product_type']} (Name: {dev_info['name']})")
+            logging.info(f"{i+1}. {dev_info['product_type']} (Name: {dev_info['name']})")
     
         if len(daq_devices_info) == 0:
-            print("[INFO][DAQ] No DAQ devices found, using mock NI-DAQ device.")
+            logging.info("[DAQ] No DAQ devices found, using mock NI-DAQ device.")
             daq = MockDAQ()
         else:
             daq = DAQ.get_device(config=config)
     except DaqNotFoundError:
-        print("[INFO][DAQ] NI-DAQmx not found, using mock NI-DAQ device.")
+        logging.info("[DAQ] NI-DAQmx not found, using mock NI-DAQ device.")
         daq = MockDAQ()
 
     # Initialize switches
     switch_input, switch_output = initialize_dual_switches(config)
 
     # Print switch status
-    print("\n[INFO] Switch Configuration:")
-    print(f"  Input Switch: {'Connected' if switch_input else 'Not connected'}")
-    print(f"  Output Switch: {'Connected' if switch_output else 'Not connected'}")
+    logging.info("Switch Configuration:")
+    logging.info(f"  Input Switch: {'Connected' if switch_input else 'Not connected'}")
+    logging.info(f"  Output Switch: {'Connected' if switch_output else 'Not connected'}")
 
     # For backward compatibility - if only one switch is connected, use it as output
     if not switch_output and switch_input:
-        print("[INFO] Only one switch detected, using it as output switch")
+        logging.info("Only one switch detected, using it as output switch")
         switch_output = switch_input
         switch_input = None
 

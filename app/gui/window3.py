@@ -372,7 +372,7 @@ class Window3Content(ctk.CTkFrame):
                     # 直接修改 AppData.default_json_grid 里的 theta
                     json_grid[node]['theta'] = str(interpolated_theta)
                 except Exception as e:
-                    print(f"Interpolation failed for {node}: {e}")
+                    logging.info(f"Interpolation failed for {node}: {e}")
             AppData.interpolated_theta = interpolated
         else:
             # 如果禁用 Interpolation，重新基于 unitary_textbox 的矩阵分解更新 JSON
@@ -398,7 +398,7 @@ class Window3Content(ctk.CTkFrame):
                 # 更新 AppData.default_json_grid
                 AppData.default_json_grid = json_output
             except Exception as e:
-                print(f"Failed to reset JSON grid after disabling interpolation: {e}")
+                logging.error(f"Failed to reset JSON grid after disabling interpolation: {e}")
             AppData.interpolated_theta = {}
 
     def _on_package_changed(*args):
@@ -423,9 +423,9 @@ class Window3Content(ctk.CTkFrame):
                 json_output = mzi_lut.get_json_output(self.n, bs_list)
             # 更新 AppData.default_json_grid
             setattr(AppData, 'default_json_grid', json_output)
-            print(f"[INFO] JSON grid updated based on new package: {package}")
+            logging.info(f"JSON grid updated based on new package: {package}")
         except Exception as e:
-            print(f"[ERROR] Failed to update JSON grid for package {package}: {e}")
+            logging.error(f"Failed to update JSON grid for package {package}: {e}")
 
     #self.decomposition_package_var.trace_add("write", _on_package_changed)
     
@@ -443,7 +443,7 @@ class Window3Content(ctk.CTkFrame):
                 matrix.append([complex(elem.replace("j", "j")) for elem in elements])
             return np.array(matrix, dtype=complex)
         except Exception as e:
-            print(f"Failed to read matrix from textbox: {e}")
+            logging.error(f"Failed to read matrix from textbox: {e}")
             return np.eye(self.n, dtype=complex)  # Return identity matrix as fallback
     
     
@@ -545,7 +545,7 @@ class Window3Content(ctk.CTkFrame):
             if num_samples <= 0:
                 raise ValueError("Sample count must be positive.")
         except Exception as e:
-            print(f"[DAQ] Invalid sample count input: {e}")  # Now safe
+            logging.error(f"[DAQ] Invalid sample count input: {e}")  # Now safe
             num_samples = 10
             self.samples_entry.delete(0, "end")
             self.samples_entry.insert(0, str(num_samples))
@@ -909,7 +909,7 @@ class Window3Content(ctk.CTkFrame):
             Column names for the first row of the CSV.
         """
         if not rows:
-            print("Nothing to export – no rows provided.")
+            logging.info("Nothing to export – no rows provided.")
             return None
 
         # default file name: cycle_results_YYYYmmdd_HHMMSS.csv
@@ -922,7 +922,7 @@ class Window3Content(ctk.CTkFrame):
             filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
         )
         if not path:        # user pressed Cancel
-            print("Export cancelled.")
+            logging.info("Export cancelled.")
             return None
 
         try:
@@ -931,10 +931,10 @@ class Window3Content(ctk.CTkFrame):
                 writer = csv.writer(f)
                 writer.writerow(headers)
                 writer.writerows(rows)
-            print(f"Results successfully saved to: {path}")
+            logging.info(f"Results successfully saved to: {path}")
             return path
         except Exception as e:
-            print(f"Failed to write CSV: {e}")
+            logging.error(f"Failed to write CSV: {e}")
             return None
 
     def _create_zero_config(self):
@@ -963,9 +963,9 @@ class Window3Content(ctk.CTkFrame):
         try:
             # Get current grid configuration
             grid_config = AppData.default_json_grid
-            print(grid_config)
+            logging.info(grid_config)
             if not grid_config:
-                print("No grid configuration found")
+                logging.error("No grid configuration found")
                 return
                 
             # Create label mapping for channel assignments
@@ -1026,22 +1026,22 @@ class Window3Content(ctk.CTkFrame):
             # Only show error message if there are failures
             if failed_channels:
                 result_message = f"Failed to apply to {len(failed_channels)} channels"
-                print(result_message)
-                print("Failed channels:", failed_channels)
+                logging.info(result_message)
+                logging.error("Failed channels:", failed_channels)
                 
             # Debugging: Print the grid size
-            print(f"Grid size: {self.grid_size}")
+            logging.info(f"Grid size: {self.grid_size}")
             
             try:
                 config_json = json.dumps(phase_grid_config)
                 apply_grid_mapping(self.qontrol, config_json, self.grid_size)
             except Exception as e:
-                print(f"Device update failed: {str(e)}")        
+                logging.error(f"Device update failed: {str(e)}")        
 
             return phase_grid_config
             
         except Exception as e:
-            print(f"Failed to apply phases: {str(e)}")
+            logging.error(f"Failed to apply phases: {str(e)}")
             import traceback
             traceback.print_exc()
             return None
@@ -1084,11 +1084,11 @@ class Window3Content(ctk.CTkFrame):
         phase_value_offset = phase_value
         # Check if phase is within valid range
         if phase_value < c/np.pi:
-            print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
+            logging.info(f"Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
             # Add phase_value by 2 and continue with calculation
             phase_value_offset  = phase_value + 2
             
-            print(f"Using adjusted phase value: {phase_value_offset}π")
+            logging.info(f"Using adjusted phase value: {phase_value_offset}π")
 
         # Calculate heating power for this phase shift
         P = abs((phase_value_offset*np.pi - c) / b)
@@ -1169,7 +1169,7 @@ class Window3Content(ctk.CTkFrame):
                 if unitary_matrix is not None:
                     setattr(AppData, appdata_var, unitary_matrix)
         except Exception as e:
-            print(f'Error in {operation} operation: {e}')
+            logging.error(f'Error in {operation} operation: {e}')
 
     def create_nxn_entries(self, parent_frame):
         '''Creates an NxN grid of CTkEntry fields inside parent_frame and returns a 2D list.'''
@@ -1199,7 +1199,7 @@ class Window3Content(ctk.CTkFrame):
                 try:
                     val = complex(val_str)
                 except ValueError:
-                    print(f'Invalid entry at row={i}, col={j}: {val_str}')
+                    logging.error(f'Invalid entry at row={i}, col={j}: {val_str}')
                     return None
                 row_vals.append(val)
             data.append(row_vals)
@@ -1229,21 +1229,21 @@ class Window3Content(ctk.CTkFrame):
             filetypes=[("NumPy files", "*.npy")]  # Only allow .npy files
         )
         if not path:
-            print("No file selected. Aborting.")
+            logging.info("No file selected. Aborting.")
             return
 
         try:
             # Load the unitary matrix from the .npy file
             matrix_u = np.load(path)
-            print(f"Loaded unitary matrix from {path}")
+            logging.info(f"Loaded unitary matrix from {path}")
 
             # Format the matrix with additional spacing
             formatted_matrix = "\n".join(
                 ["  ".join(f"{elem.real:.4f}{'+' if elem.imag >= 0 else ''}{elem.imag:.4f}j" for elem in row)
                  for row in matrix_u]
             )
-            print("Formatted matrix: ")
-            print(formatted_matrix)
+            logging.info("Formatted matrix: ")
+            logging.info(formatted_matrix)
             # Display the formatted matrix in the text box
             self.unitary_textbox.delete("1.0", "end")  # Clear the text box
             self.unitary_textbox.insert("1.0", formatted_matrix)
@@ -1282,10 +1282,10 @@ class Window3Content(ctk.CTkFrame):
 
             # Save the updated JSON to AppData
             setattr(AppData, 'default_json_grid', json_output)
-            print("Updated JSON grid saved to AppData.")
+            logging.info("Updated JSON grid saved to AppData.")
 
         except Exception as e:
-            print(f"Error during decomposition: {e}")
+            logging.error(f"Error during decomposition: {e}")
         # Save the content inside the unitary_textbox to AppData
         AppData.unitary_textbox_content = self.unitary_textbox.get("1.0", "end").strip()
         # 如果 Interpolation 已启用，自动执行插值
@@ -1314,19 +1314,19 @@ class Window3Content(ctk.CTkFrame):
                 self.fill_tab_entries(entries, mat)
                 setattr(AppData, appdata_var, mat)  # Save dynamically
         except Exception as e:
-            print('Failed to import unitary file:', e)
+            logging.error('Failed to import unitary file:', e)
     
     def export_unitary_file(self):
         '''Export the currently selected tab's unitary as a .npy file.'''
         entries, _ = self.get_active_tab()  # Get the active tab's NxN entries
     
         if entries is None:
-            print('Error: No valid tab selected for export.')
+            logging.error('No valid tab selected for export.')
             return
     
         matrix = self.read_tab_entries(entries)
         if matrix is None:
-            print('No valid matrix found for export.')
+            logging.error('No valid matrix found for export.')
             return
     
         path = filedialog.asksaveasfilename(
@@ -1339,9 +1339,9 @@ class Window3Content(ctk.CTkFrame):
     
         try:
             np.save(path, matrix)
-            print(f'Unitary saved successfully to {path}.')
+            logging.info(f'Unitary saved successfully to {path}.')
         except Exception as e:
-            print('Failed to export unitary file:', e)
+            logging.error('Failed to export unitary file:', e)
 
     def fill_identity(self):
         '''Fill the currently selected tab with an identity matrix.'''

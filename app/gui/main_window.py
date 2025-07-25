@@ -304,15 +304,15 @@ class MainWindow(ctk.CTk):
         # Call the import function to update the appdata.
         importfunc(self.appdata)
         # For demonstration, print one of the imported matrices.
-        print("[INFO] Updated with Pickle file:", self.appdata.caliparamlist_lincub_cross[1])
+        logging.info("Updated with Pickle file:", self.appdata.caliparamlist_lincub_cross[1])
         # messagebox.showinfo("Import", "Data imported successfully!")
 
     def export_data(self):
-        print("[INFO] Export function triggered.")
+        logging.info("Export function triggered.")
 
     def mesh_changed(self, new_mesh_size):
         """Handle mesh size changes."""
-        print("[INFO] Mesh size changed to:", new_mesh_size)
+        logging.info("Mesh size changed to:", new_mesh_size)
         
         # Update AppData grid size
         AppData.update_grid_size(new_mesh_size)

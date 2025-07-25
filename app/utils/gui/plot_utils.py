@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from app.utils.appdata import AppData  # <-- Add this import
+import logging
 
 
 class PlotUtils:
@@ -121,7 +122,7 @@ class PlotUtils:
             return fig
             
         except Exception as e:
-            print(f"Error creating resistance plot: {str(e)}")
+            logging.error(f"Creating resistance plot: {str(e)}")
             return None
 
     def plot_phase(self, heating_powers, optical_powers, fitfunc, popt, target_channel, io_config, current=None, channel_type=None):
@@ -165,5 +166,5 @@ class PlotUtils:
             return fig
 
         except Exception as e:
-            print(f"Error creating phase plot: {str(e)}")
+            logging.error(f"Creating phase plot: {str(e)}")
             return None

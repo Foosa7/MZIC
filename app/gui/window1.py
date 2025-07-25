@@ -289,10 +289,10 @@ class Window1Content(ctk.CTkFrame):
         if default_file != "No files available":
             try:
                 self.interpolation_manager.load_sweep_file(default_file)
-                print(f"[Interpolation] Default file loaded: {default_file}")
+                logging.info(f"[Interpolation] Default file loaded: {default_file}")
                 self.interp_plot_label.configure(text=f"\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n File loaded: {default_file}")
             except Exception as e:
-                print(f"[Interpolation] Failed to load default file: {e}")
+                logging.error(f"[Interpolation] Failed to load default file: {e}")
                 self.interp_plot_label.configure(text="Failed to load default file")
 
         # Initialize the proper state of controls based on the initial settings
@@ -673,7 +673,7 @@ class Window1Content(ctk.CTkFrame):
                 if not self.switch_channels:
                     raise ValueError("No valid switch channels specified")
                     
-                print(f"  Using switch channels: {self.switch_channels}")
+                logging.info(f"  Using switch channels: {self.switch_channels}")
             
             # Get the current grid configuration as JSON
             base_json = self.custom_grid.export_paths_json()
@@ -684,24 +684,24 @@ class Window1Content(ctk.CTkFrame):
             # Generate sweep values
             sweep_values = np.linspace(start_val, end_val, num_steps)
             
-            print(f"\nStarting sweep:")
-            print(f"  Target MZI: {target_mzi}")
-            print(f"  Parameter: {parameter}")
-            print(f"  Range: {start_val}π to {end_val}π")
-            print(f"  Steps: {num_steps}")
-            print(f"  Dwell time: {dwell_time} seconds")
-            print(f"  Using switch: {use_switch}")
+            logging.info(f"\nStarting sweep:")
+            logging.info(f"  Target MZI: {target_mzi}")
+            logging.info(f"  Parameter: {parameter}")
+            logging.info(f"  Range: {start_val}π to {end_val}π")
+            logging.info(f"  Steps: {num_steps}")
+            logging.info(f"  Dwell time: {dwell_time} seconds")
+            logging.info(f"  Using switch: {use_switch}")
             
             # Initialize results storage
             self.sweep_results = []
             headers = self._create_sweep_headers(parameter, use_switch)
             
             for i, value in enumerate(sweep_values):
-                print(f"  Step {i+1}/{num_steps}: {parameter} = {value:.3f}π")
+                logging.info(f"  Step {i+1}/{num_steps}: {parameter} = {value:.3f}π")
                 
                 # Update the json for the target MZI
                 updated_json = self.update_mzi_in_json(base_json, target_mzi, parameter, str(value))
-                print(updated_json)
+                logging.info(updated_json)
                 
                 self.update()  # Allow Tkinter to process GUI updates
                 
@@ -731,7 +731,7 @@ class Window1Content(ctk.CTkFrame):
             
             # Reset UI
             self.sweep_run_button.configure(state="normal")
-            print("\nSweep complete!")
+            logging.info("Sweep complete!")
             
         except ValueError as e:
             self._show_error(str(e))
@@ -790,13 +790,13 @@ class Window1Content(ctk.CTkFrame):
     def _print_sweep_measurements(self, measurements, use_switch):
         """Print measurements to console"""
         if use_switch:
-            print("    Switch measurements:")
+            logging.info("    Switch measurements:")
             for i, (ch, power) in enumerate(zip(self.switch_channels, measurements)):
-                print(f"      Channel {ch}: {power:.3f} {self.selected_unit}")
+                logging.info(f"      Channel {ch}: {power:.3f} {self.selected_unit}")
         else:
-            print("    Thorlabs measurements:")
+            logging.info("    Thorlabs measurements:")
             for i, power in enumerate(measurements):
-                print(f"      Device {i}: {power:.3f} {self.selected_unit}")
+                logging.info(f"      Device {i}: {power:.3f} {self.selected_unit}")
 
     def update_mzi_in_json(self, json_string, target_mzi, parameter, value):
         """
@@ -817,7 +817,7 @@ class Window1Content(ctk.CTkFrame):
 
             # Check if the target MZI exists in the dictionary
             if target_mzi not in grid_config:
-                print(f"[INFO] Target MZI '{target_mzi}' not found. Adding it with default values.")
+                logging.info(f"Target MZI '{target_mzi}' not found. Adding it with default values.")
                 # Add the target MZI with default values
                 grid_config[target_mzi] = {
                     "arms": ["TL", "BR"],  
@@ -835,7 +835,7 @@ class Window1Content(ctk.CTkFrame):
             updated_json_string = json.dumps(grid_config, indent=4)
             return updated_json_string
         except Exception as e:
-            print(f"[ERROR] Failed to update target MZI: {e}")
+            logging.error(f"Failed to update target MZI: {e}")
             return json_string  # Return the original JSON string if an error occurs
 
     def _on_interpolation_option_changed(self, value=None):
@@ -843,17 +843,17 @@ class Window1Content(ctk.CTkFrame):
         a = self.interp_option_a.get()
         b = self.interp_option_b.get()
 
-        print(f"[Interpolation] Option A: {a}, Option B: {b}")
+        logging.info(f"[Interpolation] Option A: {a}, Option B: {b}")
 
         # Define workflow based on (a, b)
         if a == "enable" and b == "satisfy with sweep files":
-            print("→ Run workflow: Interpolation + Sweep compatibility")
+            logging.info("→ Run workflow: Interpolation + Sweep compatibility")
             # self._run_interpolation_with_sweep()  # replace with actual method
         elif a == "enable" and b == "Not satisfy":
-            print("→ Run workflow: Interpolation only")
+            logging.info("→ Run workflow: Interpolation only")
             # self._run_interpolation_without_sweep()
         elif a == "disable":
-            print("→ Interpolation disabled")
+            logging.info("→ Interpolation disabled")
             # self._disable_interpolation()
 
     def _on_run_path_sequence(self):
@@ -981,18 +981,18 @@ class Window1Content(ctk.CTkFrame):
                 # Export results
                 if results:
                     self._export_results_to_csv(results, headers)
-                    print("\nPath sequence complete!")
+                    logging.info("\nPath sequence complete!")
                     # Reset phases to zero
                     zero_config = self._create_zero_config()
                     apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
-                    print("All values reset to zero")
+                    logging.info("All values reset to zero")
                 else:
-                    print("\nNo measurements collected.")
+                    logging.info("\nNo measurements collected.")
                 return
 
             # Update the global grid config
             AppData.default_json_grid = path_list[index]
-            print(f"Applying path {index+1}/{len(path_list)}: {AppData.default_json_grid}")
+            logging.info(f"Applying path {index+1}/{len(path_list)}: {AppData.default_json_grid}")
 
             # Optionally update the grid UI
             self.custom_grid.import_paths_json(json.dumps(AppData.default_json_grid))
@@ -1019,7 +1019,7 @@ class Window1Content(ctk.CTkFrame):
                                 current_theta = round(current_theta, 5)
                                 phase_grid_config[cross_label]["theta"] = str(current_theta)
                         except Exception as e:
-                            print(f"{cross_label}:θ ({str(e)})")
+                            logging.info(f"{cross_label}:θ ({str(e)})")
 
                 # Process phi channel
                 if phi_ch is not None and phi_val:
@@ -1033,14 +1033,14 @@ class Window1Content(ctk.CTkFrame):
                                 current_phi = round(current_phi, 5)
                                 phase_grid_config[cross_label]["phi"] = str(current_phi)
                         except Exception as e:
-                            print(f"{cross_label}:φ ({str(e)})")
+                            logging.info(f"{cross_label}:φ ({str(e)})")
 
             # Apply the calculated phase grid config to the device
             try:
                 config_json = json.dumps(phase_grid_config)
                 apply_grid_mapping(self.qontrol, config_json, self.grid_size)
             except Exception as e:
-                print(f"Device update failed: {str(e)}")
+                logging.error(f"Device update failed: {str(e)}")
 
             # Thorlabs measurements (use only the first two devices)
             thorlabs_values = [0.0, 0.0]
@@ -1050,7 +1050,7 @@ class Window1Content(ctk.CTkFrame):
                     try:
                         thorlabs_values[i] = devices[i].read_power(unit=self.selected_unit)
                     except Exception as e:
-                        print(f"Error reading Thorlabs {i}: {e}")
+                        logging.error(f"Error reading Thorlabs {str(i)}: {str(e)}")
                         thorlabs_values[i] = 0.0
 
             # Record results with timestamp
@@ -1059,9 +1059,9 @@ class Window1Content(ctk.CTkFrame):
             results.append(row)
 
             # Print current values
-            print(f"Step {index+1} measurements:")
-            print(f"  Thorlabs 1: {thorlabs_values[0]:.3f} {self.selected_unit}")
-            print(f"  Thorlabs 2: {thorlabs_values[1]:.3f} {self.selected_unit}")
+            logging.info(f"Step {index+1} measurements:")
+            logging.info(f"  Thorlabs 1: {thorlabs_values[0]:.3f} {self.selected_unit}")
+            logging.info(f"  Thorlabs 2: {thorlabs_values[1]:.3f} {self.selected_unit}")
 
             # Schedule the next path after the delay
             self.after(int(delay * 1000), lambda: run_next(index + 1))
@@ -1069,7 +1069,7 @@ class Window1Content(ctk.CTkFrame):
         try:
             run_next(0)
         except Exception as e:
-            print(f"Experiment failed: {e}")
+            logging.error(f"Experiment failed: {e}")
             import traceback
             traceback.print_exc()
 
@@ -1100,7 +1100,7 @@ class Window1Content(ctk.CTkFrame):
                 try:
                     device_func()
                 except Exception as e:
-                    print(f"Error: {str(e)}")
+                    logging.error(f"Error: {str(e)}")
             return buffer.getvalue()
 
     def _update_status_displays(self, error_output, status_output):
@@ -1123,7 +1123,7 @@ class Window1Content(ctk.CTkFrame):
                 try:
                     device_func()
                 except Exception as e:
-                    print(f"Error: {str(e)}")
+                    logging.error(f"Error: {str(e)}")
             output = buffer.getvalue()
             
             display.configure(state="normal")
@@ -1155,13 +1155,13 @@ class Window1Content(ctk.CTkFrame):
 
         
         # Print the current selection
-        print(f"Current selection: {current['cross']}-{current['arm']}")
+        logging.info(f"Current selection: {current['cross']}-{current['arm']}")
         
         # Clear graph if no labels are selected
         if not selected_labels:
             self.graph_image_label1.configure(text="No plot to display")
             self.graph_image_label2.configure(text="No plot to display")
-            print("Cleared graph - no labels selected")
+            logging.info("Cleared graph - no labels selected")
         else:
             print(f"Selected labels: {selected_labels}")
             # Existing code for handling selections would go here
@@ -1182,9 +1182,9 @@ class Window1Content(ctk.CTkFrame):
         if not selected_labels:
             self.graph_image_label1.configure(text="No plot to display")
             self.graph_image_label2.configure(text="No plot to display")
-            print("Cleared graph - no labels selected")
+            logging.info("Cleared graph - no labels selected")
         else:
-            print(f"Selected labels: {selected_labels}")
+            logging.info(f"Selected labels: {selected_labels}")
 
     # def build_grid(self, grid_size):
     #     """Initialize the grid display"""
@@ -1321,7 +1321,7 @@ class Window1Content(ctk.CTkFrame):
             self.canvas.draw()
 
         except Exception as e:
-            print(f"Error updating live graph: {e}")
+            logging.error(f"Error updating live graph: {e}")
 
         self.after(1000, self._update_live_graph)
 
@@ -1359,9 +1359,9 @@ class Window1Content(ctk.CTkFrame):
 
             # Save the current figure
             self.figure.savefig(file_path, format="png", dpi=300, bbox_inches="tight")
-            print(f"Live graph exported to {file_path}")
+            logging.info(f"Live graph exported to {file_path}")
         except Exception as e:
-            print(f"Error exporting live graph: {e}")
+            logging.error(f"Exporting live graph: {e}")
 
     def _read_all_daq_channels(self):
         """
@@ -1386,7 +1386,7 @@ class Window1Content(ctk.CTkFrame):
             if num_samples <= 0:
                 raise ValueError("Sample count must be positive.")
         except Exception as e:
-            print(f"[DAQ] Invalid sample count input: {e}")  # Now safe
+            logging.error(f"[DAQ] Invalid sample count input: {e}")  # Now safe
             num_samples = 10
             self.samples_entry.delete(0, "end")
             self.samples_entry.insert(0, str(num_samples))
@@ -1536,7 +1536,7 @@ class Window1Content(ctk.CTkFrame):
         try:
             self.custom_grid.import_paths_json(default_json)
         except Exception as e:
-            print(f"Error loading default grid: {str(e)}")
+            logging.error(f"Error loading default grid: {str(e)}")
 
 
     def _attach_grid_listeners(self):
@@ -1588,7 +1588,7 @@ class Window1Content(ctk.CTkFrame):
 
         except Exception as e:
             error_msg = f"Device update failed: {str(e)}"
-            print(error_msg)  # Log to console
+            logging.error(error_msg)  # Log to console
             self._show_error(error_msg)  # Show in UI
 
 
@@ -1632,7 +1632,7 @@ class Window1Content(ctk.CTkFrame):
             if file_path:
                 with open(file_path, "w") as f:
                     f.write(config_str)
-                print(f"Configuration exported to {file_path}")
+                logging.info(f"Configuration exported to {file_path}")
         except Exception as e:
             self._show_error(f"Export failed: {str(e)}")
 
@@ -1649,7 +1649,7 @@ class Window1Content(ctk.CTkFrame):
                     json_str = f.read()
                 self.custom_grid.import_paths_json(json_str)
                 self._update_device()
-                print(f"Configuration imported from {file_path}")
+                logging.info(f"Configuration imported from {file_path}")
             except Exception as e:
                 self._show_error(f"Invalid config: {str(e)}")
 
@@ -1737,14 +1737,14 @@ class Window1Content(ctk.CTkFrame):
             apply_grid_mapping(self.qontrol, zero_config, self.grid_size)
 
 
-            print("Grid cleared and all values set to zero")
+            logging.info("Grid cleared and all values set to zero")
             self._capture_output(self.qontrol.show_status, self.status_display)
             self._update_selection_display()  # Add this line
 
 
         except Exception as e:
             self._show_error(f"Failed to clear grid: {str(e)}")
-            print(f"Error in clear grid: {e}")
+            logging.error(f"Error in clear grid: {e}")
 
     def _create_zero_config(self):
         """Create a configuration with all theta and phi values set to zero"""
@@ -1848,7 +1848,7 @@ class Window1Content(ctk.CTkFrame):
             # Only show error message if there are failures
             if failed_channels:
                 result_message = f"Failed to apply to {len(failed_channels)} channels"
-                print(result_message)
+                logging.error(result_message)
 
             # Update the mapping display with detailed results
             self.mapping_display.configure(state="normal")
@@ -1863,7 +1863,7 @@ class Window1Content(ctk.CTkFrame):
                     self.mapping_display.insert("end", f"• {channel}\n")
             self.mapping_display.configure(state="disabled")
 
-            print(phase_grid_config)
+            logging.info(phase_grid_config)
             self._capture_output(self.qontrol.show_status, self.status_display)
 
             try:
@@ -1914,9 +1914,9 @@ class Window1Content(ctk.CTkFrame):
         P = delta_phase / b;
         '''
         
-        print(f"Target phase is {phase_value}π for channel {channel}")
+        logging.info(f"Target phase is {phase_value}π for channel {channel}")
 
-        print(f"amplitude: {A}, omega: {b}, phase offset: {c}, offset: {d} for channel {channel}")
+        logging.info(f"amplitude: {A}, omega: {b}, phase offset: {c}, offset: {d} for channel {channel}")
         #print(f"xdatalist_IObar: {self.app.xdatalist_IObar}")
         #print(f"xdatalist_IOcross: {self.app.xdatalist_IOcross}")
         #print(f"lincubchar_voltage: {self.app.lincubchar_voltage}"  )
@@ -1925,14 +1925,14 @@ class Window1Content(ctk.CTkFrame):
 
         # Check if phase is within valid range
         if phase_value < c/np.pi:
-            print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
+            logging.info(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
             phase_value = phase_value + 2
-            print(f"Using adjusted phase value: {phase_value}π")
+            logging.info(f"Using adjusted phase value: {phase_value}π")
 
         # Calculate heating power for this phase shift
         P = abs((phase_value*np.pi - c) / b)
-        print(f"[DEBUG] Calculated heating power P={P} mW")
-        print(f"[DEBIG] Using parameters: A={A}, b={b}, c={c}, d={d}")
+        logging.info(f"[DEBUG] Calculated heating power P={P} mW")
+        logging.info(f"[DEBIG] Using parameters: A={A}, b={b}, c={c}, d={d}")
 
         # Get resistance parameters
         if channel < len(self.app.resistance_parameter_list):
@@ -1946,8 +1946,8 @@ class Window1Content(ctk.CTkFrame):
                 R0 = r_params[1]  # Linear resistance term (c)
                 alpha = r_params[0]/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
                 
-                print(f"r_params[1]: {r_params[1]}")
-                print(f"r_params[0]: {r_params[0]}")
+                logging.info(f"r_params[1]: {r_params[1]}")
+                logging.info(f"r_params[0]: {r_params[0]}")
 
                 # Define equation: P/R0 = I^2 + alpha*I^4
                 eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
@@ -2024,7 +2024,7 @@ class Window1Content(ctk.CTkFrame):
         create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
         label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
         theta_ch, phi_ch = label_map.get(cross, (None, None))
-        print(f"Current selection: {cross}")
+        logging.info(f"Current selection: {cross}")
 
         return theta_ch, phi_ch
 
@@ -2174,7 +2174,7 @@ class Window1Content(ctk.CTkFrame):
                 )
                 return
 
-            print(f"Running phase calibration for channel {target_channel} ({io_config})")
+            logging.info(f"Running phase calibration for channel {target_channel} ({io_config})")
 
             # Execute phase characterization
             result = self.calibration_utils.characterize_phase(
@@ -2274,7 +2274,7 @@ class Window1Content(ctk.CTkFrame):
                 
                 if saved_path:
                     self._show_success(f"Calibration data exported to:\n{saved_path}")
-                    print(f"Calibration data exported to {saved_path}")
+                    logging.info(f"Calibration data exported to {saved_path}")
                 else:
                     self._show_error("Failed to export calibration data")
                     
@@ -2315,7 +2315,7 @@ class Window1Content(ctk.CTkFrame):
                     self.mapping_display.configure(state="disabled")
                     
                     self._show_success(f"Calibration data imported successfully!")
-                    print(f"Calibration data imported from {file_path}")
+                    logging.info(f"Calibration data imported from {file_path}")
                     
                     # Clear selection after import to reset plots
                     AppData.update_last_selection("", "")
@@ -2358,7 +2358,7 @@ class Window1Content(ctk.CTkFrame):
                 json.dump(data, f, indent=4)
                 
             self._show_success(f"AppData calibration exported to:\n{file_path}")
-            print(f"AppData calibration exported to {file_path}")
+            logging.info(f"AppData calibration exported to {file_path}")
             
         except Exception as e:
             self._show_error(f"Failed to export AppData calibration: {str(e)}")
@@ -2627,7 +2627,7 @@ class Window1Content(ctk.CTkFrame):
     def _export_results_to_csv(self, results, headers):
         """Export step data with custom headers (includes DAQ + Thorlabs)."""
         if not results:
-            print("No results to save.")
+            logging.info("No results to save.")
             return
 
         path = filedialog.asksaveasfilename(
@@ -2647,15 +2647,15 @@ class Window1Content(ctk.CTkFrame):
                     line_str = ",".join(str(x) for x in row)
                     f.write(line_str + "\n")
 
-            print(f"Results saved to {path}")
+            logging.info(f"Results saved to {path}")
         except Exception as e:
-            print(f"Failed to save results: {e}")
+            logging.error(f"Failed to save results: {e}")
 
     def _on_sweep_file_changed(self, selected_file):
         """Handler to reload sweep file for interpolation"""
         try:
             self.interpolation_manager.load_sweep_file(selected_file)
-            print(f"[Interpolation] Loaded file: {selected_file}")
+            logging.info(f"[Interpolation] Loaded file: {selected_file}")
             
             # Update UI to show file is loaded
             self.interp_plot_label.configure(text=f"File loaded: {selected_file}")
@@ -2715,7 +2715,7 @@ class Window1Content(ctk.CTkFrame):
                 status_text += " (interpolated)"
             else:
                 status_text += " (no interpolation)"
-            print(f"[Interpolation] {status_text}")
+            logging.info(f"[Interpolation] {status_text}")
 
         except ValueError as e:
             self._show_error(str(e))
@@ -2729,25 +2729,25 @@ class Window1Content(ctk.CTkFrame):
         a = self.interp_option_a.get()
         b = self.interp_option_b.get()
 
-        print(f"[Interpolation] Option A: {a}, Option B: {b}")
+        logging.info(f"[Interpolation] Option A: {a}, Option B: {b}")
 
         # Define workflow based on (a, b)
         if a == "enable" and b == "satisfy with sweep files":
-            print("→ Run workflow: Interpolation + Sweep compatibility")
+            logging.info("→ Run workflow: Interpolation + Sweep compatibility")
             # Enable file selection and angle input
             self.sweep_file_menu.configure(state="normal")
             self.angle_entry.configure(state="normal")
             self.plot_button.configure(state="normal")
             
         elif a == "enable" and b == "Not satisfy":
-            print("→ Run workflow: Interpolation only")
+            logging.info("→ Run workflow: Interpolation only")
             # Enable controls
             self.sweep_file_menu.configure(state="normal")
             self.angle_entry.configure(state="normal")
             self.plot_button.configure(state="normal")
             
         elif a == "disable":
-            print("→ Interpolation disabled")
+            logging.info("→ Interpolation disabled")
             # Disable controls
             self.sweep_file_menu.configure(state="disabled")
             self.angle_entry.configure(state="disabled")
@@ -2768,10 +2768,10 @@ class Window1Content(ctk.CTkFrame):
         if self.interp_option_a.get() == "enable" and self.interpolation_manager.current_file:
             try:
                 corrected, interpolated = self.interpolation_manager.theta_trans(phase_value)
-                print(f"[Interpolation] Channel {channel}: {phase_value/np.pi:.3f}π → {corrected/np.pi:.3f}π")
+                logging.info(f"[Interpolation] Channel {channel}: {phase_value/np.pi:.3f}π → {corrected/np.pi:.3f}π")
                 return corrected
             except Exception as e:
-                print(f"[Interpolation] Error for channel {channel}: {e}")
+                logging.error(f"[Interpolation] Error for channel {channel}: {e}")
                 return phase_value
         else:
             return phase_value
@@ -2797,9 +2797,9 @@ class Window1Content(ctk.CTkFrame):
         try:
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
-            print(f"AppData calibration exported to {file_path}")
+            logging.info(f"AppData calibration exported to {file_path}")
         except Exception as e:
-            print(f"Failed to export AppData calibration: {e}")
+            logging.error(f"Failed to export AppData calibration: {e}")
 
 
     def apply_phase_new_json(self):
@@ -2890,33 +2890,33 @@ class Window1Content(ctk.CTkFrame):
             float: Current in mA or None if calculation fails
         """
         try:
-            print(f"[DEBUG] Entering _calculate_current_for_phase_new_json with calib_key={calib_key}, phase_value={phase_value}")
+            logging.info(f"Entering _calculate_current_for_phase_new_json with calib_key={calib_key}, phase_value={phase_value}")
             res_cal = AppData.resistance_calibration_data.get(calib_key)
             phase_cal = AppData.phase_calibration_data.get(calib_key)
             # Get resistance calibration data
             res_cal = AppData.resistance_calibration_data.get(calib_key)
-            print(f"[DEBUG] res_cal: {res_cal}")
+            logging.info(f"res_cal: {res_cal}")
             if not res_cal:
-                print(f"[ERROR] No resistance calibration for {calib_key}")
+                logging.error(f"No resistance calibration for {calib_key}")
                 return None
 
             res_params = res_cal.get("resistance_params", {})
-            print(f"[DEBUG] res_params: {res_params}")
+            logging.info(f"res_params: {res_params}")
             if not res_params:
-                print(f"[ERROR] No resistance_params for {calib_key}")
+                logging.error(f"No resistance_params for {calib_key}")
                 return None
 
             # Get phase calibration data
             phase_cal = AppData.phase_calibration_data.get(calib_key)
-            print(f"[DEBUG] phase_cal: {phase_cal}")
+            logging.info(f"phase_cal: {phase_cal}")
             if not phase_cal:
-                print(f"[ERROR] No phase calibration for {calib_key}")
+                logging.error(f"No phase calibration for {calib_key}")
                 return None
 
             phase_params = phase_cal.get("phase_params", {})
-            print(f"[DEBUG] phase_params: {phase_params}")
+            logging.info(f"phase_params: {phase_params}")
             if not phase_params:
-                print(f"[ERROR] No phase_params for {calib_key}")
+                logging.error(f"No phase_params for {calib_key}")
                 return None
 
             # --- FIX: Do not double index ---
@@ -2929,22 +2929,22 @@ class Window1Content(ctk.CTkFrame):
                 c = phase_params['phase']       # rad
                 d = phase_params['offset']      # mW
             except Exception as e:
-                print(f"[ERROR] Failed to extract parameters: {e}")
-                print(f"[DEBUG] res_params: {res_params}")
-                print(f"[DEBUG] phase_params: {phase_params}")
+                logging.error(f"Failed to extract parameters: {e}")
+                logging.info(f"res_params: {res_params}")
+                logging.info(f"phase_params: {phase_params}")
                 return None
 
-            print(f"[DEBUG] Extracted: c_res={c_res}, a_res={a_res}, A={A}, b={b}, c={c}, d={d}")
+            logging.info(f"Extracted: c_res={c_res}, a_res={a_res}, A={A}, b={b}, c={c}, d={d}")
 
             if phase_value < c/np.pi:
-                print(f"Warning: Phase {phase_value}π is less than offset phase {c/np.pi}π for {calib_key}")
+                logging.info(f"Phase {phase_value}π is less than offset phase {c/np.pi}π for {calib_key}")
                 phase_value = phase_value + 2
-                print(f"Using adjusted phase value: {phase_value}π")
+                logging.info(f"Using adjusted phase value: {phase_value}π")
 
             # Calculate heating power for this phase shift
             P_mW = abs((phase_value*np.pi - c) / b)    # Power in mW
-            print(f"[DEBUG] Calculated heating power P={P_mW} mW")
-            print(f"[DEBIG] Using parameters: A={A}, b={b}, c={c}, d={d}")
+            logging.info(f"Calculated heating power P={P_mW} mW")
+            logging.info(f"Using parameters: A={A}, b={b}, c={c}, d={d}")
 
 
             # Define symbols for solving equation
@@ -2953,29 +2953,29 @@ class Window1Content(ctk.CTkFrame):
             # R0 is the linear resistance (same as c_res)
             #R0 = c_res  # kΩ
             #alpha = a_res/R0 if R0 != 0 else 0  
-            print(f"[DEBUG] P_mW={P_mW} mW, R0={c_res} kΩ, alpha={alpha_res} (1/mA²)")
+            logging.info(f"P_mW={P_mW} mW, R0={c_res} kΩ, alpha={alpha_res} (1/mA²)")
 
             # Define equation: P/R0 = I²(1 + alpha*I²)
             eq = sp.Eq(P_mW/c_res, I**2 * (1 + alpha_res * I**2))
-            print(f"[DEBUG] Equation: {P_mW}/{c_res} = I² × (1 + {alpha_res}×I²)")
+            logging.info(f"Equation: {P_mW}/{c_res} = I² × (1 + {alpha_res}×I²)")
 
             # Solve the equation
             solutions = sp.solve(eq, I)
-            print(f"[DEBUG] Solutions: {solutions}")
+            logging.info(f"Solutions: {solutions}")
 
             # Filter and choose the real, positive solution
             positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
-            print(f"[DEBUG] Positive solutions: {positive_solutions}")
+            logging.info(f"Positive solutions: {positive_solutions}")
             if positive_solutions:
-                print(f"-> Calculated Current for {calib_key}: {positive_solutions[0]:.4f} mA")
+                logging.info(f"-> Calculated Current for {calib_key}: {positive_solutions[0]:.4f} mA")
                 I_mA = positive_solutions[0] 
                 return I_mA
             else:
-                print(f"[ERROR] No positive solution for {calib_key}, fallback to linear model")
+                logging.error(f"No positive solution for {calib_key}, fallback to linear model")
                 return None
 
         except Exception as e:
-            print(f"[EXCEPTION] Error calculating current for {calib_key}: {str(e)}")
+            logging.error(f"Calculating current for {calib_key}: {str(e)}")
             import traceback
             traceback.print_exc()
             return None
@@ -3274,38 +3274,6 @@ class Window1Content(ctk.CTkFrame):
                 self.mapping_display.insert("end", f"• {channel}\n")
                 
         self.mapping_display.configure(state="disabled")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     # def apply_phase_sweep(self):
     #     """

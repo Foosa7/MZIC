@@ -115,11 +115,10 @@ def print_mapping(label_map):
     
     # Print sorted columns
     for col in sorted(columns.keys()):
-        print(f"Column {col}:")
+        logging.info(f"Column {col}:")
         # Sort numerically within column
         for label, (theta, phi) in sorted(columns[col], key=lambda x: int(x[0][1:])):
-            print(f"  {label}: θ{theta}, φ{phi}")
-        print()
+            logging.info(f"  {label}: θ{theta}, φ{phi}")
 
 
 def apply_grid_mapping(qontrol_device, grid_data, grid_size):
@@ -204,14 +203,14 @@ def clamp_value(value, max_limit):
 def apply_qontrol_mapping(qontrol_device, channel_map):
     """Apply mapped values to physical device"""
     if not qontrol_device.device:
-        print("Qontrol device not connected")
+        logging.info("Qontrol device not connected")
         return
     
     for channel, current in channel_map.items():
         try:
             qontrol_device.set_current(channel, current)
         except Exception as e:
-            print(f"Channel {channel} error: {str(e)}")
+            logging.error(f"Channel {channel} error: {str(e)}")
 
 
 # Example usage:
@@ -222,10 +221,10 @@ if __name__ == "__main__":
     # Load, export, re-import, and print mapping
     label_map = load_custom_label_mapping(MAPPING_FILE)
     json_data = export_mapping_json(label_map)
-    print("Exported JSON:\n", json_data)
+    logging.info("Exported JSON:\n", json_data)
     imported_map = import_mapping_json(json_data)
     # Dummy call — you can skip or replace this
     # import_single_selection(AppData.last_selected)
     
-    print("\nImported mapping:")
+    logging.info("\nImported mapping:")
     print_mapping(imported_map)
