@@ -84,17 +84,20 @@ class QontrolDevice:
         Automatically scan for and connect to the Qontrol device.
         On success, sets the global current limit on all channels and
         displays device status.
+        Returns True if connected, False otherwise.
         """
-        if self.find_serial_port():
+        if self.find_serial_port() and self.device:
             q = self.device
             logging.info("[Qontrol] Initializing current limit on all channels ({0}) to {1} mA"
-                  .format(q.n_chs, self.globalcurrrentlimit))
+                .format(q.n_chs, self.globalcurrrentlimit))
             for i in range(q.n_chs):
                 q.imax[i] = self.globalcurrrentlimit
             logging.info("[Qontrol] Device Status:")
             self.show_status()
+            return True
         else:
             logging.info("[Qontrol] Device connection failed.")
+            return False
 
     def disconnect(self):
         """
@@ -151,6 +154,10 @@ class QontrolDevice:
         Retrieve and print voltage readings from all channels.
         Uses the core library's get_all_values('V') method.
         """
+        if not self.device:
+            logging.warning("[Qontrol] No device connected. Cannot read voltages.")
+            return
+            
         try:
             voltages = self.device.get_all_values('V')
             if voltages is None:
@@ -160,13 +167,17 @@ class QontrolDevice:
                 for i, voltage in enumerate(voltages):
                     logging.info("  Channel {0}: {1} V".format(i, voltage))
         except Exception as e:
-            logging.error("[Qontrol] Error reading voltages:", e)
+            logging.error(f"[Qontrol] Error reading voltages: {e}")
 
     def show_errors(self):
         """
         Print out any error log entries recorded by the device.
         The core library logs errors in the 'log' attribute.
         """
+        if not self.device:
+            logging.warning("[Qontrol] No device connected. Cannot show errors.")
+            return
+            
         try:
             errors = [entry for entry in self.device.log if entry['type'] == 'err']
             if not errors:
@@ -175,15 +186,19 @@ class QontrolDevice:
                 logging.error("[Qontrol] Log:")
                 for err in errors:
                     logging.error("  Time: {0}, Code: {1}, Channel: {2}, Description: {3}"
-                          .format(err['timestamp'], err['id'], err['ch'], err['desc']))
+                        .format(err['timestamp'], err['id'], err['ch'], err['desc']))
         except Exception as e:
-            logging.error("[Qontrol] Error retrieving error log:", e)
+            logging.error(f"[Qontrol] Error retrieving error log: {e}")
 
     def show_status(self):
         """
         Print a combined status report for all channels,
         including voltage and current readings.
         """
+        if not self.device:
+            logging.warning("[Qontrol] No device connected. Cannot show status.")
+            return
+            
         try:
             voltages = self.device.get_all_values('V')
             currents = self.device.get_all_values('I')
@@ -195,24 +210,31 @@ class QontrolDevice:
                 i_str = f"{i_val} mA" if i_val is not None else "N/A"
                 logging.info("  Channel {0}: Voltage = {1}, Current = {2}".format(i, v_str, i_str))
         except Exception as e:
-            logging.error("[Qontrol] Error retrieving channel status:", e)
+            logging.error(f"[Qontrol] Error retrieving channel status: {e}")
 
 # For testing the QontrolDevice wrapper:
 if __name__ == "__main__":
     qontrol_device = QontrolDevice()
-    qontrol_device.connect()
-    time.sleep(1)  # Give the device some time to settle
-
-    # Show voltages and errors
-    qontrol_device.show_voltages()
-    qontrol_device.show_errors()
     
-    # qontrol_device.set_current(4, 2.5)
-    # Example: set current for channel 0 to 2.5 mA
-    # qontrol_device.set_current(0, 2.5)
-    # time.sleep(0.5)
-    
-    # Optionally, show the combined status report
-    qontrol_device.show_status()
+    if qontrol_device.connect():
+        time.sleep(1)  # Give the device some time to settle
 
-    qontrol_device.disconnect()
+        # Show voltages and errors
+        qontrol_device.show_voltages()
+        qontrol_device.show_errors()
+        
+        # Example: set current for channel 0 to 2.5 mA
+        # qontrol_device.set_current(0, 2.5)
+        # time.sleep(0.5)
+        
+        # Optionally, show the combined status report
+        qontrol_device.show_status()
+
+        qontrol_device.disconnect()
+    else:
+        logging.error("[Qontrol] Failed to connect to device. Please check:")
+        logging.error("  - Device is connected via USB")
+        logging.error("  - Device drivers are installed")
+        logging.error("  - No other program is using the device")
+        if platform.system() == "Linux":
+            logging.error("  - You have permission to access the serial port (try: sudo usermod -a -G dialout $USER)")
