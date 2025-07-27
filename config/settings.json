@@ -1,5 +1,5 @@
 {
-    "globalcurrrentlimit": 1.5,
+    "globalcurrrentlimit": 1.65,
     "params": ["param1", "param2", "param3"],
     "headings": ["Heading A", "Heading B"],
     "heaterid6x6": [0, 1, 2, 3, 4, 5],
