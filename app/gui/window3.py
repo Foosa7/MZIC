@@ -3,24 +3,28 @@
 from app.imports import *
 import tkinter.filedialog as filedialog
 import copy
+import sympy as sp
 from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
-from app.utils.unitary import unitary, mzi_lut, mzi_convention
+from app.utils.qontrol.mapping_utils import get_mapping_functions
 from app.utils.appdata import AppData
 from app.utils.switch_measurements import SwitchMeasurements
+from app.utils.decomposition import (
+    decomposition, 
+    decompose_clements,
+    clements_to_chip,
+    get_json_interferometer,
+    get_json_pnn
+)
 
 class Window3Content(ctk.CTkFrame):
     
-    def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, switch, grid_size = "8x8", **kwargs):
+    def __init__(self, master, app, qontrol, thorlabs, daq, switch, grid_size = "12x12", **kwargs):
         super().__init__(master, **kwargs)
-        self.channel = channel
-        self.fit = fit
-        self.IOconfig = IOconfig
         self.app = app
         self.qontrol = qontrol
         self.thorlabs = thorlabs
         self.daq = daq
         self.switch = switch
-        self.unitary_entries = None
 
         # NxN dimension
         self.n = int(grid_size.split('x')[0])
@@ -42,16 +46,6 @@ class Window3Content(ctk.CTkFrame):
         # Right side container 
         self.right_container = ctk.CTkFrame(self.content_frame, fg_color='transparent')
         self.right_container.grid(row=0, column=1, sticky='nsew', padx=(2,5), pady=5)
-
-        # # Create a Tabview
-        # self.tabview = ctk.CTkTabview(self.right_frame, width=900, height=140)
-        # self.tabview.grid(row=0, column=0, sticky='nsew', padx=10, pady=10)
-
-        # # Add a tab for a unitary matrix
-        # self.tabview.add('Unitary')
-
-        # # For each tab, build a separate NxN of CTkEntries.
-        # self.unitary_entries = self.create_nxn_entries(self.tabview.tab('Unitary'))
 
         # ──────────────────────────────────────────────────────────────
         # 1) UNITARY-MATRIX TOOLS
@@ -308,7 +302,6 @@ class Window3Content(ctk.CTkFrame):
         # ──────────────────────────────────────────────────────────────
         # Load any saved unitary into the entry grid
         # ──────────────────────────────────────────────────────────────
-        #self.handle_all_tabs()
 
         # Add a text box to display the matrix
         self.unitary_textbox = ctk.CTkTextbox(
@@ -372,7 +365,7 @@ class Window3Content(ctk.CTkFrame):
                     # 直接修改 AppData.default_json_grid 里的 theta
                     json_grid[node]['theta'] = str(interpolated_theta)
                 except Exception as e:
-                    logging.info(f"Interpolation failed for {node}: {e}")
+                    logging.error(f"Interpolation failed for {node}: {e}")
             AppData.interpolated_theta = interpolated
         else:
             # 如果禁用 Interpolation，重新基于 unitary_textbox 的矩阵分解更新 JSON
@@ -382,55 +375,24 @@ class Window3Content(ctk.CTkFrame):
                 # 根据当前 package 选择分解方法
                 package = self.decomposition_package_var.get()
                 if package == "pnn":
-                    from pnn.methods import decompose_clements
+                    #from pnn.methods import decompose_clements
                     #### Shall we use mzi or bs in this pnn package?
                     [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
                     A_theta *= 2 / np.pi
                     A_phi += np.pi
                     A_phi = A_phi % (2 * np.pi)
                     A_phi /= np.pi
-                    json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+                    json_output = get_json_pnn(self.n, A_theta, A_phi)
                 elif package == "interferometer":
-                    I = unitary.decomposition(matrix_u, global_phase=self.global_phase_var.get())
+                    I = decomposition(matrix_u, global_phase=self.global_phase_var.get())
                     bs_list = I.BS_list
-                    mzi_convention.clements_to_chip(bs_list)
-                    json_output = mzi_lut.get_json_output(self.n, bs_list)
+                    clements_to_chip(bs_list)
+                    json_output = get_json_interferometer(self.n, bs_list)
                 # 更新 AppData.default_json_grid
                 AppData.default_json_grid = json_output
             except Exception as e:
                 logging.error(f"Failed to reset JSON grid after disabling interpolation: {e}")
             AppData.interpolated_theta = {}
-
-    def _on_package_changed(*args):
-        AppData.decomposition_package = self.decomposition_package_var.get()
-        try:
-            # 从 unitary_textbox 中读取矩阵
-            matrix_u = self._read_matrix_from_textbox()
-            # 根据当前 package 选择分解方法
-            package = self.decomposition_package_var.get()
-            if package == "pnn":
-                from pnn.methods import decompose_clements
-                [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
-                A_theta *= 2 / np.pi
-                A_phi += np.pi
-                A_phi = A_phi % (2 * np.pi)
-                A_phi /= np.pi
-                json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
-            elif package == "interferometer":
-                I = unitary.decomposition(matrix_u, global_phase=self.global_phase_var.get())
-                bs_list = I.BS_list
-                mzi_convention.clements_to_chip(bs_list)
-                json_output = mzi_lut.get_json_output(self.n, bs_list)
-            # 更新 AppData.default_json_grid
-            setattr(AppData, 'default_json_grid', json_output)
-            logging.info(f"JSON grid updated based on new package: {package}")
-        except Exception as e:
-            logging.error(f"Failed to update JSON grid for package {package}: {e}")
-
-    #self.decomposition_package_var.trace_add("write", _on_package_changed)
-    
-    
-    
     
     def _read_matrix_from_textbox(self) -> np.ndarray:
         """Read the matrix from the unitary_textbox."""
@@ -445,10 +407,6 @@ class Window3Content(ctk.CTkFrame):
         except Exception as e:
             logging.error(f"Failed to read matrix from textbox: {e}")
             return np.eye(self.n, dtype=complex)  # Return identity matrix as fallback
-    
-    
-    
-    
     
     def update_status(self, message, tag="info"):
         """Update the status display with a new message"""
@@ -520,69 +478,7 @@ class Window3Content(ctk.CTkFrame):
             self.switch_channels_entry.grid()
         else:
             self.switch_channels_label.grid_remove()
-            self.switch_channels_entry.grid_remove()
-
-    def _read_all_daq_channels(self):
-        """
-        Lists all available AI channels on the DAQ device,
-        reads averaged voltage for each channel, and displays them in the text box.
-        """
-        lines = []
-
-        if not self.daq:
-            lines.append("No device found.")
-            self._daq_last_result = "\n".join(lines)
-            return
-
-        channels = self.daq.list_ai_channels()
-        if not channels:
-            lines.append("No device found.")
-            self._daq_last_result = "\n".join(lines)
-            return
-        
-        try:
-            num_samples = int(self.samples_entry.get())   # Fails here with ValueError
-            if num_samples <= 0:
-                raise ValueError("Sample count must be positive.")
-        except Exception as e:
-            logging.error(f"[DAQ] Invalid sample count input: {e}")  # Now safe
-            num_samples = 10
-            self.samples_entry.delete(0, "end")
-            self.samples_entry.insert(0, str(num_samples))
-
-        readings = self.daq.read_power(channels=channels, samples_per_channel=num_samples, unit=self.selected_unit)
-        if readings is None:
-            lines.append("Failed to read from DAQ or DAQ not connected.")
-            self._daq_last_result = "\n".join(lines)
-            return
-
-        # Normalize to list for consistent processing
-        if isinstance(readings, float):
-            readings = [readings]  # wrap float in list if only one channel
-
-        # Build text output
-        lines = []
-        for ch_name, voltage in zip(channels, readings):
-            lines.append(f"{ch_name} -> {voltage} {self.selected_unit}")
-
-        # Save this part to combine with Thorlabs 
-        self._daq_last_result = "\n".join(lines)    
-
-        '''
-            # ---- Thorlabs measurements => site3
-            thorlabs_vals = 0.0
-            if self.thorlabs:
-                if isinstance(self.thorlabs, list):
-                    device = self.thorlabs[0]  # or pick whichever you want
-                else:
-                    device = self.thorlabs
-
-                try:
-                    thorlabs_vals = device.read_power(unit="uW")
-                except Exception as e:
-                    print(f"Thorlabs read error: {e}")
-        '''
-    
+            self.switch_channels_entry.grid_remove()    
 
     ### cycle funtion
     def cycle_unitaries(self):
@@ -648,14 +544,14 @@ class Window3Content(ctk.CTkFrame):
             headers = ["timestamp", "step"]
             
             if use_switch:
-                headers.extend(SwitchMeasurements.create_headers_with_switch(switch_channels, "uW"))
+                headers.extend(SwitchMeasurements.create_headers_with_switch(switch_channels, "mW"))
                 num_measurements = len(switch_channels)
             else:
                 # Headers for direct device measurements
                 if use_source == "DAQ":
                     if self.daq:
                         daq_channels = self.daq.list_ai_channels()
-                        headers.extend([f"{ch}_uW" for ch in daq_channels])
+                        headers.extend([f"{ch}_mW" for ch in daq_channels])
                         num_measurements = len(daq_channels)
                         measurement_labels = daq_channels
                     else:
@@ -667,7 +563,7 @@ class Window3Content(ctk.CTkFrame):
                             num_devices = len(self.thorlabs)
                         else:
                             num_devices = 1
-                        headers.extend(SwitchMeasurements.create_headers_thorlabs(num_devices, "uW"))
+                        headers.extend(SwitchMeasurements.create_headers_thorlabs(num_devices, "mW"))
                         num_measurements = num_devices
                         measurement_labels = [f"Thorlabs{i}" for i in range(num_devices)]
                     else:
@@ -717,42 +613,32 @@ class Window3Content(ctk.CTkFrame):
                 self.cycle_unitaries_button.configure(text=f"Step {step_idx}/{total_steps}")
                 self.update()
 
-                # # a) load the unitary + decompose → set heaters
-                # ### Need the package information to decide how to decompose
-                # try:
-                #     self.update_status("  • Loading and decomposing unitary...", "info")
-                #     U_step = np.load(file_path)
-                #     I = unitary.decomposition(U_step, global_phase=use_global_phase)
-                #     bs = I.BS_list
-                #     mzi_convention.clements_to_chip(bs)
-                #     json_output = mzi_lut.get_json_output(self.n, bs)
-                #     setattr(AppData, 'default_json_grid', json_output)
-                #     self.update_status("  ✓ Decomposition complete", "success")
-                # except Exception as e:
-                #     self.update_status(f"  ✖ Decomposition failed: {e}", "error")
-                #     continue 
-                
-                #a) load the unitary + decompose → set heaters
-                ## Need the package information to decide how to decompose
                 try:
                     self.update_status("  • Loading and decomposing unitary...", "info")
                     U_step = np.load(file_path)
+                    
+                    # Embed U_step into a unitary matrix if it's smaller than the mesh size
+                    if U_step.shape[0] < self.n or U_step.shape[1] < self.n:
+                        embedded_U = np.eye(self.n, dtype=complex)
+                        rows, cols = U_step.shape
+                        embedded_U[:rows, :cols] = U_step
+                        U_step = embedded_U
 
                     # 根据 Package 选项选择分解方法
                     package = self.decomposition_package_var.get()
                     if package == "pnn":
-                        from pnn.methods import decompose_clements
+                        #from pnn.methods import decompose_clements
                         [A_phi, A_theta, *_] = decompose_clements(U_step, block='mzi')
                         A_theta *= 2 / np.pi
                         A_phi += np.pi
                         A_phi = A_phi % (2 * np.pi)
                         A_phi /= np.pi
-                        json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+                        json_output = get_json_pnn(self.n, A_theta, A_phi)
                     elif package == "interferometer":
-                        I = unitary.decomposition(U_step, global_phase=use_global_phase)
+                        I = decomposition(U_step, global_phase=use_global_phase)
                         bs_list = I.BS_list
-                        mzi_convention.clements_to_chip(bs_list)
-                        json_output = mzi_lut.get_json_output(self.n, bs_list)
+                        clements_to_chip(bs_list)
+                        json_output = get_json_interferometer(self.n, bs_list)
                     else:
                         raise ValueError(f"Unknown package: {package}")
 
@@ -802,7 +688,7 @@ class Window3Content(ctk.CTkFrame):
                 if use_switch:
                     thorlabs_device = self.thorlabs[0] if isinstance(self.thorlabs, list) else self.thorlabs
                     measurement_values = SwitchMeasurements.measure_with_switch(
-                        self.switch, thorlabs_device, switch_channels, "uW"
+                        self.switch, thorlabs_device, switch_channels, "mW"
                     )
                 else:
                     if use_source == "DAQ":
@@ -813,7 +699,7 @@ class Window3Content(ctk.CTkFrame):
                                     channels=daq_channels,
                                     samples_per_channel=samples_per_channel,
                                     sample_rate=sample_rate,
-                                    unit="uW",
+                                    unit="mW",
                                 )
                                 if readings and isinstance(readings[0], list):
                                     measurement_values = [sum(s)/len(s) for s in readings]
@@ -831,7 +717,7 @@ class Window3Content(ctk.CTkFrame):
                             measurement_values = [0.0] * num_measurements
                     else:  # Thorlabs
                         measurement_values = SwitchMeasurements.measure_thorlabs_direct(
-                            self.thorlabs, "uW"
+                            self.thorlabs, "mW"
                         )
 
                 # Update measurement display (for the live view)
@@ -909,7 +795,7 @@ class Window3Content(ctk.CTkFrame):
             Column names for the first row of the CSV.
         """
         if not rows:
-            logging.info("Nothing to export – no rows provided.")
+            logging.debug("Nothing to export – no rows provided.")
             return None
 
         # default file name: cycle_results_YYYYmmdd_HHMMSS.csv
@@ -922,7 +808,7 @@ class Window3Content(ctk.CTkFrame):
             filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
         )
         if not path:        # user pressed Cancel
-            logging.info("Export cancelled.")
+            logging.debug("Export cancelled.")
             return None
 
         try:
@@ -957,19 +843,20 @@ class Window3Content(ctk.CTkFrame):
 
     def apply_phase_new(self):
         """
-        Apply phase settings to the entire grid based on phase calibration data.
+        Apply phase settings to the entire grid based on phase calibration data from AppData.
         Processes all theta and phi values in the current grid configuration.
         """
         try:
             # Get current grid configuration
             grid_config = AppData.default_json_grid
-            logging.info(grid_config)
+            logging.info(f"Current grid configuration: {grid_config}")
             if not grid_config:
-                logging.error("No grid configuration found")
+                logging.warning("No grid configuration found")
                 return
                 
-            # Create label mapping for channel assignments
-            label_map = create_label_mapping(8)  # Assuming 8x8 grid
+            # Get label mapping for current grid size
+            create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+            label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
             
             # Create a new configuration with current values
             phase_grid_config = copy.deepcopy(grid_config)
@@ -984,36 +871,34 @@ class Window3Content(ctk.CTkFrame):
                 if cross_label not in label_map:
                     continue
                     
-                theta_ch, phi_ch = label_map[cross_label]
+                # Process theta value
                 theta_val = data.get("theta", "0")
-                phi_val = data.get("phi", "0")
-
-                # Process theta channel
-                if theta_ch is not None and theta_val:
+                if theta_val:
                     try:
                         theta_float = float(theta_val)
-                        current_theta = self._calculate_current_for_phase(theta_ch, theta_float, "cross", "bar")
+                        calib_key = f"{cross_label}_theta"
+                        current_theta = self._calculate_current_for_phase_new_json(calib_key, theta_float)
+                        
                         if current_theta is not None:
-                            # Quantize to 5 decimal places
                             current_theta = round(current_theta, 5)
-                            # Update the phase_grid_config with current value
-                            phase_grid_config[cross_label]["theta"] = str(current_theta)  # Store in A
+                            phase_grid_config[cross_label]["theta"] = str(current_theta)
                             applied_channels.append(f"{cross_label}:θ = {current_theta:.5f} mA")
                         else:
                             failed_channels.append(f"{cross_label}:θ (no calibration)")
                     except Exception as e:
                         failed_channels.append(f"{cross_label}:θ ({str(e)})")
 
-                # Process phi channel
-                if phi_ch is not None and phi_val:
+                # Process phi value
+                phi_val = data.get("phi", "0")
+                if phi_val:
                     try:
                         phi_float = float(phi_val)
-                        current_phi = self._calculate_current_for_phase(phi_ch, phi_float, "cross", "bar")
+                        calib_key = f"{cross_label}_phi"
+                        current_phi = self._calculate_current_for_phase_new_json(calib_key, phi_float)
+                        
                         if current_phi is not None:
-                            # Quantize to 5 decimal places
                             current_phi = round(current_phi, 5)
-                            # Update the phase_grid_config with current value
-                            phase_grid_config[cross_label]["phi"] = str(current_phi)  # Store in A
+                            phase_grid_config[cross_label]["phi"] = str(current_phi)
                             applied_channels.append(f"{cross_label}:φ = {current_phi:.5f} mA")
                         else:
                             failed_channels.append(f"{cross_label}:φ (no calibration)")
@@ -1026,8 +911,8 @@ class Window3Content(ctk.CTkFrame):
             # Only show error message if there are failures
             if failed_channels:
                 result_message = f"Failed to apply to {len(failed_channels)} channels"
-                logging.info(result_message)
-                logging.error("Failed channels:", failed_channels)
+                logging.error(result_message)
+                logging.error(f"Failed channels: {failed_channels}")
                 
             # Debugging: Print the grid size
             logging.info(f"Grid size: {self.grid_size}")
@@ -1036,7 +921,7 @@ class Window3Content(ctk.CTkFrame):
                 config_json = json.dumps(phase_grid_config)
                 apply_grid_mapping(self.qontrol, config_json, self.grid_size)
             except Exception as e:
-                logging.error(f"Device update failed: {str(e)}")        
+                logging.error(f"Device update failed: {str(e)}")
 
             return phase_grid_config
             
@@ -1045,179 +930,101 @@ class Window3Content(ctk.CTkFrame):
             import traceback
             traceback.print_exc()
             return None
-                
-    def _calculate_current_for_phase(self, channel, phase_value, *io_configs):
+
+    def _calculate_current_for_phase_new_json(self, calib_key, phase_value):
         """
-        Calculate current for a given phase value, trying multiple IO configurations.
-        Returns current in mA or None if calculation fails.
+        Calculate current for a phase value using the new calibration format.
+        Args:
+            calib_key: str, calibration key (e.g. "A1_theta")
+            phase_value: float, phase value in π units
+        Returns:
+            float: Current in mA or None if calculation fails
         """
-        # Try each IO configuration in order until one works
-        for io_config in io_configs:
-            # Check for cross calibration data
-            if io_config == "cross" and channel < len(self.app.caliparamlist_lincub_cross) and self.app.caliparamlist_lincub_cross[channel] != "Null":
-                params = self.app.caliparamlist_lincub_cross[channel]
-                return self._calculate_current_from_params(channel, phase_value, params)
-                
-            # Check for bar calibration data
-            elif io_config == "bar" and channel < len(self.app.caliparamlist_lincub_bar) and self.app.caliparamlist_lincub_bar[channel] != "Null":
-                params = self.app.caliparamlist_lincub_bar[channel]
-                return self._calculate_current_from_params(channel, phase_value, params)
-        
-        return None
-
-    def _calculate_current_from_params(self, channel, phase_value, params):
-        """Calculate current from phase parameters"""
-        # Extract calibration parameters
-        A = params['amp']
-        b = params['omega']
-        c = params['phase']
-        d = params['offset']
-        
-        '''
-        # Find the positive phase the heater must add 
-        delta_phase = (phase_value % 2) * np.pi
-
-        # Calculate the heating power for this phase shift
-        P = delta_phase / b
-        '''
-        
-        phase_value_offset = phase_value
-        # Check if phase is within valid range
-        if phase_value < c/np.pi:
-            logging.info(f"Phase {phase_value}π is less than offset phase {c/np.pi}π for channel {channel}")
-            # Add phase_value by 2 and continue with calculation
-            phase_value_offset  = phase_value + 2
-            
-            logging.info(f"Using adjusted phase value: {phase_value_offset}π")
-
-        # Calculate heating power for this phase shift
-        P = abs((phase_value_offset*np.pi - c) / b)
-        
-        
-        # Get resistance parameters
-        if channel < len(self.app.resistance_parameter_list):
-            r_params = self.app.resistance_parameter_list[channel]
-            
-            # Use cubic+linear model if available
-            if len(r_params) >= 2:
-                # Define symbols for solving equation
-                I = sp.symbols('I')
-                P_watts = P/1000  # Convert to watts
-                R0 = r_params[1]  # Linear resistance term (c)
-                alpha = r_params[0]/R0 if R0 != 0 else 0  # Nonlinearity parameter (a/c)
-                
-                # Define equation: P/R0 = I^2 + alpha*I^4
-                eq = sp.Eq(P_watts/R0, I**2 + alpha*I**4)
-                
-                # Solve the equation
-                solutions = sp.solve(eq, I)
-                
-                # Filter and choose the real, positive solution
-                positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
-                if positive_solutions:
-                    return float(1000 * positive_solutions[0])  # Convert to mA 
-                else:
-                    # Fallback to linear model
-                    R0 = r_params[1]
-                    return float(round(1000 * np.sqrt(P/(R0*1000)), 2))
-            else:
-                # Use linear model
-                R = self.app.linear_resistance_list[channel] if channel < len(self.app.linear_resistance_list) else 50.0
-                return float(round(1000 * np.sqrt(P/(R*1000)), 2))
-        else:
-            # No resistance parameters, use default
-            return float(round(1000 * np.sqrt(P/(50.0*1000)), 2))
-
-    def _update_cycle_button_state(self):
-        """Enable Cycle button only if at least one site is ticked."""
-        enabled = any(v.get() for v in self.site_vars)
-        state = "normal" if enabled else "disabled"
-        self.cycle_unitaries_button.configure(state=state)
-
-    def get_unitary_mapping(self):
-        '''Returns the entry grid and AppData variable for the unitary tab.'''
-        return self.unitary_entries, 'saved_unitary'
-
-    def get_active_tab(self):
-        '''
-        Returns the unitary entry grid (2D list) and corresponding AppData variable
-        for the currently selected tab.
-        '''
-        return self.get_unitary_mapping()  
-        
-    def get_unitary_by_tab(self, tab_name):
-        '''
-        Returns the unitary entry grid (2D list) and corresponding AppData variable
-        for a specific tab (U1, U2, U3).
-        '''
-        return self.get_unitary_mapping().get(tab_name, (None, None))
-     
-    def handle_all_tabs(self, operation='load'):
-        '''Handles loading or saving of the unitary matrix.'''
-        entries, appdata_var = self.get_unitary_mapping()  # Directly unpack the tuple
-        if entries is None or appdata_var is None:
-            return  # Skip if invalid
-
         try:
-            if operation == 'load':
-                unitary_matrix = getattr(AppData, appdata_var, None)
-                if unitary_matrix is None or not isinstance(unitary_matrix, np.ndarray):
-                    unitary_matrix = np.eye(self.n, dtype=complex)  # Default to identity
-                self.fill_tab_entries(entries, unitary_matrix)
-            elif operation == 'save':
-                unitary_matrix = self.read_tab_entries(entries)
-                if unitary_matrix is not None:
-                    setattr(AppData, appdata_var, unitary_matrix)
+            logging.info(f"Entering _calculate_current_for_phase_new_json with calib_key={calib_key}, phase_value={phase_value}")
+            
+            # Get resistance calibration data
+            res_cal = AppData.resistance_calibration_data.get(calib_key)
+            logging.info(f"res_cal: {res_cal}")
+            if not res_cal:
+                logging.error(f"No resistance calibration for {calib_key}")
+                return None
+
+            res_params = res_cal.get("resistance_params", {})
+            logging.info(f"res_params: {res_params}")
+            if not res_params:
+                logging.error(f"No resistance_params for {calib_key}")
+                return None
+
+            # Get phase calibration data
+            phase_cal = AppData.phase_calibration_data.get(calib_key)
+            logging.info(f"phase_cal: {phase_cal}")
+            if not phase_cal:
+                logging.error(f"No phase calibration for {calib_key}")
+                return None
+
+            phase_params = phase_cal.get("phase_params", {})
+            logging.info(f"phase_params: {phase_params}")
+            if not phase_params:
+                logging.error(f"No phase_params for {calib_key}")
+                return None
+
+            # Extract parameters
+            try:
+                c_res = res_params['c_res']     # kΩ
+                a_res = res_params['a_res']     # V/(mA)³
+                alpha_res = res_params['alpha_res'] # 1/mA²
+                A = phase_params['amplitude']   # mW
+                b = phase_params['omega']       # rad/mW
+                c = phase_params['phase']       # rad
+                d = phase_params['offset']      # mW
+            except Exception as e:
+                logging.error(f"Failed to extract parameters: {e}")
+                logging.info(f"res_params: {res_params}")
+                logging.info(f"phase_params: {phase_params}")
+                return None
+
+            logging.info(f"Extracted: c_res={c_res}, a_res={a_res}, A={A}, b={b}, c={c}, d={d}")
+
+            if phase_value < c:
+                logging.info(f"Phase {phase_value}π is less than offset phase {c}π for {calib_key}")
+                phase_value = phase_value + 2
+                logging.info(f"Using adjusted phase value: {phase_value}π")
+
+            # Calculate heating power for this phase shift
+            P_mW = abs((phase_value - c)*np.pi / b)    # Power in mW
+            logging.info(f"Calculated heating power P={P_mW} mW")
+            logging.info(f"Using parameters: A={A}, b={b}, c={c}, d={d}")
+
+            # Define symbols for solving equation
+            I = sp.symbols('I', real=True, positive=True)
+
+            logging.info(f"P_mW={P_mW} mW, R0={c_res} kΩ, alpha={alpha_res} (1/mA²)")
+
+            # Define equation: P/R0 = I²(1 + alpha*I²)
+            eq = sp.Eq(P_mW/c_res, I**2 * (1 + alpha_res * I**2))
+            logging.info(f"Equation: {P_mW}/{c_res} = I² × (1 + {alpha_res}×I²)")
+
+            # Solve the equation
+            solutions = sp.solve(eq, I)
+            logging.info(f"Solutions: {solutions}")
+
+            # Filter and choose the real, positive solution
+            positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
+            logging.info(f"Positive solutions: {positive_solutions}")
+            if positive_solutions:
+                logging.info(f"-> Calculated Current for {calib_key}: {positive_solutions[0]:.4f} mA")
+                I_mA = positive_solutions[0] 
+                return float(I_mA)
+            else:
+                logging.error(f"No positive solution for {calib_key}, fallback to linear model")
+                return None
+
         except Exception as e:
-            logging.error(f'Error in {operation} operation: {e}')
-
-    def create_nxn_entries(self, parent_frame):
-        '''Creates an NxN grid of CTkEntry fields inside parent_frame and returns a 2D list.'''
-        entries_2d = []
-        frame = ctk.CTkFrame(parent_frame, fg_color='gray20')
-        frame.pack(anchor='center', padx=5, pady=5)
-    
-        for i in range(self.n):
-            row_entries = []
-            for j in range(self.n):
-                e = ctk.CTkEntry(frame, width=55)
-                e.grid(row=i, column=j, padx=5, pady=5)
-                row_entries.append(e)
-            entries_2d.append(row_entries)
-        
-        return entries_2d
-
-    def read_tab_entries(self, entries_2d) -> np.ndarray | None:
-        '''Returns NxN complex array from the given 2D entries, or None on error.'''
-        data = []
-        for i in range(self.n):
-            row_vals = []
-            for j in range(self.n):
-                val_str = entries_2d[i][j].get().strip()
-                if not val_str:
-                    val_str = '0'
-                try:
-                    val = complex(val_str)
-                except ValueError:
-                    logging.error(f'Invalid entry at row={i}, col={j}: {val_str}')
-                    return None
-                row_vals.append(val)
-            data.append(row_vals)
-        return np.array(data, dtype=complex)
-
-    def fill_tab_entries(self, entries_2d, matrix: np.ndarray):
-        '''Fill the NxN entries_2d from 'matrix'.'''
-        rows = min(self.n, matrix.shape[0])
-        cols = min(self.n, matrix.shape[1])
-        for i in range(rows):
-            for j in range(cols):
-                val = matrix[i, j]
-                val_str = f'{val.real}'
-                if abs(val.imag) > 1e-12:
-                    sign = '+' if val.imag >= 0 else '-'
-                    val_str = f'{val.real}{sign}{abs(val.imag)}j'
-                entries_2d[i][j].delete(0, 'end')
-                entries_2d[i][j].insert(0, val_str)
+            logging.error(f"Calculating current for {calib_key}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     def decompose_unitary(self):
         """
@@ -1237,6 +1044,13 @@ class Window3Content(ctk.CTkFrame):
             matrix_u = np.load(path)
             logging.info(f"Loaded unitary matrix from {path}")
 
+            # Embed U_step into a unitary matrix if it's smaller than the mesh size
+            if matrix_u.shape[0] < self.n or matrix_u.shape[1] < self.n:
+                embedded_U = np.eye(self.n, dtype=complex)
+                rows, cols = matrix_u.shape
+                embedded_U[:rows, :cols] = matrix_u
+                matrix_u = embedded_U
+
             # Format the matrix with additional spacing
             formatted_matrix = "\n".join(
                 ["  ".join(f"{elem.real:.4f}{'+' if elem.imag >= 0 else ''}{elem.imag:.4f}j" for elem in row)
@@ -1255,30 +1069,20 @@ class Window3Content(ctk.CTkFrame):
 
             ### choose the pnn package
             if package == "pnn":
-                from pnn.methods import decompose_clements
+                #from pnn.methods import decompose_clements
                 [A_phi, A_theta, *_] = decompose_clements(matrix_u, block = 'mzi')
                 A_theta *= 2/np.pi
                 A_phi += np.pi
                 A_phi = A_phi % (2*np.pi)
-                A_phi *= 2/np.pi
-                json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+                A_phi /= np.pi
+                json_output = get_json_pnn(self.n, A_theta, A_phi)
             
             ### choose the interferometer package
             elif package == 'interferometer':
-                I = unitary.decomposition(matrix_u, global_phase=use_global_phase)
+                I = decomposition(matrix_u, global_phase=use_global_phase)
                 bs_list = I.BS_list
-                mzi_convention.clements_to_chip(bs_list)
-                json_output = mzi_lut.get_json_output(self.n, bs_list)
-            
-
-            #Perform decomposition
-            # I = unitary.decomposition(matrix_u, global_phase=use_global_phase)
-            # bs_list = I.BS_list
-            # mzi_convention.clements_to_chip(bs_list)
-
-            # # Update the AppData with the new JSON output
-            # json_output = mzi_lut.get_json_output(self.n, bs_list)
-            # print(json_output)
+                clements_to_chip(bs_list)
+                json_output = get_json_interferometer(self.n, bs_list)
 
             # Save the updated JSON to AppData
             setattr(AppData, 'default_json_grid', json_output)
@@ -1291,78 +1095,6 @@ class Window3Content(ctk.CTkFrame):
         # 如果 Interpolation 已启用，自动执行插值
         if AppData.interpolation_enabled:
             self._on_interpolation_toggle()
-    
-    
-    
-    
-    def import_unitary_file(self):
-        '''Import an .npy unitary file into the currently selected tab.'''
-        path = filedialog.askopenfilename(
-            title='Select Unitary File',
-            filetypes=[('NumPy files', '*.npy')]  # Only allow .npy
-        )
-        if not path:
-            return
-    
-        try:
-            mat = np.load(path)  # Load NumPy matrix
-    
-            # Get the active tab's NxN and AppData variable
-            entries, appdata_var = self.get_active_tab()
-            
-            if entries is not None and appdata_var is not None:
-                self.fill_tab_entries(entries, mat)
-                setattr(AppData, appdata_var, mat)  # Save dynamically
-        except Exception as e:
-            logging.error('Failed to import unitary file:', e)
-    
-    def export_unitary_file(self):
-        '''Export the currently selected tab's unitary as a .npy file.'''
-        entries, _ = self.get_active_tab()  # Get the active tab's NxN entries
-    
-        if entries is None:
-            logging.error('No valid tab selected for export.')
-            return
-    
-        matrix = self.read_tab_entries(entries)
-        if matrix is None:
-            logging.error('No valid matrix found for export.')
-            return
-    
-        path = filedialog.asksaveasfilename(
-            title='Save Unitary File',
-            defaultextension='.npy',
-            filetypes=[('NumPy files', '*.npy')]  # Only allow .npy
-        )
-        if not path:
-            return
-    
-        try:
-            np.save(path, matrix)
-            logging.info(f'Unitary saved successfully to {path}.')
-        except Exception as e:
-            logging.error('Failed to export unitary file:', e)
-
-    def fill_identity(self):
-        '''Fill the currently selected tab with an identity matrix.'''
-        mat = np.eye(self.n, dtype=complex)
-    
-        entries, appdata_var = self.get_active_tab()  
-    
-        if entries is not None and appdata_var is not None:
-            self.fill_tab_entries(entries, mat)
-            setattr(AppData, appdata_var, mat)  # Save dynamically
-
-
-    def fill_random(self):
-        '''Fill the currently selected tab with a random unitary matrix.'''
-        mat = unitary.random_unitary(self.n)
-    
-        entries, appdata_var = self.get_active_tab()  # Get active tab dynamically
-    
-        if entries is not None and appdata_var is not None:
-            self.fill_tab_entries(entries, mat)
-            setattr(AppData, appdata_var, mat)  # Save dynamically
 
     def update_grid(self, new_mesh_size):
         '''Refresh NxN grids when the user selects a new mesh size.'''
