@@ -600,7 +600,7 @@ class Example(Frame):
             theta_entry.insert(0, "1")
             logging.info(f"{visible_label}: Bar mode detected. Inserting 1.")
         elif mode == 'cross':
-            theta_entry.insert(0, "2")
+            theta_entry.insert(0, "0")
             logging.info(f"{visible_label}: Cross mode detected. Inserting 2.")
         elif mode == 'split':
             theta_entry.insert(0, "0.5")

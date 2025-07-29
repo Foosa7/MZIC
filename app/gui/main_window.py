@@ -134,7 +134,9 @@ class MainWindow(ctk.CTk):
                 qontrol=self.qontrol,
                 thorlabs=self.thorlabs,
                 daq=self.daq,
-                switch=self.switch_output,
+                switch=self.switch_output,  # For backward compatibility
+                switch_input=self.switch_input,
+                switch_output=self.switch_output,
                 grid_size=mesh_size
             )            
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)

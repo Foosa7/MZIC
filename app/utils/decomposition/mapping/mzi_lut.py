@@ -161,10 +161,6 @@ def map_pnn(n, A_theta, A_phi):
     for i in range(N_length):
         if label_idx >= len(flat_labels):
             break  # Prevent index errors for large N
-
-        if i == 2:
-            A_phi[i] = 0  # 这里保留原有特殊处理
-
         label = flat_labels[label_idx]
         mapping[label] = (A_theta[i], A_phi[i])
         label_idx += 1
@@ -183,41 +179,13 @@ def get_json_pnn(n, A_theta, A_phi):
             "theta": str(theta),
             "phi": str(phi),
         }
-    
         '''
         # Route out leakage light
-        if label in ['B1', 'C2', 'D2', 'E3', 'E2', 'F3', 'G4', 'D1', 'F2', 'G3', 'H3']:
+        if label in ['B1', 'C2', 'D2', 'E3', 'F3', 'G4', 'H4', 'I5', 'J5', 'K6']:
             output[label] = {
                 "arms": ['TL', 'TR', 'BL', 'BR'],
                 "theta": '2.0',
                 "phi": '0',
             }
-        elif label == 'E1':
-            output[label] = {
-                "arms": ['TL', 'TR', 'BL', 'BR'],
-                "theta": str(theta),
-                "phi": '1.5',
-            }
-        
-        elif label == 'E2':
-            output[label] = {
-                "arms": ['TL', 'TR', 'BL', 'BR'],
-                "theta": '2.0',
-                "phi": '1.5',
-            }
-        
-        elif label == 'F1':
-            output[label] = {
-                "arms": ['TL', 'TR', 'BL', 'BR'],
-                "theta": str(theta),
-                "phi": '0.5',
-            }
-        
-        elif label in ('G1', 'G2', 'H1'):
-            output[label] = {
-                "arms": ['TL', 'TR', 'BL', 'BR'],
-                "theta": str(theta),
-                "phi": '1.0',
-            }  
         '''
     return output

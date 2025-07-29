@@ -18,14 +18,16 @@ from app.utils.decomposition import (
 
 class Window3Content(ctk.CTkFrame):
     
-    def __init__(self, master, app, qontrol, thorlabs, daq, switch, grid_size = "12x12", **kwargs):
+    def __init__(self, master, app, qontrol, thorlabs, daq, switch, switch_input, switch_output, grid_size = "12x12", **kwargs):
         super().__init__(master, **kwargs)
         self.app = app
         self.qontrol = qontrol
         self.thorlabs = thorlabs
         self.daq = daq
-        self.switch = switch
-
+        self.switch = switch #Backward compatibility (output switch)
+        self.switch_input = switch_input
+        self.switch_output = switch_output
+        
         # NxN dimension
         self.n = int(grid_size.split('x')[0])
         self.grid_size = grid_size 
@@ -61,6 +63,7 @@ class Window3Content(ctk.CTkFrame):
             command=self.decompose_unitary
         )
         self.apply_unitary_button.pack(anchor="center", pady=(5, 5))
+
 
         # ──────────────────────────────────────────────────────────────
         # 2) EXPERIMENT CONTROLS  
@@ -379,8 +382,8 @@ class Window3Content(ctk.CTkFrame):
                     #### Shall we use mzi or bs in this pnn package?
                     [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
                     A_theta *= 2 / np.pi
-                    A_phi += np.pi
-                    A_phi = A_phi % (2 * np.pi)
+                    #A_phi += np.pi
+                    #A_phi = A_phi % (2 * np.pi)
                     A_phi /= np.pi
                     json_output = get_json_pnn(self.n, A_theta, A_phi)
                 elif package == "interferometer":
@@ -630,8 +633,8 @@ class Window3Content(ctk.CTkFrame):
                         #from pnn.methods import decompose_clements
                         [A_phi, A_theta, *_] = decompose_clements(U_step, block='mzi')
                         A_theta *= 2 / np.pi
-                        A_phi += np.pi
-                        A_phi = A_phi % (2 * np.pi)
+                        #A_phi += np.pi
+                        #A_phi = A_phi % (2 * np.pi)
                         A_phi /= np.pi
                         json_output = get_json_pnn(self.n, A_theta, A_phi)
                     elif package == "interferometer":
@@ -849,7 +852,7 @@ class Window3Content(ctk.CTkFrame):
         try:
             # Get current grid configuration
             grid_config = AppData.default_json_grid
-            logging.info(f"Current grid configuration: {grid_config}")
+            #logging.info(f"Current grid configuration: {grid_config}")
             if not grid_config:
                 logging.warning("No grid configuration found")
                 return
@@ -915,7 +918,7 @@ class Window3Content(ctk.CTkFrame):
                 logging.error(f"Failed channels: {failed_channels}")
                 
             # Debugging: Print the grid size
-            logging.info(f"Grid size: {self.grid_size}")
+            #logging.info(f"Grid size: {self.grid_size}")
             
             try:
                 config_json = json.dumps(phase_grid_config)
@@ -941,30 +944,30 @@ class Window3Content(ctk.CTkFrame):
             float: Current in mA or None if calculation fails
         """
         try:
-            logging.info(f"Entering _calculate_current_for_phase_new_json with calib_key={calib_key}, phase_value={phase_value}")
+            #logging.info(f"Entering _calculate_current_for_phase_new_json with calib_key={calib_key}, phase_value={phase_value}")
             
             # Get resistance calibration data
             res_cal = AppData.resistance_calibration_data.get(calib_key)
-            logging.info(f"res_cal: {res_cal}")
+            #logging.info(f"res_cal: {res_cal}")
             if not res_cal:
                 logging.error(f"No resistance calibration for {calib_key}")
                 return None
 
             res_params = res_cal.get("resistance_params", {})
-            logging.info(f"res_params: {res_params}")
+            #logging.info(f"res_params: {res_params}")
             if not res_params:
                 logging.error(f"No resistance_params for {calib_key}")
                 return None
 
             # Get phase calibration data
             phase_cal = AppData.phase_calibration_data.get(calib_key)
-            logging.info(f"phase_cal: {phase_cal}")
+            #logging.info(f"phase_cal: {phase_cal}")
             if not phase_cal:
                 logging.error(f"No phase calibration for {calib_key}")
                 return None
 
             phase_params = phase_cal.get("phase_params", {})
-            logging.info(f"phase_params: {phase_params}")
+            #logging.info(f"phase_params: {phase_params}")
             if not phase_params:
                 logging.error(f"No phase_params for {calib_key}")
                 return None
@@ -984,36 +987,36 @@ class Window3Content(ctk.CTkFrame):
                 logging.info(f"phase_params: {phase_params}")
                 return None
 
-            logging.info(f"Extracted: c_res={c_res}, a_res={a_res}, A={A}, b={b}, c={c}, d={d}")
+            #logging.info(f"Extracted: c_res={c_res}, a_res={a_res}, A={A}, b={b}, c={c}, d={d}")
 
             if phase_value < c:
-                logging.info(f"Phase {phase_value}π is less than offset phase {c}π for {calib_key}")
+                #logging.info(f"Phase {phase_value}π is less than offset phase {c}π for {calib_key}")
                 phase_value = phase_value + 2
-                logging.info(f"Using adjusted phase value: {phase_value}π")
+                #logging.info(f"Using adjusted phase value: {phase_value}π")
 
             # Calculate heating power for this phase shift
             P_mW = abs((phase_value - c)*np.pi / b)    # Power in mW
-            logging.info(f"Calculated heating power P={P_mW} mW")
-            logging.info(f"Using parameters: A={A}, b={b}, c={c}, d={d}")
+            #logging.info(f"Calculated heating power P={P_mW} mW")
+            #logging.info(f"Using parameters: A={A}, b={b}, c={c}, d={d}")
 
             # Define symbols for solving equation
             I = sp.symbols('I', real=True, positive=True)
 
-            logging.info(f"P_mW={P_mW} mW, R0={c_res} kΩ, alpha={alpha_res} (1/mA²)")
+            #logging.info(f"P_mW={P_mW} mW, R0={c_res} kΩ, alpha={alpha_res} (1/mA²)")
 
             # Define equation: P/R0 = I²(1 + alpha*I²)
             eq = sp.Eq(P_mW/c_res, I**2 * (1 + alpha_res * I**2))
-            logging.info(f"Equation: {P_mW}/{c_res} = I² × (1 + {alpha_res}×I²)")
+            #logging.info(f"Equation: {P_mW}/{c_res} = I² × (1 + {alpha_res}×I²)")
 
             # Solve the equation
             solutions = sp.solve(eq, I)
-            logging.info(f"Solutions: {solutions}")
+            #logging.info(f"Solutions: {solutions}")
 
             # Filter and choose the real, positive solution
             positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
-            logging.info(f"Positive solutions: {positive_solutions}")
+            #logging.info(f"Positive solutions: {positive_solutions}")
             if positive_solutions:
-                logging.info(f"-> Calculated Current for {calib_key}: {positive_solutions[0]:.4f} mA")
+                #logging.info(f"-> Calculated Current for {calib_key}: {positive_solutions[0]:.4f} mA")
                 I_mA = positive_solutions[0] 
                 return float(I_mA)
             else:
@@ -1042,7 +1045,7 @@ class Window3Content(ctk.CTkFrame):
         try:
             # Load the unitary matrix from the .npy file
             matrix_u = np.load(path)
-            logging.info(f"Loaded unitary matrix from {path}")
+            #logging.info(f"Loaded unitary matrix from {path}")
 
             # Embed U_step into a unitary matrix if it's smaller than the mesh size
             if matrix_u.shape[0] < self.n or matrix_u.shape[1] < self.n:
@@ -1056,8 +1059,8 @@ class Window3Content(ctk.CTkFrame):
                 ["  ".join(f"{elem.real:.4f}{'+' if elem.imag >= 0 else ''}{elem.imag:.4f}j" for elem in row)
                  for row in matrix_u]
             )
-            logging.info("Formatted matrix: ")
-            logging.info(formatted_matrix)
+            #logging.info("Formatted matrix: ")
+            #logging.info(formatted_matrix)
             # Display the formatted matrix in the text box
             self.unitary_textbox.delete("1.0", "end")  # Clear the text box
             self.unitary_textbox.insert("1.0", formatted_matrix)
@@ -1072,8 +1075,8 @@ class Window3Content(ctk.CTkFrame):
                 #from pnn.methods import decompose_clements
                 [A_phi, A_theta, *_] = decompose_clements(matrix_u, block = 'mzi')
                 A_theta *= 2/np.pi
-                A_phi += np.pi
-                A_phi = A_phi % (2*np.pi)
+                #A_phi += np.pi
+                #A_phi = A_phi % (2*np.pi)
                 A_phi /= np.pi
                 json_output = get_json_pnn(self.n, A_theta, A_phi)
             
@@ -1086,7 +1089,7 @@ class Window3Content(ctk.CTkFrame):
 
             # Save the updated JSON to AppData
             setattr(AppData, 'default_json_grid', json_output)
-            logging.info("Updated JSON grid saved to AppData.")
+            #logging.info("Updated JSON grid saved to AppData.")
 
         except Exception as e:
             logging.error(f"Error during decomposition: {e}")
@@ -1100,3 +1103,4 @@ class Window3Content(ctk.CTkFrame):
         '''Refresh NxN grids when the user selects a new mesh size.'''
         self.n = int(new_mesh_size.split('x')[0])
         self.grid_size = new_mesh_size          # keep the string in sync
+
