@@ -72,10 +72,10 @@ def U2MZI(dim, m, n, phi, theta, use_sym=False, Lp=1, Lc=1):
         mat[n, n] = -sp.sqrt(Lp) * sp.I * sp.sin(theta)
     else:
         mat = np.eye(dim, dtype=np.complex128)
-        mat[m, m] = np.sqrt(Lp) * 1j * np.exp(1j * phi) * np.sin(theta)
-        mat[m, n] = np.sqrt(Lc) * 1j * np.cos(theta)
-        mat[n, m] = np.sqrt(Lc) * 1j * np.exp(1j * phi) * np.cos(theta)
-        mat[n, n] = -np.sqrt(Lp) * 1j * np.sin(theta)
+        mat[m, m] = np.sqrt(Lp) * np.exp(1j * phi) * np.sin(theta)
+        mat[m, n] = np.sqrt(Lc) * np.cos(theta)
+        mat[n, m] = np.sqrt(Lc) * np.exp(1j * phi) * np.cos(theta)
+        mat[n, n] = -np.sqrt(Lp) * np.sin(theta)
     return mat
 
 # ============================================================================

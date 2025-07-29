@@ -4,6 +4,7 @@ from ThorlabsPM100 import ThorlabsPM100, USBTMC
 from unittest.mock import MagicMock
 from app.devices.mock_devices import MockThorlabsPM100
 import logging
+import time
 
 class ThorlabsDevice:
     _connected_devices = {}
@@ -181,6 +182,11 @@ class ThorlabsDevice:
         self.serial = idn[2]
         self.device.sense.function = 'POWER'
         self.device.sense.correction.wavelength = self.wavelength
+        
+        # Enable hardware averaging with 20 samples
+        self.device.sense.average.count = 20
+        self.device.sense.average.state = True  # Enable averaging
+        
         logging.info(f"[Thorlabs] Connected to {self.params['Model']} at {resource}")
 
     def read_power(self, unit="uW"):
@@ -196,7 +202,7 @@ class ThorlabsDevice:
         """
         if self.device:
             try:
-                power_in_watts = self.device.read  # Read power in watts
+                power_in_watts = self.device.read  # This will now return hardware-averaged value
             except AttributeError:
                 power_in_watts = self.device.power  # Fallback to another attribute
                 logging.info(f"[Thorlabs] Using fallback power reading method: {power_in_watts} W")

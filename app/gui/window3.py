@@ -4,6 +4,7 @@ from app.imports import *
 import tkinter.filedialog as filedialog
 import copy
 import sympy as sp
+from scipy.optimize import brentq
 from app.utils.qontrol.qmapper8x8 import create_label_mapping, apply_grid_mapping
 from app.utils.qontrol.mapping_utils import get_mapping_functions
 from app.utils.appdata import AppData
@@ -383,7 +384,7 @@ class Window3Content(ctk.CTkFrame):
                     [A_phi, A_theta, *_] = decompose_clements(matrix_u, block='mzi')
                     A_theta *= 2 / np.pi
                     #A_phi += np.pi
-                    #A_phi = A_phi % (2 * np.pi)
+                    A_phi = A_phi % (2 * np.pi)
                     A_phi /= np.pi
                     json_output = get_json_pnn(self.n, A_theta, A_phi)
                 elif package == "interferometer":
@@ -634,7 +635,7 @@ class Window3Content(ctk.CTkFrame):
                         [A_phi, A_theta, *_] = decompose_clements(U_step, block='mzi')
                         A_theta *= 2 / np.pi
                         #A_phi += np.pi
-                        #A_phi = A_phi % (2 * np.pi)
+                        A_phi = A_phi % (2 * np.pi)
                         A_phi /= np.pi
                         json_output = get_json_pnn(self.n, A_theta, A_phi)
                     elif package == "interferometer":
@@ -934,6 +935,16 @@ class Window3Content(ctk.CTkFrame):
             traceback.print_exc()
             return None
 
+    def _solve_current_with_brentq(self, P_mW, c_res, alpha_res):
+        def equation(I):
+            return I**2 * (1 + alpha_res * I**2) - (P_mW / c_res)
+        try:
+            # Choose safe bounds based on expected current range (e.g., 0.0001 to 10 mA)
+            return brentq(equation, a=1e-5, b=1.65, maxiter=100)
+        except ValueError as e:
+            logging.error(f"brentq failed to find a root: {e}")
+            return None
+
     def _calculate_current_for_phase_new_json(self, calib_key, phase_value):
         """
         Calculate current for a phase value using the new calibration format.
@@ -943,91 +954,61 @@ class Window3Content(ctk.CTkFrame):
         Returns:
             float: Current in mA or None if calculation fails
         """
-        try:
-            #logging.info(f"Entering _calculate_current_for_phase_new_json with calib_key={calib_key}, phase_value={phase_value}")
-            
-            # Get resistance calibration data
-            res_cal = AppData.resistance_calibration_data.get(calib_key)
-            #logging.info(f"res_cal: {res_cal}")
-            if not res_cal:
-                logging.error(f"No resistance calibration for {calib_key}")
-                return None
-
-            res_params = res_cal.get("resistance_params", {})
-            #logging.info(f"res_params: {res_params}")
-            if not res_params:
-                logging.error(f"No resistance_params for {calib_key}")
-                return None
-
-            # Get phase calibration data
-            phase_cal = AppData.phase_calibration_data.get(calib_key)
-            #logging.info(f"phase_cal: {phase_cal}")
-            if not phase_cal:
-                logging.error(f"No phase calibration for {calib_key}")
-                return None
-
-            phase_params = phase_cal.get("phase_params", {})
-            #logging.info(f"phase_params: {phase_params}")
-            if not phase_params:
-                logging.error(f"No phase_params for {calib_key}")
-                return None
-
-            # Extract parameters
-            try:
-                c_res = res_params['c_res']     # kΩ
-                a_res = res_params['a_res']     # V/(mA)³
-                alpha_res = res_params['alpha_res'] # 1/mA²
-                A = phase_params['amplitude']   # mW
-                b = phase_params['omega']       # rad/mW
-                c = phase_params['phase']       # rad
-                d = phase_params['offset']      # mW
-            except Exception as e:
-                logging.error(f"Failed to extract parameters: {e}")
-                logging.info(f"res_params: {res_params}")
-                logging.info(f"phase_params: {phase_params}")
-                return None
-
-            #logging.info(f"Extracted: c_res={c_res}, a_res={a_res}, A={A}, b={b}, c={c}, d={d}")
-
-            if phase_value < c:
-                #logging.info(f"Phase {phase_value}π is less than offset phase {c}π for {calib_key}")
-                phase_value = phase_value + 2
-                #logging.info(f"Using adjusted phase value: {phase_value}π")
-
-            # Calculate heating power for this phase shift
-            P_mW = abs((phase_value - c)*np.pi / b)    # Power in mW
-            #logging.info(f"Calculated heating power P={P_mW} mW")
-            #logging.info(f"Using parameters: A={A}, b={b}, c={c}, d={d}")
-
-            # Define symbols for solving equation
-            I = sp.symbols('I', real=True, positive=True)
-
-            #logging.info(f"P_mW={P_mW} mW, R0={c_res} kΩ, alpha={alpha_res} (1/mA²)")
-
-            # Define equation: P/R0 = I²(1 + alpha*I²)
-            eq = sp.Eq(P_mW/c_res, I**2 * (1 + alpha_res * I**2))
-            #logging.info(f"Equation: {P_mW}/{c_res} = I² × (1 + {alpha_res}×I²)")
-
-            # Solve the equation
-            solutions = sp.solve(eq, I)
-            #logging.info(f"Solutions: {solutions}")
-
-            # Filter and choose the real, positive solution
-            positive_solutions = [sol.evalf() for sol in solutions if sol.is_real and sol.evalf() > 0]
-            #logging.info(f"Positive solutions: {positive_solutions}")
-            if positive_solutions:
-                #logging.info(f"-> Calculated Current for {calib_key}: {positive_solutions[0]:.4f} mA")
-                I_mA = positive_solutions[0] 
-                return float(I_mA)
-            else:
-                logging.error(f"No positive solution for {calib_key}, fallback to linear model")
-                return None
-
-        except Exception as e:
-            logging.error(f"Calculating current for {calib_key}: {str(e)}")
-            import traceback
-            traceback.print_exc()
+        # Manually exclude known bad keys
+        SKIP_KEYS = {
+            "A1_phi", "A2_phi", "A3_phi", "A4_phi", "A5_phi", "A6_phi",
+            "B1_phi", "B2_phi", "B3_phi", "B4_phi", "B5_phi"
+        }
+        if calib_key in SKIP_KEYS:
+            logging.debug(f"Skipping calculation for excluded key: {calib_key}")
             return None
+
+        t0 = time.time()
+        res_cal = AppData.resistance_calibration_data.get(calib_key)
+        phase_cal = AppData.phase_calibration_data.get(calib_key)
+
+        if res_cal is None or phase_cal is None:
+            logging.error(f"Missing calibration for {calib_key}")
+            return None
+
+        res_params = res_cal.get("resistance_params")
+        phase_params = phase_cal.get("phase_params")
+        if res_params is None or phase_params is None:
+            logging.error(f"Missing calibration params for {calib_key}")
+            return None
+
+        print(f"[TIMER] Loaded calibration data for {calib_key} in {time.time() - t0:.3f}s")
+
+        try:
+            c_res = res_params.get('c_res')
+            a_res = res_params.get('a_res')
+            alpha_res = res_params.get('alpha_res')
+            A = phase_params.get('amplitude')
+            b = phase_params.get('omega')
+            c = phase_params.get('phase')
+            d = phase_params.get('offset')
+            if None in (c_res, a_res, alpha_res, A, b, c, d):
+                logging.error(f"Missing parameter value for {calib_key}")
+                return None
+        except Exception as e:
+            logging.error(f"Failed to extract parameters for {calib_key}: {e}")
+            return None
+
+        if phase_value < c:
+            phase_value = phase_value + 2
+
+        P_mW = abs((phase_value - c) * np.pi / b)  # Power in mW
+
+        t0 = time.time()
+        current = self._solve_current_with_brentq(P_mW, c_res, alpha_res)
+        print(f"[TIMER] Solved equation for {calib_key} in {time.time() - t0:.3f}s")
+
+        if current:
+            return current
+        else:
+            logging.error(f"No positive solution for {calib_key}, fallback to linear model")
+            return None
+
 
     def decompose_unitary(self):
         """
