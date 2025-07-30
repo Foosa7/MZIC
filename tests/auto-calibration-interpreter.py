@@ -43,60 +43,7 @@ def mode_to_arms(mode):
         return []  # Default: no arms
 
 # Example usage data:
-calibration_json = {
-  "calibration_steps": [
-    {
-      "step": 0,
-      "input_port": 1,
-      "output_port": 12,
-      "calibration": "RP",
-      "calibration_node": "A1",
-      "Phase_shifter": "Internal",
-      "Io_config": "Cross",
-      "additional_nodes": {
-        "B1": "Cross",
-        "C2": "Cross",
-        "D2": "Cross",
-        "E3": "Cross",
-        "F3": "Cross",
-        "G4": "Cross",
-        "H4": "Cross",
-        "I5": "Cross",
-        "J5": "Cross",
-        "K6": "Cross"
-      }
-    },
-    {
-      "step": 1,
-      "input_port": 1,
-      "output_port": 12,
-      "calibration": "RP",
-      "calibration_node": "A1",
-      "Phase_shifter": "Internal",
-      "Io_config": "Cross",
-      "additional_nodes": {
-        "B1": "Cross",
-        "C1": "Cross",
-        "D1": "Cross"
-      }
-    },
-    {
-      "step": 2,
-      "input_port": 1,
-      "output_port": 12,
-      "calibration": "RP",
-      "calibration_node": "A1",
-      "Phase_shifter": "Internal",
-      "Io_config": "Cross",
-      "additional_nodes": {
-        "B1": "Cross",
-        "C1": "Cross",
-        "D1": "Cross"
-      }
-    }
-  ]
-}
-
+calibration_json = {}
 # Dummy get_cross_modes function for testing:
 def dummy_get_cross_modes():
     return {"A1": "cross", "B1": "bar", "C1": "cross", "D1": "split"}

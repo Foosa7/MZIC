@@ -134,6 +134,7 @@ def main():
         pass
         logging.info("Failed to set DPI awareness")
     # Initialize the GUI theme
+    AppData.load_calibration("calibration.json")
 
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")

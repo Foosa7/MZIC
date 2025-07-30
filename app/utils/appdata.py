@@ -1,5 +1,6 @@
 # app/utils/appdata.py
 from threading import Lock
+import json
 
 class AppData:
     unitary_textbox_content = ""
@@ -39,6 +40,17 @@ class AppData:
     selected_labels = {}
     io_config = None
     last_selection = {"cross": None, "arm": None}  # Set default starting value
+
+    calibration_json = None
+
+    @classmethod
+    def load_calibration(cls, path="calibration.json"):
+        try:
+            with open(path, "r") as f:
+                cls.calibration_json = json.load(f)
+        except Exception:
+            cls.calibration_json = {"steps": []}
+
     
     @classmethod
     def update_last_selection(cls, cross, arm):

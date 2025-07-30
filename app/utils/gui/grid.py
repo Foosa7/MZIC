@@ -39,7 +39,7 @@ class Example(Frame):
         self.all_steps = []    
         self.playing = False
         self.current_step = 0
-        self.edit_mode = True  # Start in edit mode  
+        self.edit_mode = False  # Start in edit mode  
         self.grid_n = grid_n
         self.scale = scale
         self.selection_callback = None  # Callback to update dynamic selection display.
@@ -75,27 +75,33 @@ class Example(Frame):
         # center nav
         nav_frame = Frame(ctrl, bg='grey16')
         nav_frame.grid(row=0, column=1)
-        self.back_btn = ctk.CTkButton(nav_frame, text="⏮ Back", width=80, command=self.prev_step)
+        self.back_btn = ctk.CTkButton(nav_frame, text="⏮ Back", width=80, command=self.prev_step, fg_color="transparent")
         self.back_btn.pack(side='left', padx=5)
-        self.play_btn = ctk.CTkButton(nav_frame, text="▶ Play", width=80, command=self.toggle_play)
+        self.play_btn = ctk.CTkButton(nav_frame, text="▶ Play", width=80, command=self.toggle_play, fg_color="transparent")
         self.play_btn.pack(side='left', padx=5)
         self.next_btn = ctk.CTkButton(
             nav_frame,
             text="Next ⏭",
             width=80,
-            command=self.next_step
+            command=self.next_step,
+            text_color="white",
+            fg_color="transparent"
+
         )
         self.next_btn.pack(side='left', padx=5)
 
         # —— save button on the right ——
         self.mode_btn = ctk.CTkButton(
             ctrl,
-            text="✏️ Edit",              # shows “Edit” when in view mode
+            text="👁️ View",              # Start in view mode
             width=80,
             corner_radius=6,
             command=self.toggle_edit_mode
         )
         self.mode_btn.grid(row=0, column=2, padx=10)
+
+        # track the mode
+        self.edit_mode = False     # = View mode
 
 
         # ctrl = Frame(self, bg='grey16')
@@ -1140,8 +1146,6 @@ class Example(Frame):
 
         return json.dumps(export_data, indent=2)
 
-
-
     def import_paths_json(self, json_str):
         """
         Imports path selection from a JSON string.
@@ -1333,10 +1337,8 @@ class Example(Frame):
         try:
             with open("calibration.json", "w") as f:
                 json.dump(payload, f, indent=2)
-            messagebox.showinfo(
-                "Saved",
-                f"Merged {len(self.all_steps)} steps into calibration.json"
-            )
+                logging.info(f"Saved: Merged {len(self.all_steps)} steps into calibration.json")
+
         except Exception as e:
             logging.error("Failed to write merged JSON: %s", e)
             messagebox.showerror("Error", f"Could not save merged file: {e}")
@@ -1355,20 +1357,23 @@ class Example(Frame):
 
         if self.edit_mode:
             # now in edit mode
-            self.mode_btn.configure(text="👁️ View")
+            self.mode_btn.configure(text="✏️ Edit")
             # Next → save
             self.next_btn.configure(command=self.save_current_step)
             # visually highlight “Next” when it’s acting as save
-            self.next_btn.configure(fg_color="orange")
+            for b in (self.back_btn, self.play_btn, self.next_btn):
+                b.configure(fg_color="red", hover_color="#690000", text_color="black")
+            self.next_btn.configure(command=self.save_current_step)
+
         else:
             # back to view mode
-            self.mode_btn.configure(text="✏️ Edit")
+            self.mode_btn.configure(text="👁️ View")
             # Next → just advance
             self.next_btn.configure(command=self.next_step)
             # restore default look
-            self.next_btn.configure(fg_color="transparent")
-
-
+            for b in (self.back_btn, self.play_btn, self.next_btn):
+               b.configure(fg_color="transparent", text_color="white")
+            self.next_btn.configure(command=self.next_step)
 
     # def convert_calibration_to_grid_inline(calibration_json, get_cross_modes_func):
     #     """
