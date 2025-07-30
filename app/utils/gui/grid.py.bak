@@ -6,7 +6,6 @@ import json
 import customtkinter as ctk
 import tkinter.messagebox as messagebox
 import logging
-from datetime import datetime
 
 class Node:
     """Represents a node."""
@@ -23,23 +22,13 @@ class Path:
         self.line_id = line_id
 
 class Example(Frame):
-    def __init__(self, master=None, grid_n=12, scale=1, calibration_json=None, get_cross_modes_func=None):
-
+    def __init__(self, master=None, grid_n=8, scale=1):
         """
         master: parent widget.
         grid_n: number of columns (and related rows) for the grid.
         scale: scaling factor to adjust the grid's size while keeping the ratios.
         """
         super().__init__(master)
-        # if calibration_json and get_cross_modes_func:
-        #     self.step_lines = convert_calibration_to_grid_inline(
-        #         calibration_json, get_cross_modes_func)
-        # else:
-        self.step_lines = []    
-        self.all_steps = []    
-        self.playing = False
-        self.current_step = 0
-        self.edit_mode = True  # Start in edit mode  
         self.grid_n = grid_n
         self.scale = scale
         self.selection_callback = None  # Callback to update dynamic selection display.
@@ -50,84 +39,12 @@ class Example(Frame):
         self.io_config = "None"  # Default I/O configuration
 
     def initUI(self):
-        self.configure(bg='grey16')
         self.pack(fill=BOTH, expand=1)
         self.canvas = Canvas(self, bg='grey16', highlightthickness=0)
         self.nodes = {}
         self.paths = []
         self.selected_paths = set()
         self.cross_labels = {}
-
-
-        ctrl = Frame(self, bg='grey16')
-        ctrl.pack(side='bottom', fill='x', pady=10)
-
-        # left counter
-        ctrl.grid_columnconfigure(1, weight=1)
-        self.step_label = ctk.CTkButton(
-            ctrl,
-            text=f"Step {self.current_step+1}/{len(self.step_lines)}",
-            width=80, corner_radius=6,
-            fg_color=None, hover=False, state="enabled"
-        )
-        self.step_label.grid(row=0, column=0, padx=10)
-
-        # center nav
-        nav_frame = Frame(ctrl, bg='grey16')
-        nav_frame.grid(row=0, column=1)
-        self.back_btn = ctk.CTkButton(nav_frame, text="⏮ Back", width=80, command=self.prev_step)
-        self.back_btn.pack(side='left', padx=5)
-        self.play_btn = ctk.CTkButton(nav_frame, text="▶ Play", width=80, command=self.toggle_play)
-        self.play_btn.pack(side='left', padx=5)
-        self.next_btn = ctk.CTkButton(
-            nav_frame,
-            text="Next ⏭",
-            width=80,
-            command=self.next_step
-        )
-        self.next_btn.pack(side='left', padx=5)
-
-        # —— save button on the right ——
-        self.mode_btn = ctk.CTkButton(
-            ctrl,
-            text="✏️ Edit",              # shows “Edit” when in view mode
-            width=80,
-            corner_radius=6,
-            command=self.toggle_edit_mode
-        )
-        self.mode_btn.grid(row=0, column=2, padx=10)
-
-
-        # ctrl = Frame(self, bg='grey16')
-        # ctrl.pack(side='bottom', fill='x', pady=10)
-
-        # # make column 1 (the middle) expand to take all extra space
-        # ctrl.grid_columnconfigure(1, weight=1)
-
-        # # ——— step counter on the left ———
-        # self.step_label = ctk.CTkButton(
-        #     ctrl,
-        #     text=f"Step {self.current_step+1}/{len(self.step_lines)}",
-        #     width=80, corner_radius=6,
-        #     fg_color=None, hover=False, state="disabled"
-        # )
-        # self.step_label.grid(row=0, column=0, padx=10)
-
-        # # ——— nav buttons in a centered frame ———
-        # nav_frame = Frame(ctrl, bg='grey16')
-        # # no sticky→defaults to center of its expanding cell
-        # nav_frame.grid(row=0, column=1)
-
-        # self.back_btn = ctk.CTkButton(nav_frame, text="⏮ Back", width=80, command=self.prev_step)
-        # self.back_btn.pack(side='left', padx=5)
-
-        # self.play_btn = ctk.CTkButton(nav_frame, text="▶ Play", width=80, command=self.toggle_play)
-        # self.play_btn.pack(side='left', padx=5)
-
-        # self.next_btn = ctk.CTkButton(nav_frame, text="Next ⏭", width=80, command=self.next_step)
-        # self.next_btn.pack(side='left', padx=5)
-
-
 
         # Set geometry based on grid size
         if self.grid_n == 8:
@@ -314,40 +231,15 @@ class Example(Frame):
             new_x = node.x + (ext_length if side == "right" else -ext_length)
             ext_node = Node(f"{node.name}_EXT", new_x, node.y)
             self.nodes[ext_node.name] = ext_node
-
-            # figure out this node’s numeric label BEFORE drawing
-            if n == 8:
-                label = 14 - i if side == "left" else 7 + i
-            elif n == 12:
-                label = i + 1 if side == "left" else i + 1
-            else:
-                # skip any unexpected n
-                continue
-
-
-            # self.create_path(node, ext_node)
-            ext_path = self.create_path(node, ext_node)
-            line_id   = ext_path.line_id
-            label_tag = f"{'input' if side=='left' else 'output'}_label_{label}"
-            self.canvas.addtag_withtag(label_tag, line_id)
-
-            # Bind clicks on the line (via its tag) to the same handler as the text
-            self.canvas.tag_bind(
-                label_tag,
-                "<Button-1>",
-                lambda event, tag=label_tag: self.on_side_label_click(event, tag)
-            )
-
+            self.create_path(node, ext_node)
 
             # Add labels for grid
             if n == 8:
                 label = 14 - i if side == "left" else 7 + i
                 self._draw_side_label(is_special, label, side, new_x, node.y)
             elif n == 12:
-                label = i + 1 if side == "left" else i + 1
+                label = 3 + i if side == "left" else 14 - i
                 self._draw_side_label(is_special, label, side, new_x, node.y)
-            self._draw_side_label(is_special, label, side, new_x, node.y)
-
 
         if side == "right" and col == second_last_col and n == 8:
             self.connect_vertical_extensions(col, (n // 2) - 1, extension * 3)
@@ -444,63 +336,50 @@ class Example(Frame):
             self.create_path(self.nodes[center_name], self.nodes[arm_name])
 
     def on_label_click(self, label, label_id):
-        """
-        Only one cross label may be selected; clicking the same label again deselects it.
-        """
-        # If this label is already selected → unselect everything
-        if AppData.selected_label == label:
-            # 1) clear highlight
-            for text_id in self.cross_labels.values():
-                self.canvas.itemconfig(text_id, fill="white")
-            # 2) clear selection
-            AppData.selected_label = ""
-            # 3) update AppData.last_selected to no cross
-            AppData.update_last_selection("", None)
-            return
-
-        # Otherwise, select this one and clear any prior
-        for text_id in self.cross_labels.values():
-            self.canvas.itemconfig(text_id, fill="white")
-
-        self.canvas.itemconfig(label_id, fill="red")
-        AppData.selected_label = label
-        AppData.update_last_selection(label, None)
-
+        """Handles label selection and stores selected labels in AppData."""
+        if not hasattr(AppData, "selected_labels"):
+            AppData.selected_labels = set()
+        if label in AppData.selected_labels:
+            AppData.selected_labels.remove(label)
+            self.canvas.itemconfig(label_id, fill="white")
+        else:
+            AppData.selected_labels.add(label)
+            self.canvas.itemconfig(label_id, fill="red")
+        #logging.info("Selected labels:", AppData.selected_labels)
 
     def get_cross_modes(self):
-        """Returns a dict mapping cross labels to their selection type (bar/cross/split/arbitrary)."""
+        """Returns a dict mapping cross labels to their selection type (bar/cross/split)."""
         cross_arms = defaultdict(set)
+        
+        # Collect selected arms per cross.
         for path in self.paths:
             if path.line_id in self.selected_paths:
                 center, arm = self._parse_path_components(path)
                 if center and arm:
+                    # Handle arm pairs (like "TL-BR") from cross connections.
                     if '-' in arm:
                         cross_arms[center].update(arm.split('-'))
                     else:
                         cross_arms[center].add(arm)
 
+        # Determine mode for each cross.
         modes = {}
         for cross, arms in cross_arms.items():
             arm_set = set(arms)
-
-            # bar = the two horizontals or the two verticals
-            if arm_set in ({"BR", "BL"}, {"TR", "TL"}):
-                modes[cross] = "bar"
-
-            # cross = diagonal
-            elif arm_set in ({"TL", "BR"}, {"TR", "BL"}):
-                modes[cross] = "cross"
-
-            # split = any three out of four
-            elif arm_set in ({"TR", "BR", "TL"}, {"TR", "BR", "BL"},
-                             {"TL", "TR", "BL"}, {"TL", "BL", "BR"}):
-                modes[cross] = "split"
-
-            # arbitrary = all four arms
-            elif arm_set == {"TL", "TR", "BR", "BL"}:
-                modes[cross] = "arbitrary"
-
+            if len(arm_set) != 2 and len(arm_set) != 3:
+                continue  # Only consider pairs or triplets.
+            if arm_set in [{'BR', 'BL'}, {'TR', 'TL'}]:
+                modes[cross] = 'bar'
+            elif arm_set in [{'TL', 'BR'}, {'TR', 'BL'}]:
+                modes[cross] = 'cross'
+            elif arm_set in [{'TR', 'BR', 'TL'}, {'TR', 'BR', 'BL'}]:  
+                modes[cross] = 'split'
+            elif arm_set in [{'TL', 'TR' 'BR', 'BL'}, {'TL', 'TR', 'BL', 'BR'}]:
+                modes[cross] = 'arbitrary'    
+        
         return modes
+
+
 
     def connect_nodes(self, node1_name, node2_name):
         """Connects two nodes if they exist."""
@@ -514,9 +393,7 @@ class Example(Frame):
             node2.x, node2.y,
             fill="white", width=2
         )
-        p = Path(node1, node2, line_id)
-        self.paths.append(p)
-        return p    
+        self.paths.append(Path(node1, node2, line_id))
 
     # def on_canvas_click(self, event):
     #     """Handles path selection."""
@@ -526,69 +403,41 @@ class Example(Frame):
     #             self.toggle_path_selection(path)
 
     def on_canvas_click(self, event):
-        """Handles clicks on non‐extension paths (cross‐arms) only."""
+        """Handles path selection."""
         # Use 10 px tolerance if grid_n is 12, else 15
         tolerance = 10 if self.grid_n == 12 else 15
-
         for path in self.paths:
-            # Skip extension lines – they have tags like "input_label_X" or "output_label_X"
-            tags = self.canvas.gettags(path.line_id)
-            if any(t.startswith(("input_label_", "output_label_")) for t in tags):
-                continue
-
             coords = self.canvas.coords(path.line_id)
-            # Make sure we have at least two points (x1,y1,x2,y2)
             if len(coords) >= 4 and self.is_point_near_line(event.x, event.y, *coords[:4], tolerance):
                 self.toggle_path_selection(path)
 
-
-
     def on_side_label_click(self, event, label_tag):
-        """Clicking label now toggles both the text *and* its extension line."""
-        # find all items (line + text) sharing this tag
-        items = self.canvas.find_withtag(label_tag)
-        if not items:
-            return
-
-        # decide new color
-        current = self.canvas.itemcget(items[0], "fill")
-        new_color = "white" if current=="red" else "red"
-
-        # flip every item
-        for item in items:
-            self.canvas.itemconfig(item, fill=new_color)
-
-        # now update AppData.selected_{input,output}_pins & self.selected_paths
-        num = int(label_tag.split("_")[-1])
+        """Handles click on a side label by turning it red and calling the appropriate handler."""
+        # Change the label color to red.
+        self.canvas.itemconfig(label_tag, fill="red")
+        
+        # Determine if it's an input or output label and extract the label number.
         if label_tag.startswith("input_label_"):
-            AppData.selected_input_pins.clear()
-            if new_color=="red":
-                AppData.selected_input_pins.add(num)
-        else:
-            AppData.selected_output_pins.clear()
-            if new_color=="red":
-                AppData.selected_output_pins.add(num)
+            label_number = label_tag.split("input_label_")[-1]
+            # Call your function that handles left-side input labels.
+            self.handle_input_label_selection(label_number)
+        elif label_tag.startswith("output_label_"):
+            label_number = label_tag.split("output_label_")[-1]
+            # Call your function that handles right-side output labels.
+            self.handle_output_label_selection(label_number)
 
-        # sync selected_paths for extension lines
-        for path in self.paths:
-            if label_tag in self.canvas.gettags(path.line_id):
-                if new_color=="red":
-                    self.selected_paths.add(path.line_id)
-                else:
-                    self.selected_paths.discard(path.line_id)
-            
     # Multiple selection of output labels 
     def handle_input_label_selection(self, label_number):
         # Map label number to pin index
         pin_map = {
-            "1": 1,
-            "2": 2,
-            "3": 3,
-            "4": 4,
-            "5": 5,
-            "6": 6,
             "7": 7,
-            "8": 8
+            "8": 6,
+            "9": 5,
+            "10": 4,
+            "11": 3,
+            "12": 2,
+            "13": 1,
+            "14": 0
         }
 
         if label_number not in pin_map:
@@ -624,14 +473,14 @@ class Example(Frame):
     def handle_output_label_selection(self, label_number):
         # Map label number to pin index
         pin_map = {
-            "1": 1,
-            "2": 2,
-            "3": 3,
-            "4": 4,
-            "5": 5,
-            "6": 6,
             "7": 7,
-            "8": 8
+            "8": 6,
+            "9": 5,
+            "10": 4,
+            "11": 3,
+            "12": 2,
+            "13": 1,
+            "14": 0
         }
 
         if label_number not in pin_map:
@@ -695,32 +544,14 @@ class Example(Frame):
     #         print(f"Output Pinned channel {out_pin_idx}")
 
     def toggle_path_selection(self, path):
+        """Toggles path selection state."""
         adding = path.line_id not in self.selected_paths
-        color  = "red" if adding else "white"
-
-        # flip the line
-        self.canvas.itemconfig(path.line_id, fill=color)
         if adding:
+            self.canvas.itemconfig(path.line_id, fill="red")
             self.selected_paths.add(path.line_id)
         else:
+            self.canvas.itemconfig(path.line_id, fill="white")
             self.selected_paths.remove(path.line_id)
-
-        #— if the line has a side‐label tag, flip that text too
-        for tag in self.canvas.gettags(path.line_id):
-            if tag.startswith(("input_label_","output_label_")):
-                for item in self.canvas.find_withtag(tag):
-                    self.canvas.itemconfig(item, fill=color)
-
-                # mirror pin state
-                num = int(tag.split("_")[-1])
-                if tag.startswith("input_label_"):
-                    AppData.selected_input_pins.clear()
-                    if adding:
-                        AppData.selected_input_pins.add(num)
-                else:
-                    AppData.selected_output_pins.clear()
-                    if adding:
-                        AppData.selected_output_pins.add(num)
         
         affected_crosses = set()
         for node in [path.node1, path.node2]:
@@ -775,9 +606,7 @@ class Example(Frame):
             logging.info(f"{visible_label}: Cross mode detected. Inserting 2.")
         elif mode == 'split':
             theta_entry.insert(0, "0.5")
-            logging.info(f"{visible_label}: Split mode detected. Inserting 1.5.") 
-        elif mode == 'arbitrary':
-            logging.info(f"{visible_label}: Arbitrary mode detected.")           
+            logging.info(f"{visible_label}: Split mode detected. Inserting 1.5.")            
         else:
             logging.info(f"{visible_label}: No matching mode. Mode value: {mode}")
 
@@ -997,7 +826,7 @@ class Example(Frame):
             theta_entry.insert(0, "1")
             logging.info("Bar")
         elif mode == 'cross':
-            theta_entry.insert(0, "0")
+            theta_entry.insert(0, "2")
             logging.info("Cross")
         else:
             logging.info(f"No matching mode for {actual_label}. Mode value: {mode}")
@@ -1202,214 +1031,6 @@ class Example(Frame):
 
         self.event_generate("<<SelectionUpdated>>")  # Add event trigger        
         self.update_selection()
-
-    def load_step(self, idx):
-        """Import the JSON for step idx and refresh the grid selection."""
-        json_str = self.step_lines[idx]
-        self.import_paths_json(json_str)
-        self.step_label.config(text=f"Step {self.current_step+1}/{len(self.step_lines)}") # update counter
-
-    def prev_step(self):
-        if not self.step_lines:
-            return
-        self.current_step = (self.current_step - 1) % len(self.step_lines)
-        self.load_step(self.current_step)
-
-    def next_and_save(self):
-        """Advance, save into merged JSON, then load."""
-        # 1) bump (no modulo if you want monotonic filenames)
-        self.current_step += 1
-
-        # 2) save merged
-        self.save_current_step()
-
-        # 3) load (optional) or just update label
-        if self.step_lines:
-            self.current_step %= len(self.step_lines)
-            self.load_step(self.current_step)
-        # otherwise just update the label text
-        total = len(self.step_lines) or (self.current_step + 1)
-        self.step_label.configure(text=f"Step {self.current_step+1}/{total}")
-
-    def toggle_play(self):
-        if self.playing:
-            # stop
-            self.playing = False
-            self.play_btn.configure(text="▶ Play")
-        else:
-            # start
-            self.playing = True
-            self.play_btn.configure(text="⏸ Pause")
-            self._auto_advance()
-
-    def _auto_advance(self):
-        """Advance one step every 1 second while playing."""
-        if not self.playing:
-            return
-        self.next_step()
-        # schedule next advance in 1 000 ms
-        self.after(1000, self._auto_advance)
-
-    def export_calibration_step(self):
-        """
-        Build a calibration‐step dict matching your JSON schema:
-          {
-            "step": 0,
-            "input_port": 1,
-            "output_port": 12,
-            "calibration": "RP",
-            "calibration_node": "A1",
-            "Phase_shifter": "Internal",
-            "Io_config": "Cross",
-            "additional_nodes": { ... }
-          }
-        """
-        # 1) Step index
-        step = self.current_step
-
-        # 2) Grab the one selected input/output pin (they are stored as ints 1–8)
-        input_port  = next(iter(AppData.selected_input_pins),  None)
-        output_port = next(iter(AppData.selected_output_pins), None)
-
-        # 3) Calibration node = the one cross‐label stored in AppData.selected_label
-        cal_node = AppData.selected_label if isinstance(AppData.selected_label, str) else None
-
-
-        # 4) Phase shifter choice from AppData
-        phase_shifter = AppData.phase_shifter_selection
-
-        # 5) Compute Io_config + additional_nodes from the current cross modes
-        cross_modes = self.get_cross_modes()  # e.g. {"A1":"cross", "B1":"bar", ...}
-        # io_config = cross_modes.get(cal_node, "cross").capitalize()
-
-       # if cal_node is None or missing, default to “Cross”
-        io_config = (
-            cross_modes.get(cal_node, "cross").capitalize()
-            if cal_node in cross_modes
-            else "Cross"
-        )
-
-        additional_nodes = {
-            node: mode.capitalize()
-            for node, mode in cross_modes.items()
-            if node != cal_node
-        }
-
-        # 6) Assemble and return the dict
-        return {
-            "step":             step,
-            "input_port":       input_port,
-            "output_port":      output_port,
-            "calibration":      "RP",
-            "calibration_node": cal_node,
-            "Phase_shifter":    phase_shifter,
-            "Io_config":        io_config,
-            "additional_nodes": additional_nodes
-        }
-    def save_current_step(self):
-        """
-        Called when the Save button is clicked:
-          - builds the current calibration‐step dict
-          - writes it to step_<n>.json
-        """
-        # 1) export current‐step dict
-        step_data = self.export_calibration_step()
-
-        # 2) append
-        self.all_steps.append(step_data)
-
-        # 3) build top‐level structure
-        payload = {
-            "metadata": {
-                "created_at": datetime.now().isoformat(),
-                "total_steps": len(self.all_steps),
-                # you can add more global fields here, e.g.
-                # "phase_shifter": AppData.phase_shifter_selection
-            },
-            "steps": self.all_steps
-        }
-
-        # 4) write single file
-        try:
-            with open("calibration.json", "w") as f:
-                json.dump(payload, f, indent=2)
-            messagebox.showinfo(
-                "Saved",
-                f"Merged {len(self.all_steps)} steps into calibration.json"
-            )
-        except Exception as e:
-            logging.error("Failed to write merged JSON: %s", e)
-            messagebox.showerror("Error", f"Could not save merged file: {e}")
-
-    def next_step(self):
-        """Just advance the counter & load without saving."""
-        if not self.step_lines:
-            return
-        self.current_step = (self.current_step + 1) % len(self.step_lines)
-        self.load_step(self.current_step)
-
-    def toggle_edit_mode(self):
-        """Toggle between view and edit modes.
-           In edit mode, Next ⏭ will SAVE instead of advancing."""
-        self.edit_mode = not self.edit_mode
-
-        if self.edit_mode:
-            # now in edit mode
-            self.mode_btn.configure(text="👁️ View")
-            # Next → save
-            self.next_btn.configure(command=self.save_current_step)
-            # visually highlight “Next” when it’s acting as save
-            self.next_btn.configure(fg_color="orange")
-        else:
-            # back to view mode
-            self.mode_btn.configure(text="✏️ Edit")
-            # Next → just advance
-            self.next_btn.configure(command=self.next_step)
-            # restore default look
-            self.next_btn.configure(fg_color="transparent")
-
-
-
-    # def convert_calibration_to_grid_inline(calibration_json, get_cross_modes_func):
-    #     """
-    #     Convert calibration JSON to inline JSON strings per step.
-    #     Each step is output as a single-line JSON of nodes.
-    #     """
-    #     lines = []
-    #     cross_modes = get_cross_modes_func()
-
-    #     for step_data in calibration_json.get("calibration_steps", []):
-    #         grid = {}
-
-    #         # Calibration node
-    #         cal_node = step_data["calibration_node"]
-    #         mode = step_data.get("Io_config", cross_modes.get(cal_node, "cross"))
-    #         grid[cal_node] = {"arms": mode_to_arms(mode), "theta": "0", "phi": "0"}
-
-    #         # Additional nodes
-    #         for node, io_state in step_data.get("additional_nodes", {}).items():
-    #             grid[node] = {"arms": mode_to_arms(io_state.lower()), "theta": "0", "phi": "0"}
-
-    #         # Dump as single-line JSON
-    #         line = json.dumps(grid, separators=(',', ':'))
-    #         lines.append(line)
-
-    #     return lines
-
-def mode_to_arms(mode):
-    """
-    Convert IO mode to arms list.
-    """
-    if mode.lower() == "cross":
-        return ["TL", "BR"]
-    elif mode.lower() == "bar":
-        return ["TL", "TR"]
-    elif mode.lower() == "split":
-        return ["TR", "BR", "TL"]
-    elif mode.lower() == "arbitrary":
-        return ["TL", "TR", "BL", "BR"]
-    else:
-        return []  # Default: no arms
 
 def main():
     root = Tk()

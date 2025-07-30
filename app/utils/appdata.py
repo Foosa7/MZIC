@@ -33,7 +33,10 @@ class AppData:
     resistance_calibration_data = {}  # e.g., {"A1_theta": {...}, ...}
     phase_calibration_data = {}       # e.g., {"A1_theta": {...}, ...}
 
-    selected_labels = set()
+    phase_shifter_selection = "Internal"  # Default phase shifter selection
+
+    selected_label = set()
+    selected_labels = {}
     io_config = None
     last_selection = {"cross": None, "arm": None}  # Set default starting value
     

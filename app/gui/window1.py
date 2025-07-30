@@ -148,10 +148,10 @@ class Window1Content(ctk.CTkFrame):
             ("Imp", self.import_calibration_data),
             ("Exp", self.export_calibration_data),
             ("Curr", self._apply_config),
-            ("Path", self.export_paths_json),
+            # ("Path", self._export_config),
             ("RP", self.run_rp_calibration),  # Run Resistance and Phase calibration
             #("Status", self._show_full_status),
-            ("Clr", self._clear_grid),
+            ("CLR", self._clear_grid),
             ("R", self.characterize_resistance),
             ("P", self.characterize_phase),
             #("AP", self.apply_phase_new),

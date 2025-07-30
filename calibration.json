@@ -1,0 +1,51 @@
+{
+  "metadata": {
+    "created_at": "2025-07-30T02:47:10.187958",
+    "total_steps": 2
+  },
+  "steps": [
+    {
+      "step": 0,
+      "input_port": 1,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": null,
+      "Phase_shifter": "Internal",
+      "Io_config": "Cross",
+      "additional_nodes": {
+        "A1": "Cross",
+        "B1": "Cross",
+        "C2": "Cross",
+        "D2": "Cross",
+        "E3": "Cross",
+        "F3": "Cross",
+        "G4": "Cross",
+        "H4": "Cross",
+        "I5": "Cross",
+        "J5": "Cross",
+        "K6": "Cross"
+      }
+    },
+    {
+      "step": 0,
+      "input_port": 1,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "A1",
+      "Phase_shifter": "Internal",
+      "Io_config": "Cross",
+      "additional_nodes": {
+        "B1": "Cross",
+        "C2": "Cross",
+        "D2": "Cross",
+        "E3": "Cross",
+        "F3": "Cross",
+        "G4": "Cross",
+        "H4": "Cross",
+        "I5": "Cross",
+        "J5": "Cross",
+        "K6": "Cross"
+      }
+    }
+  ]
+}

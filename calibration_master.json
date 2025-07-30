@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "grid_size": 12,
+    "scale": 1.0,
+    "created_at": "2025-07-29T23:16:25.102203Z"
+  },
+  "calibration_steps": [
+    {
+      "step": 0,
+      "input_port": 1,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "A1",
+      "Phase_shifter": "Internal",
+      "Io_config": "Cross",
+      "additional_nodes": {}
+    }
+  ]
+}
