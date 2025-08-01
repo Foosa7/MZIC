@@ -172,6 +172,7 @@ class QontrolDevice:
             errors = [entry for entry in self.device.log if entry['type'] == 'err']
             if not errors:
                 print("[INFO][Qontrol] No errors reported.")
+                # logging.info("[Qontrol] No errors reported.")
             else:
                 print("[ERROR][Qontrol] Log:")
                 for err in errors:

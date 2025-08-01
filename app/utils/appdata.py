@@ -44,7 +44,7 @@ class AppData:
     calibration_json = None
 
     @classmethod
-    def load_calibration(cls, path="calibration.json"):
+    def load_calibration(cls, path="calibration_steps.json"):
         try:
             with open(path, "r") as f:
                 cls.calibration_json = json.load(f)

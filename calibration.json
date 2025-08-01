@@ -1,238 +1,124 @@
 {
   "metadata": {
-    "created_at": "2025-07-30T16:29:44.253795",
-    "total_steps": 11
+    "created_at": "2025-08-01T12:22:23.133479",
+    "total_steps": 9
   },
   "steps": [
     {
       "step": 0,
-      "input_port": 1,
-      "output_port": 12,
+      "input_port": null,
+      "output_port": null,
       "calibration": "RP",
-      "calibration_node": "A1",
-      "Phase_shifter": "Internal",
-      "Io_config": "Cross",
-      "additional_nodes": {
-        "B1": "Cross",
-        "C2": "Cross",
-        "D2": "Cross",
-        "E3": "Cross",
-        "F3": "Cross",
-        "G4": "Cross",
-        "H4": "Cross",
-        "I5": "Cross",
-        "J5": "Cross",
-        "K6": "Cross"
-      }
-    },
-    {
-      "step": 0,
-      "input_port": 1,
-      "output_port": 12,
-      "calibration": "RP",
-      "calibration_node": "B1",
+      "calibration_node": null,
       "Phase_shifter": "Internal",
       "Io_config": "Cross",
       "additional_nodes": {
         "A1": "Cross",
-        "C2": "Cross",
-        "D2": "Cross",
-        "E3": "Cross",
-        "F3": "Cross",
-        "G4": "Cross",
-        "H4": "Cross",
-        "I5": "Cross",
-        "J5": "Cross",
-        "K6": "Cross"
+        "B1": "Cross"
       }
     },
     {
-      "step": 0,
-      "input_port": 1,
-      "output_port": 12,
+      "step": 1,
+      "input_port": null,
+      "output_port": null,
       "calibration": "RP",
-      "calibration_node": "C2",
+      "calibration_node": null,
       "Phase_shifter": "Internal",
       "Io_config": "Cross",
       "additional_nodes": {
         "A1": "Cross",
-        "B1": "Cross",
-        "D2": "Cross",
-        "E3": "Cross",
-        "F3": "Cross",
-        "G4": "Cross",
-        "H4": "Cross",
-        "I5": "Cross",
-        "J5": "Cross",
-        "K6": "Cross"
+        "B1": "Cross"
       }
     },
     {
-      "step": 0,
-      "input_port": 1,
-      "output_port": 12,
+      "step": 2,
+      "input_port": null,
+      "output_port": null,
       "calibration": "RP",
-      "calibration_node": "D2",
+      "calibration_node": null,
       "Phase_shifter": "Internal",
       "Io_config": "Cross",
       "additional_nodes": {
         "A1": "Cross",
-        "B1": "Cross",
-        "C2": "Cross",
-        "E3": "Cross",
-        "F3": "Cross",
-        "G4": "Cross",
-        "H4": "Cross",
-        "I5": "Cross",
-        "J5": "Cross",
-        "K6": "Cross"
+        "B1": "Cross"
       }
     },
     {
-      "step": 0,
-      "input_port": 1,
-      "output_port": 12,
+      "step": 3,
+      "input_port": null,
+      "output_port": null,
       "calibration": "RP",
-      "calibration_node": "E3",
+      "calibration_node": null,
       "Phase_shifter": "Internal",
       "Io_config": "Cross",
       "additional_nodes": {
         "A1": "Cross",
-        "B1": "Cross",
-        "C2": "Cross",
-        "D2": "Cross",
-        "F3": "Cross",
-        "G4": "Cross",
-        "H4": "Cross",
-        "I5": "Cross",
-        "J5": "Cross",
-        "K6": "Cross"
+        "B1": "Cross"
       }
     },
     {
-      "step": 0,
-      "input_port": 1,
-      "output_port": 12,
+      "step": 4,
+      "input_port": null,
+      "output_port": null,
       "calibration": "RP",
-      "calibration_node": "F3",
+      "calibration_node": null,
       "Phase_shifter": "Internal",
       "Io_config": "Cross",
       "additional_nodes": {
         "A1": "Cross",
-        "B1": "Cross",
-        "C2": "Cross",
-        "D2": "Cross",
-        "E3": "Cross",
-        "G4": "Cross",
-        "H4": "Cross",
-        "I5": "Cross",
-        "J5": "Cross",
-        "K6": "Cross"
+        "B1": "Cross"
       }
     },
     {
-      "step": 0,
-      "input_port": 1,
-      "output_port": 12,
+      "step": 5,
+      "input_port": null,
+      "output_port": null,
       "calibration": "RP",
-      "calibration_node": "G4",
+      "calibration_node": null,
       "Phase_shifter": "Internal",
       "Io_config": "Cross",
       "additional_nodes": {
         "A1": "Cross",
-        "B1": "Cross",
-        "C2": "Cross",
-        "D2": "Cross",
-        "E3": "Cross",
-        "F3": "Cross",
-        "H4": "Cross",
-        "I5": "Cross",
-        "J5": "Cross",
-        "K6": "Cross"
+        "B1": "Cross"
       }
     },
     {
-      "step": 0,
-      "input_port": 1,
-      "output_port": 12,
+      "step": 6,
+      "input_port": null,
+      "output_port": null,
       "calibration": "RP",
-      "calibration_node": "H4",
+      "calibration_node": null,
       "Phase_shifter": "Internal",
       "Io_config": "Cross",
       "additional_nodes": {
         "A1": "Cross",
-        "B1": "Cross",
-        "C2": "Cross",
-        "D2": "Cross",
-        "E3": "Cross",
-        "F3": "Cross",
-        "G4": "Cross",
-        "I5": "Cross",
-        "J5": "Cross",
-        "K6": "Cross"
+        "B1": "Cross"
       }
     },
     {
-      "step": 0,
-      "input_port": 1,
-      "output_port": 12,
+      "step": 7,
+      "input_port": null,
+      "output_port": null,
       "calibration": "RP",
-      "calibration_node": "I5",
+      "calibration_node": null,
       "Phase_shifter": "Internal",
       "Io_config": "Cross",
       "additional_nodes": {
         "A1": "Cross",
-        "B1": "Cross",
-        "C2": "Cross",
-        "D2": "Cross",
-        "E3": "Cross",
-        "F3": "Cross",
-        "G4": "Cross",
-        "H4": "Cross",
-        "J5": "Cross",
-        "K6": "Cross"
+        "B1": "Cross"
       }
     },
     {
-      "step": 0,
-      "input_port": 1,
-      "output_port": 12,
+      "step": 8,
+      "input_port": null,
+      "output_port": null,
       "calibration": "RP",
-      "calibration_node": "J5",
+      "calibration_node": null,
       "Phase_shifter": "Internal",
       "Io_config": "Cross",
       "additional_nodes": {
         "A1": "Cross",
-        "B1": "Cross",
-        "C2": "Cross",
-        "D2": "Cross",
-        "E3": "Cross",
-        "F3": "Cross",
-        "G4": "Cross",
-        "H4": "Cross",
-        "I5": "Cross",
-        "K6": "Cross"
-      }
-    },
-    {
-      "step": 0,
-      "input_port": 1,
-      "output_port": 12,
-      "calibration": "RP",
-      "calibration_node": "K6",
-      "Phase_shifter": "Internal",
-      "Io_config": "Cross",
-      "additional_nodes": {
-        "A1": "Cross",
-        "B1": "Cross",
-        "C2": "Cross",
-        "D2": "Cross",
-        "E3": "Cross",
-        "F3": "Cross",
-        "G4": "Cross",
-        "H4": "Cross",
-        "I5": "Cross",
-        "J5": "Cross"
+        "B1": "Cross"
       }
     }
   ]
