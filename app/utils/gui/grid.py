@@ -1309,7 +1309,7 @@ class Example(Frame):
             return
         self.next_step()
         # schedule next advance in 1 000 ms
-        self.after(1000, self._auto_advance)
+        self.after(600, self._auto_advance)
 
     def export_calibration_step(self):
         """
