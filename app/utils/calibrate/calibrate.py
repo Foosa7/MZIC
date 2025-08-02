@@ -15,29 +15,27 @@ class CalibrationUtils:
     def characterize_resistance(self, qontrol, channel, delay=0.5):
         """Execute characterization routine with linear+cubic fit analysis"""
         # Measurement setup
-        #start_current = 0
-        #end_current = qontrol.globalcurrrentlimit
-        #steps = 10
-        #currents = np.linspace(start_current, end_current, steps).astype(float)
-        #voltages = []
-
-        while True:
-            try:
-                user_input = input(f"Enter max current for resistance sweep (mA) [Device limit: {qontrol.globalcurrrentlimit} mA]: ")
-                if not user_input:  # If user just presses enter, use device limit
-                    end_current = qontrol.globalcurrrentlimit
-                    print(f"Using device limit: {end_current} mA")
-                    break
-                else:
-                    end_current = float(user_input)
-                    if 0 < end_current <= qontrol.globalcurrrentlimit:
-                        print(f"Using max current: {end_current} mA")
-                        break
-                    else:
-                        print(f"Error: Value must be between 0 and {qontrol.globalcurrrentlimit} mA")
-            except ValueError:
-                print("Error: Please enter a valid number")
-
+        start_current = 0
+        end_current = qontrol.globalcurrrentlimit
+        steps = 10
+        currents = np.linspace(start_current, end_current, steps).astype(float)
+        voltages = []
+        # while True:
+            # try:
+            #     user_input = input(f"Enter max current for resistance sweep (mA) [Device limit: {qontrol.globalcurrrentlimit} mA]: ")
+            #     if not user_input:  # If user just presses enter, use device limit
+            #         end_current = qontrol.globalcurrrentlimit
+            #         print(f"Using device limit: {end_current} mA")
+            #         break
+            #     else:
+            #         end_current = float(user_input)
+            #         if 0 < end_current <= qontrol.globalcurrrentlimit:
+            #             print(f"Using max current: {end_current} mA")
+            #             break
+            #         else:
+            #             print(f"Error: Value must be between 0 and {qontrol.globalcurrrentlimit} mA")
+            # except ValueError:
+            #     print("Error: Please enter a valid number")
         start_current = 0
         steps = 10
         currents = np.linspace(start_current, end_current, steps).astype(float)
@@ -95,24 +93,30 @@ class CalibrationUtils:
             delay: Delay between measurements
         """
         
-        # Ask user for max current via terminal
-        while True:
-            try:
-                user_input = input(f"Enter max current for phase sweep (mA) [Device limit: {qontrol.globalcurrrentlimit} mA]: ")
-                if not user_input:  # If user just presses enter, use device limit
-                    max_current = qontrol.globalcurrrentlimit
-                    print(f"Using device limit: {max_current} mA")
-                    break
-                else:
-                    max_current = float(user_input)
-                    if 0 < max_current <= qontrol.globalcurrrentlimit:
-                        print(f"Using max current: {max_current} mA")
-                        break
-                    else:
-                        print(f"Error: Value must be between 0 and {qontrol.globalcurrrentlimit} mA")
-            except ValueError:
-                print("Error: Please enter a valid number")
-            
+        # # Ask user for max current via terminal
+        # while True:
+        #     try:
+        #         user_input = input(f"Enter max current for phase sweep (mA) [Device limit: {qontrol.globalcurrrentlimit} mA]: ")
+        #         if not user_input:  # If user just presses enter, use device limit
+        #             max_current = qontrol.globalcurrrentlimit
+        #             print(f"Using device limit: {max_current} mA")
+        #             break
+        #         else:
+        #             max_current = float(user_input)
+        #             if 0 < max_current <= qontrol.globalcurrrentlimit:
+        #                 print(f"Using max current: {max_current} mA")
+        #                 break
+        #             else:
+        #                 print(f"Error: Value must be between 0 and {qontrol.globalcurrrentlimit} mA")
+        #     except ValueError:
+        #         print("Error: Please enter a valid number")
+
+        # start_current = 0
+        # end_current = qontrol.globalcurrrentlimit
+        # steps = 50
+        # currents = np.linspace(start_current, end_current, steps).astype(float)
+        # voltages = []
+
         # Get resistance parameters from previous characterization
         if resistance_params is None or resistance_params == 'Null':
             raise ValueError(f"Resistance characterization required for channel {channel} before phase characterization")
@@ -130,7 +134,7 @@ class CalibrationUtils:
             a_res, c_res, d_res = resistance_params  # assume list or tuple
 
         # Calculate max heating power to create uniform power spacing
-        #max_current = qontrol.globalcurrrentlimit # mA
+        max_current = qontrol.globalcurrrentlimit # mA
         max_resistance = a_res * (max_current**2) + c_res # kΩ
         max_heating_power = max_current**2 * max_resistance # mW
         

@@ -83,7 +83,7 @@ class Example(Frame):
             nav_frame,
             text="Next ⏭",
             width=80,
-            command=self.next_step,
+            command=self._handle_next,
             text_color="white",
             fg_color="transparent"
 
@@ -1190,40 +1190,41 @@ class Example(Frame):
         self.current_step = (self.current_step - 1) % len(self.step_lines)
         self.load_step(self.current_step)
 
-    # def increment_step(self):
-    #     """Increment the step counter by one and update the label."""
-    #     # bump the counter
-    #     self.current_step += 1
-
-    #     # now update the button’s text
-    #     self.step_label.configure(
-    #         text=f"Step {self.current_step}/{len(self.step_lines)}"
-    #     )
-
     def increment_step(self):
-        """Go forward one step: load that step’s data from calibration_steps.json."""
-        # 1) Load the file
-        filepath = "calibration_steps.json"
-        try:
-            with open(filepath, "r") as f:
-                payload = json.load(f)
-        except Exception as e:
-            logging.error("Could not open %s: %s", filepath, e)
-            messagebox.showerror("Error", f"Cannot load calibration file:\n{e}")
-            return
+        """Increment the step counter by one and update the label."""
+        # bump the counter
+        # self.import_calibration(step_idx=self.current_step + 1)
+        self.current_step += 1
 
-        steps = payload.get("steps", [])
-        total = len(steps)
-        if total == 0:
-            messagebox.showwarning("No steps", "Calibration file has no steps.")
-            return
+        # now update the button’s text
+        self.step_label.configure(
+            text=f"Step {self.current_step}/{len(self.step_lines)}"
+        )
 
-        # 2) If we're already at the last step, do nothing
-        if self.current_step >= total - 1:
-            return
+    # def increment_step(self):
+    #     """Go forward one step: load that step’s data from calibration_steps.json."""
+    #     # 1) Load the file
+    #     filepath = "calibration_steps.json"
+    #     try:
+    #         with open(filepath, "r") as f:
+    #             payload = json.load(f)
+    #     except Exception as e:
+    #         logging.error("Could not open %s: %s", filepath, e)
+    #         messagebox.showerror("Error", f"Cannot load calibration file:\n{e}")
+    #         return
 
-        # 3) Otherwise, load & render the next step
-        self.import_calibration(step_idx=self.current_step + 1)
+    #     steps = payload.get("steps", [])
+    #     total = len(steps)
+    #     if total == 0:
+    #         messagebox.showwarning("No steps", "Calibration file has no steps.")
+    #         return
+
+    #     # 2) If we're already at the last step, do nothing
+    #     if self.current_step >= total - 1:
+    #         return
+
+    #     # 3) Otherwise, load & render the next step
+    #     self.import_calibration(step_idx=self.current_step + 1)
 
 
     # def increment_step(self):
@@ -1266,14 +1267,60 @@ class Example(Frame):
     #         text=f"Step {self.current_step}/{len(self.step_lines)}"
     #     )
 
-    def decrement_step(self):
-        """Go back one step: load that step’s data from calibration_steps.json."""
-        # If we're already at the first step, do nothing
-        if self.current_step <= 0:
-            return
+    # def decrement_step(self):
+    #     """Go back one step: load that step’s data from calibration_steps.json."""
+    #     # If we're already at the first step, do nothing
+    #     # self.current_step -= 1
+    #     logging.info(f"Decrementing to step {self.current_step}")
+    #     if self.current_step <= 0:
+    #         return
 
-        # Load & render step (this also updates self.current_step and the label)
-        self.import_calibration(step_idx=self.current_step - 1)
+    #     # Load & render step (this also updates self.current_step and the label)
+    #     self.import_calibration(step_idx=self.current_step - 1)
+
+    def decrement_step(self) -> None:
+        """Go back one step.
+
+        • If calibration_steps.json exists **and** contains that row →
+        call `import_calibration` to repaint it.
+
+        • Otherwise just bump the internal counter and refresh the
+        “Step X/Y” label.
+        """
+        if self.current_step <= 0:
+            return  # already at the first step
+
+        target_idx = self.current_step - 1
+        logging.info("Decrementing to step %d", target_idx)
+
+        loaded = False
+        if os.path.isfile("calibration_steps.json"):
+            # `import_calibration` silently returns when idx is out of range,
+            # but it *does* set self.current_step on success, so we detect that.
+            prev_idx = self.current_step
+            self.import_calibration(step_idx=target_idx)
+            loaded = self.current_step != prev_idx
+
+        if not loaded:
+            # fall-back: just show the new counter value
+            self.current_step = target_idx
+            total = max(len(self.all_steps), self.current_step + 1)
+            self.step_label.configure(text=f"Step {self.current_step}/{total-1}")
+
+
+    def _handle_next(self):
+        if self.edit_mode:
+            self.save_current_step()      # write/replace current row
+            self.increment_step()         # bump the index & label
+
+            # Only reload when the step is already present in the file.
+            if self.current_step < len(self.all_steps):
+                self.import_calibration(step_idx=self.current_step)
+            else:
+                # new, empty step → just clear the canvas (optional helper)
+                self.clear_highlights()   # write this to wipe colours/selections
+        else:
+            self.next_step()
 
 
     def save_current_and_next_step(self):
@@ -1326,7 +1373,8 @@ class Example(Frame):
           }
         """
         # 1) Step index
-        step = len(self.all_steps)
+        # step = len(self.all_steps)
+        step = self.current_step
         logging.info(f"Exporting step {step}")
 
 
@@ -1370,46 +1418,88 @@ class Example(Frame):
             "additional_nodes": additional_nodes
         }
     
-
     def save_current_step(self):
         """
-        Called when the Save button is clicked:
-          - builds the current calibration‐step dict
-          - writes it to step_<n>.json
-        """
-        # 1) export current‐step dict
-        step_data = self.export_calibration_step()
+        Build a calibration-step dict for the *current* index and
+        write/update calibration.json.
 
-        # 2) append
-        # self.all_steps.append(step_data)
-        # 2) overwrite if editing an existing step, otherwise append
-        if 0 <= self.current_step < len(self.all_steps):
-            self.all_steps[self.current_step] = step_data
+        • Overwrite self.all_steps[self.current_step] if it exists
+        • Append a brand-new entry if it doesn’t
+        """
+        # 1) build the step dict
+        step_data = self.export_calibration_step()
+        step_idx  = self.current_step
+
+        # 2) insert or replace in the in-memory list
+        if step_idx < len(self.all_steps):
+            self.all_steps[step_idx] = step_data          # ← overwrite
         else:
-            self.all_steps.append(step_data)
-            
-        # 3) build top‐level structure
+            self.all_steps.append(step_data)              # ← brand-new
+
+        # 3) make sure every dict’s "step" field matches its position
+        for i, s in enumerate(self.all_steps):
+            s["step"] = i
+
+        # 4) build payload + metadata
         payload = {
             "metadata": {
-                "created_at": datetime.now().isoformat(),
-                "total_steps": len(self.all_steps),
-                # you can add more global fields here, e.g.
-                # "phase_shifter": AppData.phase_shifter_selection
+                "created_at": datetime.now().isoformat(timespec="seconds"),
+                "total_steps": len(self.all_steps)
             },
             "steps": self.all_steps
         }
 
-        # 4) write single file
+        # 5) write file
         try:
-            with open("calibration_steps.json", "w") as f:
+            with open("calibration.json", "w") as f:
                 json.dump(payload, f, indent=2)
-                self.current_step += 1  # Advance the step counter after saving
-                # logging.info(f"Saved: Merged {len(self.all_steps)} steps into calibration_steps.json")
-        
-
+                logging.info("Saved step %d (total %d) → calibration.json",
+                            step_idx, len(self.all_steps))
         except Exception as e:
             logging.error("Failed to write merged JSON: %s", e)
-            messagebox.showerror("Error", f"Could not save merged file: {e}")
+            messagebox.showerror("Error",
+                                f"Could not save merged file:\n{e}")
+
+
+
+    # def save_current_step(self):
+    #     """
+    #     Called when the Save button is clicked:
+    #       - builds the current calibration‐step dict
+    #       - writes it to step_<n>.json
+    #     """
+    #     # 1) export current‐step dict
+    #     step_data = self.export_calibration_step()
+
+    #     # 2) append
+    #     # self.all_steps.append(step_data)
+    #     # 2) overwrite if editing an existing step, otherwise append
+    #     if 0 <= self.current_step < len(self.all_steps):
+    #         self.all_steps[self.current_step] = step_data
+    #     else:
+    #         self.all_steps.append(step_data)
+            
+    #     # 3) build top‐level structure
+    #     payload = {
+    #         "metadata": {
+    #             "created_at": datetime.now().isoformat(),
+    #             "total_steps": len(self.all_steps),
+    #             # you can add more global fields here, e.g.
+    #             # "phase_shifter": AppData.phase_shifter_selection
+    #         },
+    #         "steps": self.all_steps
+    #     }
+    
+    #     # 4) write single file
+    #     try:
+    #         with open("calibration_steps.json", "w") as f:
+    #             json.dump(payload, f, indent=2)
+    #             # logging.info(f"Saved: Merged {len(self.all_steps)} steps into calibration_steps.json")
+        
+
+    #     except Exception as e:
+    #         logging.error("Failed to write merged JSON: %s", e)
+    #         messagebox.showerror("Error", f"Could not save merged file: {e}")
 
     def next_step(self):
         """Just advance the counter & load without saving (view mode)."""
@@ -1508,15 +1598,21 @@ class Example(Frame):
     #            b.configure(fg_color="transparent", hover_color = "#144870", text_color="white")
     #         self.next_btn.configure(command=self.next_step)
 
+    def import_calibration(self, filepath: str = "calibration_steps.json",
+                        step_idx: int | None = None) -> None:
+        """
+        Paint one calibration step on the grid.
 
-    def import_calibration(self, filepath="calibration_steps.json", step_idx=None):
+        Parameters
+        ----------
+        filepath : str
+            Path to the merged-calibration JSON written by `save_current_step`.
+        step_idx : int | None
+            • None   → use self.current_step  
+            • 0-based index of the step to load.  
+            If it is < 0 or ≥ len(steps) the call is ignored.
         """
-        Load calibration_steps.json, pick out step #step_idx (0-based),
-        highlight:
-        - Cross‐center labels (orange + green) and arms (red)
-        - Input/output side‐labels and extension lines (red)
-        """
-        # 1) Load JSON
+        # ── 1) Load the file ───────────────────────────────────────────────
         try:
             with open(filepath, "r") as f:
                 payload = json.load(f)
@@ -1525,114 +1621,219 @@ class Example(Frame):
             messagebox.showerror("Error", f"Could not load calibration file:\n{e}")
             return
 
-        steps = payload.get("steps", [])
+        steps: list[dict] = payload.get("steps", [])
         total = len(steps)
         if total == 0:
             messagebox.showwarning("No steps", "Calibration file has no steps.")
             return
 
-        # 2) Clamp step index
-        idx = 0 if step_idx is None else max(0, min(step_idx, total - 1))
+        # ── 2) Pick which row to show ─────────────────────────────────────
+        idx = self.current_step if step_idx is None else step_idx
+        if idx < 0 or idx >= total:
+            # out-of-range → nothing to do
+            return
+
         step_data = steps[idx]
 
-        # 3) Clear all old highlights
-        #    a) Lines
+        # ── 3) Clear all previous highlights ──────────────────────────────
+        #  a) lines
         for p in self.paths:
             self.canvas.itemconfig(p.line_id, fill="white")
         self.selected_paths.clear()
 
-        #    b) Cross‐labels
+        #  b) cross labels
         for tid in self.cross_labels.values():
             self.canvas.itemconfig(tid, fill="white")
 
-        #    c) IO labels (common tag "io_label")
+        #  c) IO labels
         self.canvas.itemconfig("io_label", fill="white")
         AppData.selected_input_pins.clear()
         AppData.selected_output_pins.clear()
 
-        # 4) Highlight cross‐centers and arms (as before) …
-        arm_specs = {}
-        # 4a) calibration_node
+        # ── 4) Highlight crosses and arms for this step ───────────────────
+        arm_specs: dict[str, list[str]] = {}
+
+        # 4a) main calibration node (orange)
         cal_label = step_data.get("calibration_node")
         io_mode   = step_data.get("Io_config", "")
         if cal_label:
             arm_specs[cal_label] = mode_to_arms(io_mode)
-            # text label → orange
             for key, tid in self.cross_labels.items():
                 if self.canvas.itemcget(tid, "text") == cal_label:
                     self.canvas.itemconfig(tid, fill="orange")
                     break
-        # 4b) additional_nodes → green
+
+        # 4b) additional nodes (white text)
         for node_label, mode_str in step_data.get("additional_nodes", {}).items():
             arm_specs[node_label] = mode_to_arms(mode_str)
             for key, tid in self.cross_labels.items():
                 if self.canvas.itemcget(tid, "text") == node_label:
                     self.canvas.itemconfig(tid, fill="white")
                     break
-        # 4c) color those arms red
+
+        # 4c) colour matching arms red
         for path in self.paths:
             center, arm = self._parse_path_components(path)
             if center in arm_specs and arm in arm_specs[center]:
                 self.canvas.itemconfig(path.line_id, fill="red")
                 self.selected_paths.add(path.line_id)
 
-        # 5) Highlight input_port / output_port
-        inp = step_data.get("input_port")
-        outp = step_data.get("output_port")
-
-        def _highlight_io(port, tag_prefix, pin_set):
+        # ── 5) Highlight input / output pins ──────────────────────────────
+        def _highlight_io(port: int | None, tag_prefix: str,
+                        pin_set: set[int]) -> None:
             if port is None:
                 return
             lbl_tag = f"{tag_prefix}_label_{port}"
-            # 5a) highlight the text
             self.canvas.itemconfig(lbl_tag, fill="red")
             pin_set.clear()
             pin_set.add(port)
-            # 5b) highlight its extension line(s)
             for path in self.paths:
                 if lbl_tag in self.canvas.gettags(path.line_id):
                     self.canvas.itemconfig(path.line_id, fill="red")
                     self.selected_paths.add(path.line_id)
 
-        _highlight_io(inp,  "input",  AppData.selected_input_pins)
-        _highlight_io(outp, "output", AppData.selected_output_pins)
+        _highlight_io(step_data.get("input_port"),  "input",  AppData.selected_input_pins)
+        _highlight_io(step_data.get("output_port"), "output", AppData.selected_output_pins)
 
-        # 6) Re-create any needed input‐boxes (θ/φ) for crosses
+        # ── 6) Ensure θ/φ input boxes exist for any coloured crosses ──────
         for center_label, arms in arm_specs.items():
             if arms and center_label not in self.input_boxes:
                 self.create_input_boxes(center_label)
 
-        # 7) Update counter & state
+        # ── 7) Update state and UI counter ────────────────────────────────
         self.current_step = idx
-        self.step_label.configure(text=f"Step {idx}/{total}")
+        self.step_label.configure(text=f"Step {idx}/{total - 1}")
 
-        # 8) Fire update event
+        # ── 8) Notify listeners that the selection changed ────────────────
         self.event_generate("<<SelectionUpdated>>")
         self.update_selection()
 
 
-    def increment_step(self):
-        """
-        Advance one step:
-          • In edit mode: just move through self.all_steps.
-          • In view mode: load the next step from calibration_steps.json.
-        """
-        if self.edit_mode:
-            # — EDIT mode: walk through the saved steps list —
-            total = len(self.all_steps)
-            if total == 0:
-                return  # nothing to do
-            # clamp and advance
-            next_idx = min(self.current_step + 1, total - 1)
-            if next_idx != self.current_step:
-                self.current_step = next_idx
-                # refresh label, 1-based
-                self.step_label.configure(text=f"Step {self.current_step}/{total}")
 
-        else:
-            # — VIEW mode: pull from the merged JSON file —
-            # ask import_calibration to load step current_step+1
-            self.import_calibration(step_idx=self.current_step)
+    # def import_calibration(self, filepath="calibration_steps.json", step_idx=None):
+    #     """
+    #     Load calibration_steps.json, pick out step #step_idx (0-based),
+    #     highlight:
+    #     - Cross‐center labels (orange + green) and arms (red)
+    #     - Input/output side‐labels and extension lines (red)
+    #     """
+    #     # 1) Load JSON
+    #     try:
+    #         with open(filepath, "r") as f:
+    #             payload = json.load(f)
+    #     except Exception as e:
+    #         logging.error("Failed to load %s: %s", filepath, e)
+    #         messagebox.showerror("Error", f"Could not load calibration file:\n{e}")
+    #         return
+
+    #     steps = payload.get("steps", [])
+    #     total = len(steps)
+    #     if total == 0:
+    #         messagebox.showwarning("No steps", "Calibration file has no steps.")
+    #         return
+
+    #     # 2) Clamp step index
+    #     idx = 0 if step_idx is None # else max(0, min(step_idx, total - 1))
+    #     step_data = steps[idx]
+
+    #     # 3) Clear all old highlights
+    #     #    a) Lines
+    #     for p in self.paths:
+    #         self.canvas.itemconfig(p.line_id, fill="white")
+    #     self.selected_paths.clear()
+
+    #     #    b) Cross‐labels
+    #     for tid in self.cross_labels.values():
+    #         self.canvas.itemconfig(tid, fill="white")
+
+    #     #    c) IO labels (common tag "io_label")
+    #     self.canvas.itemconfig("io_label", fill="white")
+    #     AppData.selected_input_pins.clear()
+    #     AppData.selected_output_pins.clear()
+
+    #     # 4) Highlight cross‐centers and arms (as before) …
+    #     arm_specs = {}
+    #     # 4a) calibration_node
+    #     cal_label = step_data.get("calibration_node")
+    #     io_mode   = step_data.get("Io_config", "")
+    #     if cal_label:
+    #         arm_specs[cal_label] = mode_to_arms(io_mode)
+    #         # text label → orange
+    #         for key, tid in self.cross_labels.items():
+    #             if self.canvas.itemcget(tid, "text") == cal_label:
+    #                 self.canvas.itemconfig(tid, fill="orange")
+    #                 break
+    #     # 4b) additional_nodes → green
+    #     for node_label, mode_str in step_data.get("additional_nodes", {}).items():
+    #         arm_specs[node_label] = mode_to_arms(mode_str)
+    #         for key, tid in self.cross_labels.items():
+    #             if self.canvas.itemcget(tid, "text") == node_label:
+    #                 self.canvas.itemconfig(tid, fill="white")
+    #                 break
+    #     # 4c) color those arms red
+    #     for path in self.paths:
+    #         center, arm = self._parse_path_components(path)
+    #         if center in arm_specs and arm in arm_specs[center]:
+    #             self.canvas.itemconfig(path.line_id, fill="red")
+    #             self.selected_paths.add(path.line_id)
+
+    #     # 5) Highlight input_port / output_port
+    #     inp = step_data.get("input_port")
+    #     outp = step_data.get("output_port")
+
+    #     def _highlight_io(port, tag_prefix, pin_set):
+    #         if port is None:
+    #             return
+    #         lbl_tag = f"{tag_prefix}_label_{port}"
+    #         # 5a) highlight the text
+    #         self.canvas.itemconfig(lbl_tag, fill="red")
+    #         pin_set.clear()
+    #         pin_set.add(port)
+    #         # 5b) highlight its extension line(s)
+    #         for path in self.paths:
+    #             if lbl_tag in self.canvas.gettags(path.line_id):
+    #                 self.canvas.itemconfig(path.line_id, fill="red")
+    #                 self.selected_paths.add(path.line_id)
+
+    #     _highlight_io(inp,  "input",  AppData.selected_input_pins)
+    #     _highlight_io(outp, "output", AppData.selected_output_pins)
+
+    #     # 6) Re-create any needed input‐boxes (θ/φ) for crosses
+    #     for center_label, arms in arm_specs.items():
+    #         if arms and center_label not in self.input_boxes:
+    #             self.create_input_boxes(center_label)
+
+    #     # 7) Update counter & state
+    #     self.current_step = idx
+    #     self.step_label.configure(text=f"Step {idx}/{total}")
+
+    #     # 8) Fire update event
+    #     self.event_generate("<<SelectionUpdated>>")
+    #     self.update_selection()
+
+
+    # def increment_step(self):
+    #     """
+    #     Advance one step:
+    #       • In edit mode: just move through self.all_steps.
+    #       • In view mode: load the next step from calibration_steps.json.
+    #     """
+    #     if self.edit_mode:
+    #         # — EDIT mode: walk through the saved steps list —
+    #         total = len(self.all_steps)
+    #         if total == 0:
+    #             return  # nothing to do
+    #         # clamp and advance
+    #         next_idx = min(self.current_step + 1, total - 1)
+    #         if next_idx != self.current_step:
+    #             self.current_step = next_idx
+    #             # refresh label, 1-based
+    #             self.step_label.configure(text=f"Step {self.current_step}/{total}")
+
+    #     else:
+    #         # — VIEW mode: pull from the merged JSON file —
+    #         # ask import_calibration to load step current_step+1
+    #         self.import_calibration(step_idx=self.current_step)
 
     # def import_calibration(self, filepath="calibration_steps.json", step_idx=None):
     #     """
@@ -1800,7 +2001,7 @@ def mode_to_arms(mode):
     if m == "cross1":
         return ["TR", "BL"]
 
-    # SPLIT patterns (3-of-4); split means missing arm index N
+    # SPLIT patterns (3-of-4); splitN means missing arm index N
     if m == "split0":  # missing TL
         return ["TR", "BR", "BL"]
     if m == "split1":  # missing TR

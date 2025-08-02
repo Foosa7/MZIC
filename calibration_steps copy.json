@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "created_at": "2025-08-01T17:38:50.012525",
-    "total_steps": 15
+    "created_at": "2025-08-02T15:05:44.877751",
+    "total_steps": 21
   },
   "steps": [
     {
@@ -236,7 +236,7 @@
       }
     },
     {
-      "step": 11,
+      "step": 21,
       "input_port": 1,
       "output_port": 11,
       "calibration": "RP",
@@ -258,7 +258,7 @@
       }
     },
     {
-      "step": 12,
+      "step": 21,
       "input_port": 1,
       "output_port": 11,
       "calibration": "RP",
@@ -281,13 +281,13 @@
       }
     },
     {
-      "step": 13,
+      "step": 21,
       "input_port": 1,
       "output_port": 11,
       "calibration": "RP",
       "calibration_node": "J4",
       "Phase_shifter": "Internal",
-      "Io_config": "Cross",
+      "Io_config": "Bar1",
       "additional_nodes": {
         "A1": "Cross0",
         "B1": "Cross0",
@@ -299,12 +299,13 @@
         "H4": "Cross0",
         "I5": "Bar0",
         "J5": "Cross0",
+        "K5": "Cross0",
         "K6": "Cross0",
         "L5": "Cross0"
       }
     },
     {
-      "step": 14,
+      "step": 21,
       "input_port": 1,
       "output_port": 11,
       "calibration": "RP",
@@ -325,6 +326,179 @@
         "J5": "Cross0",
         "K5": "Cross0",
         "K6": "Cross0",
+        "L5": "Cross0"
+      }
+    },
+    {
+      "step": 21,
+      "input_port": 1,
+      "output_port": 11,
+      "calibration": "RP",
+      "calibration_node": "H3",
+      "Phase_shifter": "Internal",
+      "Io_config": "Bar1",
+      "additional_nodes": {
+        "A1": "Cross0",
+        "B1": "Cross0",
+        "C2": "Cross0",
+        "D2": "Cross0",
+        "E3": "Cross0",
+        "F3": "Cross0",
+        "G4": "Bar0",
+        "H4": "Cross0",
+        "I4": "Cross0",
+        "I5": "Cross0",
+        "J4": "Cross0",
+        "J5": "Cross0",
+        "K5": "Cross0",
+        "K6": "Cross0",
+        "L5": "Cross0"
+      }
+    },
+    {
+      "step": 21,
+      "input_port": 1,
+      "output_port": 11,
+      "calibration": "RP",
+      "calibration_node": "G3",
+      "Phase_shifter": "Internal",
+      "Io_config": "Bar1",
+      "additional_nodes": {
+        "A1": "Cross0",
+        "B1": "Cross0",
+        "C2": "Cross0",
+        "D2": "Cross0",
+        "E3": "Cross0",
+        "F3": "Bar0",
+        "G4": "Cross0",
+        "H3": "Cross0",
+        "H4": "Cross0",
+        "I4": "Cross0",
+        "I5": "Cross0",
+        "J4": "Cross0",
+        "J5": "Cross0",
+        "K5": "Cross0",
+        "K6": "Cross0",
+        "L5": "Cross0"
+      }
+    },
+    {
+      "step": 21,
+      "input_port": 1,
+      "output_port": 11,
+      "calibration": "RP",
+      "calibration_node": "F2",
+      "Phase_shifter": "Internal",
+      "Io_config": "Bar1",
+      "additional_nodes": {
+        "A1": "Cross0",
+        "B1": "Cross0",
+        "C2": "Cross0",
+        "D2": "Cross0",
+        "E3": "Bar0",
+        "F3": "Cross0",
+        "G3": "Cross0",
+        "G4": "Cross0",
+        "H3": "Cross0",
+        "H4": "Cross0",
+        "I4": "Cross0",
+        "I5": "Cross0",
+        "J4": "Cross0",
+        "J5": "Cross0",
+        "K5": "Cross0",
+        "K6": "Cross0",
+        "L5": "Cross0"
+      }
+    },
+    {
+      "step": 21,
+      "input_port": 1,
+      "output_port": 11,
+      "calibration": "RP",
+      "calibration_node": "E2",
+      "Phase_shifter": "Internal",
+      "Io_config": "Bar1",
+      "additional_nodes": {
+        "A1": "Cross0",
+        "B1": "Cross0",
+        "C2": "Cross0",
+        "D2": "Bar0",
+        "E3": "Cross0",
+        "F2": "Cross0",
+        "F3": "Cross0",
+        "G3": "Cross0",
+        "G4": "Cross0",
+        "H3": "Cross0",
+        "H4": "Cross0",
+        "I4": "Cross0",
+        "I5": "Cross0",
+        "J4": "Cross0",
+        "J5": "Cross0",
+        "K5": "Cross0",
+        "K6": "Cross0",
+        "L5": "Cross0"
+      }
+    },
+    {
+      "step": 21,
+      "input_port": 1,
+      "output_port": 11,
+      "calibration": "RP",
+      "calibration_node": "D1",
+      "Phase_shifter": "Internal",
+      "Io_config": "Bar1",
+      "additional_nodes": {
+        "A1": "Cross0",
+        "B1": "Cross0",
+        "C2": "Bar0",
+        "D2": "Cross0",
+        "E2": "Cross0",
+        "E3": "Cross0",
+        "F2": "Cross0",
+        "F3": "Cross0",
+        "G3": "Cross0",
+        "G4": "Cross0",
+        "H3": "Cross0",
+        "H4": "Cross0",
+        "I4": "Cross0",
+        "I5": "Cross0",
+        "J4": "Cross0",
+        "J5": "Cross0",
+        "K5": "Cross0",
+        "K6": "Cross0",
+        "L5": "Cross0"
+      }
+    },
+    {
+      "step": 21,
+      "input_port": 1,
+      "output_port": 9,
+      "calibration": "RP",
+      "calibration_node": "K4",
+      "Phase_shifter": "Internal",
+      "Io_config": "Bar1",
+      "additional_nodes": {
+        "A1": "Cross0",
+        "B1": "Bar0",
+        "C1": "Bar1",
+        "C2": "Cross0",
+        "D1": "Cross0",
+        "D2": "Cross0",
+        "E2": "Cross0",
+        "E3": "Cross0",
+        "F2": "Cross0",
+        "F3": "Cross0",
+        "G3": "Cross0",
+        "G4": "Cross0",
+        "H3": "Cross0",
+        "H4": "Cross0",
+        "I4": "Cross0",
+        "I5": "Cross0",
+        "J4": "Bar0",
+        "J5": "Cross0",
+        "K5": "Cross0",
+        "K6": "Cross0",
+        "L4": "Cross0",
         "L5": "Cross0"
       }
     }

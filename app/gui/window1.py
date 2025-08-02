@@ -22,6 +22,8 @@ from app.utils.gui.plot_utils import PlotUtils
 from typing import Dict, Any
 from scipy import optimize
 from app.utils.switch_measurements import SwitchMeasurements
+import json, time, logging
+# from app.utils.grid import mode_to_arms
 
 class Window1Content(ctk.CTkFrame):
     ### Define the callbacks for the interpolation functionality and update the label###
@@ -154,6 +156,7 @@ class Window1Content(ctk.CTkFrame):
             ("CLR", self._clear_grid),
             ("R", self.characterize_resistance),
             ("P", self.characterize_phase),
+            ("Auto", self.auto_calibrate),
             #("AP", self.apply_phase_new),
             ("Phase", self.apply_phase_new_json)  # Add this new button
         ]
@@ -3056,4 +3059,155 @@ class Window1Content(ctk.CTkFrame):
                 
         self.mapping_display.configure(state="disabled")
 
-    
+    def mode_to_arms(mode):
+        """
+        Convert IO mode (with 0–3 suffix) to the list of arms.
+        """
+        m = mode.lower()
+        # BAR patterns
+        if m == "bar0":
+            return ["TL", "TR"]
+        if m == "bar1":
+            return ["BL", "BR"]
+
+        # CROSS patterns
+        if m == "cross0":
+            return ["TL", "BR"]
+        if m == "cross1":
+            return ["TR", "BL"]
+
+        # SPLIT patterns (3-of-4); split means missing arm index N
+        if m == "split0":  # missing TL
+            return ["TR", "BR", "BL"]
+        if m == "split1":  # missing TR
+            return ["TL", "BR", "BL"]
+        if m == "split2":  # missing BR
+            return ["TL", "TR", "BL"]
+        if m == "split3":  # missing BL
+            return ["TL", "TR", "BR"]
+
+        # ARBITRARY: all four arms
+        if m == "arbitrary":
+            return ["TL", "TR", "BL", "BR"]
+
+        # fallback: no arms
+        return []
+
+    def _mode_to_arms(self, mode):
+        """
+        Convert IO mode string (e.g. 'Cross0', 'Bar1', 'Split2', 'Arbitrary')
+        into the corresponding list of arm suffixes.
+        """
+        m = (mode or "").lower()
+        # BAR patterns
+        if m == "bar0":
+            return ["TL", "TR"]
+        if m == "bar1":
+            return ["BL", "BR"]
+        # CROSS patterns
+        if m == "cross0":
+            return ["TL", "BR"]
+        if m == "cross1":
+            return ["TR", "BL"]
+        # SPLIT patterns (missing one arm)
+        if m == "split0":  # missing TL
+            return ["TR", "BR", "BL"]
+        if m == "split1":  # missing TR
+            return ["TL", "BR", "BL"]
+        if m == "split2":  # missing BR
+            return ["TL", "TR", "BL"]
+        if m == "split3":  # missing BL
+            return ["TL", "TR", "BR"]
+        # ARBITRARY: all four arms
+        if m == "arbitrary":
+            return ["TL", "TR", "BL", "BR"]
+        # fallback: no arms
+        return []
+
+    def auto_calibrate(self):
+        """
+        For each step in calibration_steps.json:
+          1) Write the per-step grid into AppData.default_json_grid and rebuild the UI
+          2) Import that grid JSON to select arms & create θ/φ boxes
+          3) Force AppData.last_selection so _get_current_channels() works
+          4) Bias all selected arms at 0.9 mA
+          5) Set switches & phase-shifter
+          6) Run run_rp_calibration() on the selected node
+        """
+        import json, time, logging
+        from app.utils.appdata import AppData
+
+        try:
+            with open("calibration_steps.json", "r") as f:
+                payload = json.load(f)
+            steps = payload.get("steps", [])
+            total = len(steps)
+
+            for idx, step in enumerate(steps, start=1):
+                node      = step["calibration_node"]
+                io_mode   = step.get("Io_config", "")
+                extras    = step.get("additional_nodes", {})
+                inp       = step.get("input_port")
+                outp      = step.get("output_port")
+                phase_sh  = step.get("Phase_shifter")
+
+                logging.info(f"[AutoCal] Step {idx}/{total}: node={node}, Io_config={io_mode}")
+
+                # 1) Build the raw grid JSON dict
+                grid_cfg = {}
+                if node:
+                    grid_cfg[node] = {
+                        "arms": self._mode_to_arms(io_mode),
+                        "theta": "0", "phi": "0"
+                    }
+                for extra_node, extra_mode in extras.items():
+                    grid_cfg[extra_node] = {
+                        "arms": self._mode_to_arms(extra_mode),
+                        "theta": "0", "phi": "0"
+                    }
+
+                # 2) Push into AppData and rebuild the UI grid
+                AppData.default_json_grid = grid_cfg
+                self.build_grid(self.grid_size)
+
+                # 3) Import that grid JSON to select paths & show boxes
+                self.custom_grid.import_paths_json(json.dumps(grid_cfg, indent=2))
+
+                AppData.selected_labels = {node}
+                AppData.selected_label  = node
+                AppData.update_last_selection(node, None)
+                # Trigger the selection‐updated handlers in Window1Content
+                self.custom_grid.event_generate("<<SelectionUpdated>>")
+
+                # 4) Force the “last selection” so characterize_* finds our node
+                # AppData.update_last_selection(node, None)
+                # Trigger the selection‐updated handlers
+                # self.custom_grid.event_generate("<<SelectionUpdated>>")
+
+                # 5) Bias every selected path at 0.9 mA
+                create_map, apply_map = get_mapping_functions(self.grid_size)
+                bias_cfg = {
+                    lbl: {"arms": data["arms"], "theta": "0.9", "phi": "0.9"}
+                    for lbl, data in grid_cfg.items()
+                }
+                apply_map(self.qontrol, json.dumps(bias_cfg), self.grid_size)
+
+                # 6) Set the phase‐shifter widget
+                if self.phase_selector:
+                    self.phase_selector.radio_var.set(phase_sh)
+
+                # 7) Toggle the input/output switches
+                if inp is not None:
+                    self._quick_set_channel(inp, "input")
+                if outp is not None:
+                    self._quick_set_channel(outp, "output")
+
+                # 8) Finally run RP calibration on that node
+                self.run_rp_calibration()
+
+                # 9) Brief pause
+                time.sleep(2)
+
+            logging.info("[AutoCal] All steps complete.")
+        except Exception as e:
+            self._show_error(f"Auto-calibration failed: {e}")
