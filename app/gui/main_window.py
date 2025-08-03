@@ -110,10 +110,25 @@ class MainWindow(ctk.CTk):
                 switch_input = self.switch_input,
                 switch_output = self.switch_output,
                 grid_size=mesh_size,
-                phase_selector=self.calibration_control,  # Pass the existing widget
-
+                phase_selector=self.calibration_control,  
             )
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
+
+            grid = self.current_content.custom_grid
+            orig_toggle = grid.toggle_play
+
+            # capture the content’s own auto_calibrate
+            autocal = getattr(self.current_content, "auto_calibrate", None)
+            if autocal is None:
+                def autocal(): 
+                    logging.warning("No auto_calibrate on current_content")
+
+            def _play_and_autocal():
+                orig_toggle()
+                autocal()
+
+            grid.play_btn.configure(command=_play_and_autocal)
+
         elif window_name == "Window 2":
             # Create the Window2Content (which integrates the Qontrol control panel)
             self.current_content = Window2Content(

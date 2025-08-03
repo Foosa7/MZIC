@@ -23,7 +23,7 @@ class Path:
         self.line_id = line_id
 
 class Example(Frame):
-    def __init__(self, master=None, grid_n=12, scale=1, calibration_json=None, get_cross_modes_func=None):
+    def __init__(self, master=None, grid_n=12, scale=1, calibration_json=None, get_cross_modes_func=None, auto_calibrate_callback=None):
 
         """
         master: parent widget.
@@ -38,6 +38,7 @@ class Example(Frame):
         self.step_lines = []    
         self.all_steps = []    
         self.playing = False
+        self.auto_calibrate_callback = auto_calibrate_callback
         self.current_step = 0
         self.edit_mode = False  # Start in edit mode  
         self.grid_n = grid_n
@@ -77,7 +78,17 @@ class Example(Frame):
         nav_frame.grid(row=0, column=1)
         self.back_btn = ctk.CTkButton(nav_frame, text="⏮ Back", width=80, command=self.decrement_step, fg_color="transparent")
         self.back_btn.pack(side='left', padx=5)
-        self.play_btn = ctk.CTkButton(nav_frame, text="▶ Play", width=80, command=self.toggle_play, fg_color="transparent")
+        # self.play_btn = ctk.CTkButton(nav_frame, text="▶ Play", width=80, command=self.toggle_play, fg_color="transparent")
+        # ▶ Play now either starts grid‐stepping or runs auto‐calibration
+        self.play_btn = ctk.CTkButton(
+            nav_frame,
+            text="▶ Play",
+            width=80,
+            command=self._on_play_clicked,
+            fg_color="transparent"
+        )
+
+    
         self.play_btn.pack(side='left', padx=5)
         self.next_btn = ctk.CTkButton(
             nav_frame,
@@ -1734,6 +1745,20 @@ class Example(Frame):
             lines.append(line)
 
         return lines
+
+    def _on_play_clicked(self):
+        """
+        When ▶ Play is clicked:
+          • if an auto_calibrate_callback was provided → call it.
+          • else → fall back to the old toggle_play behavior.
+        """
+        if callable(self.auto_calibrate_callback):
+            # hand off control to window1.auto_calibrate()
+            self.auto_calibrate_callback()
+        else:
+            # no callback set → just do the regular play/step
+            self.toggle_play()
+
 
 
     def get_cross_modes_numbers(self):

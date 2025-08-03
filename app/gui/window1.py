@@ -2930,11 +2930,15 @@ class Window1Content(ctk.CTkFrame):
                     }
 
                 # 2) Push into AppData and rebuild the UI grid
-                AppData.default_json_grid = grid_cfg
-                self.build_grid(self.grid_size)
+                # AppData.default_json_grid = grid_cfg
+                # self.build_grid(self.grid_size)
 
                 # 3) Import that grid JSON to select paths & show boxes
-                self.custom_grid.import_paths_json(json.dumps(grid_cfg, indent=2))
+                # self.custom_grid.import_paths_json(json.dumps(grid_cfg, indent=2))
+                # self.custom_grid.current_step = idx
+                # self.custom_grid.step_label.configure(text=f"Step {idx}/{total}")
+                # self.import_calibration_data(json.dumps(grid_cfg, indent=2))
+                self.custom_grid.import_calibration(step_idx=idx-1)
 
                 AppData.selected_labels = {node}
                 AppData.selected_label  = node
@@ -2944,9 +2948,9 @@ class Window1Content(ctk.CTkFrame):
                 self.update_idletasks()
 
                 # 4) Force the “last selection” so characterize_* finds our node
-                # AppData.update_last_selection(node, None)
+                AppData.update_last_selection(node, None)
                 # Trigger the selection‐updated handlers
-                # self.custom_grid.event_generate("<<SelectionUpdated>>")
+                self.custom_grid.event_generate("<<SelectionUpdated>>")
 
                 # 5) Bias every selected path at 0.9 mA
                 create_map, apply_map = get_mapping_functions(self.grid_size)
@@ -2973,11 +2977,31 @@ class Window1Content(ctk.CTkFrame):
                 if outp is not None:
                     self._quick_set_channel(outp, "output")
 
+                node     = step["calibration_node"]
+                raw_mode = step.get("Io_config", "").lower()   # e.g. "cross0", "bar1", etc.
+
+                # normalize
+                if raw_mode.startswith("cross"):
+                    norm_mode = "cross"
+                elif raw_mode.startswith("bar"):
+                    norm_mode = "bar"
+                elif raw_mode.startswith("split"):
+                    norm_mode = "split"
+                elif raw_mode == "arbitrary":
+                    norm_mode = "arbitrary"
+                else:
+                    norm_mode = raw_mode  # fallback, in case you invent new ones
+
+                AppData.io_config = getattr(AppData, "io_config", {}) or {}
+                AppData.io_config[node] = norm_mode
+
+
+
                 # 8) Finally run RP calibration on that node
                 self.run_rp_calibration()
 
                 # 9) Brief pause
-                time.sleep(2)
+                time.sleep(0.5)
 
             logging.info("[AutoCal] All steps complete.")
         except Exception as e:
