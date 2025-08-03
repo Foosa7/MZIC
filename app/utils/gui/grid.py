@@ -1753,13 +1753,18 @@ class Example(Frame):
           • if an auto_calibrate_callback was provided → call it.
           • else → fall back to the old toggle_play behavior.
         """
-        if callable(self.auto_calibrate_callback):
-            # hand off control to window1.auto_calibrate()
-            self.auto_calibrate_callback()
-        else:
-            # no callback set → just do the regular play/step
-            self.toggle_play()
+        # if callable(self.auto_calibrate_callback):
+        #     # hand off control to window1.auto_calibrate()
+        #     self.auto_calibrate_callback()
+        # else:
+        #     # no callback set → just do the regular play/step
+        #     self.toggle_play()
+        # 1) always flip the play/pause state and button text
+        self.toggle_play()
 
+        # 2) if we just went into PLAY, hand off to the window’s auto_calibrate
+        if self.playing and callable(self.auto_calibrate_callback):
+            self.auto_calibrate_callback()
 
 
     def get_cross_modes_numbers(self):

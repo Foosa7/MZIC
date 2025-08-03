@@ -73,6 +73,12 @@ class Window1Content(ctk.CTkFrame):
         self.interpolation_enabled = False
         self.interpolated_theta = {}  # e.g., {"E1": 0.987, ...}
         
+        self._auto_steps = []
+        self._auto_total = 0
+        self._auto_idx = 0
+        self._auto_running = False
+        self._auto_paused = False
+
         self.phase_selector = phase_selector
         self.app = app  # Store the AppData instance
 
@@ -2888,119 +2894,297 @@ class Window1Content(ctk.CTkFrame):
         return []
 
     def auto_calibrate(self):
-        """
-        For each step in calibration_steps.json:
-          1) Write the per-step grid into AppData.default_json_grid and rebuild the UI
-          2) Import that grid JSON to select arms & create θ/φ boxes
-          3) Force AppData.last_selection so _get_current_channels() works
-          4) Bias all selected arms at 0.9 mA
-          5) Set switches & phase-shifter
-          6) Run run_rp_calibration() on the selected node
-        """
-        try:
-            with open("calibration_steps.json", "r") as f:
+        """Kick off (or resume) the non‐blocking auto‐calibration."""
+        # load & initialize on first call
+        if not self._auto_steps:
+            with open("calibration_steps.json","r") as f:
                 payload = json.load(f)
-            steps = payload.get("steps", [])
-            total = len(steps)
+            self._auto_steps = payload.get("steps", [])
+            self._auto_total = len(self._auto_steps)
+            self._auto_idx = getattr(AppData, "current_calibration_step", 0)
 
-            start = getattr(AppData, "current_calibration_step", 0)
-            for idx, step in enumerate(steps[start:], start=start+1):
-                node      = step["calibration_node"]
-                io_mode   = step.get("Io_config", "")
-                extras    = step.get("additional_nodes", {})
-                inp       = step.get("input_port")
-                outp      = step.get("output_port")
-                phase_sh  = step.get("Phase_shifter")
+        # schedule the very next step
+        self._schedule_next_step()
 
-                logging.info(f"[AutoCal] Step {idx}/{total}: node={node}, Io_config={io_mode}")
+    def _schedule_next_step(self):
+        """Do exactly one calibration step, then re‐schedule if still playing."""
+        # 0) if user has paused the grid, stop here
+        if not self.custom_grid.playing:
+            return
 
-                # 1) Build the raw grid JSON dict
-                grid_cfg = {}
-                if node:
-                    grid_cfg[node] = {
-                        "arms": self._mode_to_arms(io_mode),
-                        "theta": "0", "phi": "0"
-                    }
-                for extra_node, extra_mode in extras.items():
-                    grid_cfg[extra_node] = {
-                        "arms": self._mode_to_arms(extra_mode),
-                        "theta": "0", "phi": "0"
-                    }
+        # 1) if we're past the last step, clean up
+        if self._auto_idx >= self._auto_total:
+            # reset so a new ▶ Play will start over
+            self._auto_steps = []
+            self.custom_grid.toggle_play()   # flip back to ▶ Play
+            return
 
-                # 2) Push into AppData and rebuild the UI grid
-                # AppData.default_json_grid = grid_cfg
-                # self.build_grid(self.grid_size)
+        step = self._auto_steps[self._auto_idx]
+        idx  = self._auto_idx + 1
 
-                # 3) Import that grid JSON to select paths & show boxes
-                # self.custom_grid.import_paths_json(json.dumps(grid_cfg, indent=2))
-                # self.custom_grid.current_step = idx
-                # self.custom_grid.step_label.configure(text=f"Step {idx}/{total}")
-                # self.import_calibration_data(json.dumps(grid_cfg, indent=2))
-                self.custom_grid.import_calibration(step_idx=idx-1)
+        # — your existing per‐step logic, condensed —
+        node    = step["calibration_node"]
+        io_mode = step.get("Io_config","")
+        extras  = step.get("additional_nodes",{})
+        inp     = step.get("input_port")
+        outp    = step.get("output_port")
+        phase_sh= step.get("Phase_shifter","")
 
-                AppData.selected_labels = {node}
-                AppData.selected_label  = node
-                AppData.update_last_selection(node, None)
-                # Trigger the selection‐updated handlers in Window1Content
-                self.custom_grid.event_generate("<<SelectionUpdated>>")
-                self.update_idletasks()
-
-                # 4) Force the “last selection” so characterize_* finds our node
-                AppData.update_last_selection(node, None)
-                # Trigger the selection‐updated handlers
-                self.custom_grid.event_generate("<<SelectionUpdated>>")
-
-                # 5) Bias every selected path at 0.9 mA
-                create_map, apply_map = get_mapping_functions(self.grid_size)
-                bias_cfg = {
-                    lbl: {"arms": data["arms"], "theta": "0.9", "phi": "0.9"}
-                    for lbl, data in grid_cfg.items()
-                }
-                apply_map(self.qontrol, json.dumps(bias_cfg), self.grid_size)
-
-                # create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
-                # label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
-                # bias_cfg = {lbl: {"arms": data["arms"], "theta": "0.9", "phi": "0.9"}
-                #             for lbl, data in label_map.items() if lbl in AppData.selected_labels}  
-                # apply_grid_mapping(self.qontrol, json.dumps(bias_cfg), self.grid_size)
-                # self._capture_output(self.qontrol.show_status, self.status_display)
-
-                # 6) Set the phase‐shifter widget
-                if self.phase_selector:
-                    self.phase_selector.radio_var.set(phase_sh)
-
-                # 7) Toggle the input/output switches
-                if inp is not None:
-                    self._quick_set_channel(inp, "input")
-                if outp is not None:
-                    self._quick_set_channel(outp, "output")
-
-                node     = step["calibration_node"]
-                raw_mode = step.get("Io_config", "").lower()   # e.g. "cross0", "bar1", etc.
-
-                # normalize
-                if raw_mode.startswith("cross"):
-                    norm_mode = "cross"
-                elif raw_mode.startswith("bar"):
-                    norm_mode = "bar"
-                elif raw_mode.startswith("split"):
-                    norm_mode = "split"
-                elif raw_mode == "arbitrary":
-                    norm_mode = "arbitrary"
-                else:
-                    norm_mode = raw_mode  # fallback, in case you invent new ones
-
-                AppData.io_config = getattr(AppData, "io_config", {}) or {}
-                AppData.io_config[node] = norm_mode
+        logging.info(f"[AutoCal] Step {idx}/{self._auto_total}: {node} @ {io_mode}")
 
 
+        # 1) Build the raw grid JSON dict
+        grid_cfg = {}
+        if node:
+            grid_cfg[node] = {
+                "arms": self._mode_to_arms(io_mode),
+                "theta": "0", "phi": "0"
+            }
+        for extra_node, extra_mode in extras.items():
+            grid_cfg[extra_node] = {
+                "arms": self._mode_to_arms(extra_mode),
+                "theta": "0", "phi": "0"
+            }
 
-                # 8) Finally run RP calibration on that node
-                self.run_rp_calibration()
+        # 2) Push into AppData and rebuild the UI grid
+        # AppData.default_json_grid = grid_cfg
+        # self.build_grid(self.grid_size)
 
-                # 9) Brief pause
-                time.sleep(0.5)
+        # 3) Import that grid JSON to select paths & show boxes
+        # self.custom_grid.import_paths_json(json.dumps(grid_cfg, indent=2))
+        # self.custom_grid.current_step = idx
+        # self.custom_grid.step_label.configure(text=f"Step {idx}/{total}")
+        # self.import_calibration_data(json.dumps(grid_cfg, indent=2))
+        self.custom_grid.import_calibration(step_idx=idx-1)
 
-            logging.info("[AutoCal] All steps complete.")
-        except Exception as e:
-            self._show_error(f"Auto-calibration failed: {e}")
+        AppData.selected_labels = {node}
+        AppData.selected_label  = node
+        AppData.update_last_selection(node, None)
+        # Trigger the selection‐updated handlers in Window1Content
+        self.custom_grid.event_generate("<<SelectionUpdated>>")
+        self.update_idletasks()
+
+        # 4) Force the “last selection” so characterize_* finds our node
+        AppData.update_last_selection(node, None)
+        # Trigger the selection‐updated handlers
+        self.custom_grid.event_generate("<<SelectionUpdated>>")
+
+        # 5) Bias every selected path at 0.9 mA
+        create_map, apply_map = get_mapping_functions(self.grid_size)
+        bias_cfg = {
+            lbl: {"arms": data["arms"], "theta": "0.9", "phi": "0.9"}
+            for lbl, data in grid_cfg.items()
+        }
+        apply_map(self.qontrol, json.dumps(bias_cfg), self.grid_size)
+
+        # create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+        # label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+        # bias_cfg = {lbl: {"arms": data["arms"], "theta": "0.9", "phi": "0.9"}
+        #             for lbl, data in label_map.items() if lbl in AppData.selected_labels}  
+        # apply_grid_mapping(self.qontrol, json.dumps(bias_cfg), self.grid_size)
+        # self._capture_output(self.qontrol.show_status, self.status_display)
+
+        # 6) Set the phase‐shifter widget
+        if self.phase_selector:
+            self.phase_selector.radio_var.set(phase_sh)
+
+        # 7) Toggle the input/output switches
+        if inp is not None:
+            self._quick_set_channel(inp, "input")
+        if outp is not None:
+            self._quick_set_channel(outp, "output")
+
+        node     = step["calibration_node"]
+        raw_mode = step.get("Io_config", "").lower()   # e.g. "cross0", "bar1", etc.
+
+        # normalize
+        if raw_mode.startswith("cross"):
+            norm_mode = "cross"
+        elif raw_mode.startswith("bar"):
+            norm_mode = "bar"
+        elif raw_mode.startswith("split"):
+            norm_mode = "split"
+        elif raw_mode == "arbitrary":
+            norm_mode = "arbitrary"
+        else:
+            norm_mode = raw_mode  # fallback, in case you invent new ones
+
+        AppData.io_config = getattr(AppData, "io_config", {}) or {}
+        AppData.io_config[node] = norm_mode
+
+        # 8) Finally run RP calibration on that node
+        self.run_rp_calibration()
+
+        # Record progress
+        AppData.current_calibration_step = self._auto_idx = self._auto_idx + 1
+
+        # 2) schedule the *next* step in 500 ms
+        self.after(1000, self._schedule_next_step)
+
+
+
+        # 9) Brief pause
+        # time.sleep(0.5)
+
+    #     logging.info("[AutoCal] All steps complete.")
+    # except Exception as e:
+    #     self._show_error(f"Auto-calibration failed: {e}")
+
+
+
+        # # Highlight grid + update AppData.last_selection
+        # self.custom_grid.import_calibration(step_idx=self._auto_idx)
+        # AppData.update_last_selection(node, None)
+        # self.custom_grid.event_generate("<<SelectionUpdated>>")
+        # self.update_idletasks()
+
+        # # Bias currents
+        # create_map, apply_map = get_mapping_functions(self.grid_size)
+        # grid_cfg = { node:{"arms":self._mode_to_arms(io_mode),"theta":"0","phi":"0"} }
+        # for en,em in extras.items():
+        #     grid_cfg[en] = {"arms":self._mode_to_arms(em),"theta":"0","phi":"0"}
+        # bias_cfg = { lbl:{"arms":d["arms"],"theta":"0.9","phi":"0.9"} 
+        #              for lbl,d in grid_cfg.items() }
+        # apply_map(self.qontrol, json.dumps(bias_cfg), self.grid_size)
+
+        # # Switches & phase-shifter
+        # if self.phase_selector:
+        #     self.phase_selector.radio_var.set(phase_sh)
+        # if inp  is not None: self._quick_set_channel(inp,  "input")
+        # if outp is not None: self._quick_set_channel(outp, "output")
+
+        # # Normalize io_config
+        # raw = io_mode.lower()
+        # if raw.startswith("cross"): norm="cross"
+        # elif raw.startswith("bar"):  norm="bar"
+        # elif raw.startswith("split"):norm="split"
+        # else:                        norm=raw
+        # AppData.io_config = AppData.io_config or {}
+        # AppData.io_config[node] = norm
+
+        # # Run RP calibration
+        # self.run_rp_calibration()
+
+        # # Record progress
+        # AppData.current_calibration_step = self._auto_idx = self._auto_idx + 1
+
+        # # 2) schedule the *next* step in 500 ms
+        # self.after(500, self._schedule_next_step)
+
+
+
+    # def auto_calibrate(self):
+    #     """
+    #     For each step in calibration_steps.json:
+    #       1) Write the per-step grid into AppData.default_json_grid and rebuild the UI
+    #       2) Import that grid JSON to select arms & create θ/φ boxes
+    #       3) Force AppData.last_selection so _get_current_channels() works
+    #       4) Bias all selected arms at 0.9 mA
+    #       5) Set switches & phase-shifter
+    #       6) Run run_rp_calibration() on the selected node
+    #     """
+    #     try:
+    #         with open("calibration_steps.json", "r") as f:
+    #             payload = json.load(f)
+    #         steps = payload.get("steps", [])
+    #         total = len(steps)
+
+    #         start = getattr(AppData, "current_calibration_step", 0)
+    #         for idx, step in enumerate(steps[start:], start=start+1):
+    #             node      = step["calibration_node"]
+    #             io_mode   = step.get("Io_config", "")
+    #             extras    = step.get("additional_nodes", {})
+    #             inp       = step.get("input_port")
+    #             outp      = step.get("output_port")
+    #             phase_sh  = step.get("Phase_shifter")
+
+    #             logging.info(f"[AutoCal] Step {idx}/{total}: node={node}, Io_config={io_mode}")
+
+    #             # 1) Build the raw grid JSON dict
+    #             grid_cfg = {}
+    #             if node:
+    #                 grid_cfg[node] = {
+    #                     "arms": self._mode_to_arms(io_mode),
+    #                     "theta": "0", "phi": "0"
+    #                 }
+    #             for extra_node, extra_mode in extras.items():
+    #                 grid_cfg[extra_node] = {
+    #                     "arms": self._mode_to_arms(extra_mode),
+    #                     "theta": "0", "phi": "0"
+    #                 }
+
+    #             # 2) Push into AppData and rebuild the UI grid
+    #             # AppData.default_json_grid = grid_cfg
+    #             # self.build_grid(self.grid_size)
+
+    #             # 3) Import that grid JSON to select paths & show boxes
+    #             # self.custom_grid.import_paths_json(json.dumps(grid_cfg, indent=2))
+    #             # self.custom_grid.current_step = idx
+    #             # self.custom_grid.step_label.configure(text=f"Step {idx}/{total}")
+    #             # self.import_calibration_data(json.dumps(grid_cfg, indent=2))
+    #             self.custom_grid.import_calibration(step_idx=idx-1)
+
+    #             AppData.selected_labels = {node}
+    #             AppData.selected_label  = node
+    #             AppData.update_last_selection(node, None)
+    #             # Trigger the selection‐updated handlers in Window1Content
+    #             self.custom_grid.event_generate("<<SelectionUpdated>>")
+    #             self.update_idletasks()
+
+    #             # 4) Force the “last selection” so characterize_* finds our node
+    #             AppData.update_last_selection(node, None)
+    #             # Trigger the selection‐updated handlers
+    #             self.custom_grid.event_generate("<<SelectionUpdated>>")
+
+    #             # 5) Bias every selected path at 0.9 mA
+    #             create_map, apply_map = get_mapping_functions(self.grid_size)
+    #             bias_cfg = {
+    #                 lbl: {"arms": data["arms"], "theta": "0.9", "phi": "0.9"}
+    #                 for lbl, data in grid_cfg.items()
+    #             }
+    #             apply_map(self.qontrol, json.dumps(bias_cfg), self.grid_size)
+
+    #             # create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+    #             # label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+    #             # bias_cfg = {lbl: {"arms": data["arms"], "theta": "0.9", "phi": "0.9"}
+    #             #             for lbl, data in label_map.items() if lbl in AppData.selected_labels}  
+    #             # apply_grid_mapping(self.qontrol, json.dumps(bias_cfg), self.grid_size)
+    #             # self._capture_output(self.qontrol.show_status, self.status_display)
+
+    #             # 6) Set the phase‐shifter widget
+    #             if self.phase_selector:
+    #                 self.phase_selector.radio_var.set(phase_sh)
+
+    #             # 7) Toggle the input/output switches
+    #             if inp is not None:
+    #                 self._quick_set_channel(inp, "input")
+    #             if outp is not None:
+    #                 self._quick_set_channel(outp, "output")
+
+    #             node     = step["calibration_node"]
+    #             raw_mode = step.get("Io_config", "").lower()   # e.g. "cross0", "bar1", etc.
+
+    #             # normalize
+    #             if raw_mode.startswith("cross"):
+    #                 norm_mode = "cross"
+    #             elif raw_mode.startswith("bar"):
+    #                 norm_mode = "bar"
+    #             elif raw_mode.startswith("split"):
+    #                 norm_mode = "split"
+    #             elif raw_mode == "arbitrary":
+    #                 norm_mode = "arbitrary"
+    #             else:
+    #                 norm_mode = raw_mode  # fallback, in case you invent new ones
+
+    #             AppData.io_config = getattr(AppData, "io_config", {}) or {}
+    #             AppData.io_config[node] = norm_mode
+
+    #             # 8) Finally run RP calibration on that node
+    #             self.run_rp_calibration()
+
+    #             # 9) Brief pause
+    #             time.sleep(0.5)
+
+    #         logging.info("[AutoCal] All steps complete.")
+    #     except Exception as e:
+    #         self._show_error(f"Auto-calibration failed: {e}")
