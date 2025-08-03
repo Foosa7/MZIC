@@ -21,25 +21,25 @@ class CalibrationUtils:
         currents = np.linspace(start_current, end_current, steps).astype(float)
         voltages = []
         # while True:
-            # try:
-            #     user_input = input(f"Enter max current for resistance sweep (mA) [Device limit: {qontrol.globalcurrrentlimit} mA]: ")
-            #     if not user_input:  # If user just presses enter, use device limit
-            #         end_current = qontrol.globalcurrrentlimit
-            #         print(f"Using device limit: {end_current} mA")
-            #         break
-            #     else:
-            #         end_current = float(user_input)
-            #         if 0 < end_current <= qontrol.globalcurrrentlimit:
-            #             print(f"Using max current: {end_current} mA")
-            #             break
-            #         else:
-            #             print(f"Error: Value must be between 0 and {qontrol.globalcurrrentlimit} mA")
-            # except ValueError:
-            #     print("Error: Please enter a valid number")
-        start_current = 0
-        steps = 10
-        currents = np.linspace(start_current, end_current, steps).astype(float)
-        voltages = []
+        #     try:
+        #         user_input = input(f"Enter max current for resistance sweep (mA) [Device limit: {qontrol.globalcurrrentlimit} mA]: ")
+        #         if not user_input:  # If user just presses enter, use device limit
+        #             end_current = qontrol.globalcurrrentlimit
+        #             print(f"Using device limit: {end_current} mA")
+        #             break
+        #         else:
+        #             end_current = float(user_input)
+        #             if 0 < end_current <= qontrol.globalcurrrentlimit:
+        #                 print(f"Using max current: {end_current} mA")
+        #                 break
+        #             else:
+        #                 print(f"Error: Value must be between 0 and {qontrol.globalcurrrentlimit} mA")
+        #     except ValueError:
+        #         print("Error: Please enter a valid number")
+        # start_current = 0
+        # steps = 10
+        # currents = np.linspace(start_current, end_current, steps).astype(float)
+        # voltages = []
 
         # Current sweep measurement
         for I in currents:
