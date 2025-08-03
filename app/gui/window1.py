@@ -23,6 +23,9 @@ from typing import Dict, Any
 from scipy import optimize
 from app.utils.switch_measurements import SwitchMeasurements
 import json, time, logging
+from PIL import Image
+import os
+
 # from app.utils.grid import mode_to_arms
 
 class Window1Content(ctk.CTkFrame):
@@ -1883,6 +1886,8 @@ class Window1Content(ctk.CTkFrame):
             self.update_idletasks()   # force all pending widget updates
             self.characterize_phase()
             self.update_idletasks()   # force all pending widget updates
+            self.save_combined_calibration_plots()
+
         except Exception as e:
             self._show_error(f"Calibration failed: {str(e)}")
             import traceback
@@ -1970,6 +1975,7 @@ class Window1Content(ctk.CTkFrame):
                 fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
                 buf.seek(0)
                 img = Image.open(buf).copy()
+                self._last_res_img = img
 
                 # Create CTkImage and display in graph tab
                 ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(480, 320))
@@ -2081,6 +2087,8 @@ class Window1Content(ctk.CTkFrame):
                 fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
                 buf.seek(0)
                 img = Image.open(buf)
+                self._last_ph_img = img
+
 
                 # Create CTkImage and display in graph tab
                 ctk_image = ctk.CTkImage(light_image=img, dark_image=img, size=(480, 320))
@@ -2094,6 +2102,99 @@ class Window1Content(ctk.CTkFrame):
             self._show_error(f"Phase characterization failed: {str(e)}")
             import traceback
             traceback.print_exc()
+
+    def save_combined_calibration_plots(self):
+        """
+        Combine the last resistance & phase PIL images into one portrait
+        and save under ./plots/ with a timestamped filename.
+        """
+        # make sure we actually have both images
+        if not hasattr(self, "_last_res_img") or not hasattr(self, "_last_ph_img"):
+            messagebox.showwarning("Save Combined Plots",
+                                "No resistance & phase images available to combine.")
+            return
+
+        res_img = self._last_res_img
+        ph_img  = self._last_ph_img
+
+        # portrait layout: width = max widths, height = sum heights
+        W = max(res_img.width, ph_img.width)
+        H = res_img.height + ph_img.height
+        combined = Image.new("RGB", (W, H), "white")
+        combined.paste(res_img, (0, 0))
+        combined.paste(ph_img,  (0, res_img.height))
+
+        # ensure the output folder exists
+        plots_dir = os.path.join(os.getcwd(), "plots")
+        os.makedirs(plots_dir, exist_ok=True)
+
+        fname = f"calibration_{time.strftime('%Y%m%d_%H%M%S')}.png"
+        outpath = os.path.join(plots_dir, fname)
+        combined.save(outpath, dpi=(300,300), format="PNG")
+
+        messagebox.showinfo("Saved",
+                            f"Combined calibration plots saved to:\n{outpath}")
+
+
+    # def save_combined_calibration_plots(self, label, filename="calibration_results.png"):
+    #     """
+    #     Fetch resistance and phase calibration data for the given label,
+    #     draw them one above the other, and save to `filename`.
+    #     """
+    #     # 1) Pull your stored data
+    #     res = AppData.get_resistance_calibration(label)
+    #     ph  = AppData.get_phase_calibration(label)
+    #     if not res or not ph:
+    #         raise RuntimeError(f"Missing calibration data for {label}")
+        
+    #     # Resistance data
+    #     I_r = np.array(res["measurement_data"]["currents"])
+    #     V   = np.array(res["measurement_data"]["voltages"])
+    #     a = res["resistance_params"]["a_res"]
+    #     c = res["resistance_params"]["c_res"]
+    #     d = res["resistance_params"]["d_res"]
+        
+    #     # Phase data
+    #     I_p = np.array(ph["measurement_data"]["currents"])
+    #     P   = np.array(ph["measurement_data"]["optical_powers"])
+    #     fit = ph["phase_params"]["fitfunc"]  # your fitting function
+        
+    #     # 2) Build a portrait (tall) figure
+    #     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 10))
+        
+    #     # 3) Plot resistance
+    #     ax1.scatter(I_r, V, label="measured", marker='o')
+    #     x_r = np.linspace(I_r.min(), I_r.max(), 200)
+    #     ax1.plot(x_r, a*x_r**2 + c*x_r + d, label="fit")
+    #     ax1.set_title(f"Resistance Calibration – {label}")
+    #     ax1.set_xlabel("Current (mA)")
+    #     ax1.set_ylabel("Voltage (V)")
+    #     ax1.legend()
+        
+    #     # 4) Plot phase
+    #     ax2.scatter(I_p, P, label="measured", marker='o')
+    #     if fit is not None:
+    #         ax2.plot(I_p, fit(I_p), label="fit")
+    #     ax2.set_title(f"Phase Calibration – {label}")
+    #     ax2.set_xlabel("Current (mA)")
+    #     ax2.set_ylabel("Optical Power (a.u.)")
+    #     ax2.legend()
+        
+    #     # 5) Tidy up and save
+    #     plt.tight_layout()
+
+    #     # 6) Make sure “plots/” exists
+    #     plots_dir = os.path.join(os.getcwd(), "plots")
+    #     os.makedirs(plots_dir, exist_ok=True)
+
+    #     # 7) Save into that folder
+    #     filepath = os.path.join(plots_dir, filename)
+    #     fig.savefig(filepath, dpi=300)
+    #     plt.close(fig)
+            
+    #     # Optional: inform user
+    #     messagebox.showinfo("Saved", f"Combined plot saved as:\n{filename}")
+
 
     def export_calibration_data(self):
         """Export calibration data from AppData to JSON file"""
