@@ -1425,6 +1425,7 @@ class Example(Frame):
     def next_step(self):
         """Just advance the counter & load without saving (view mode)."""
         self.current_step += 1
+        AppData.current_calibration_step = self.current_step
         logging.info(f"Advancing to step {self.current_step}")
         self.import_calibration(step_idx=self.current_step)
 

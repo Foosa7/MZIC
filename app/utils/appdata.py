@@ -37,6 +37,7 @@ class AppData:
     phase_shifter_selection = "Internal"  # Default phase shifter selection
 
     selected_label = set()
+    current_calibration_step = 0  # Track the current calibration step
     selected_labels = {}
     io_config = None
     last_selection = {"cross": None, "arm": None}  # Set default starting value

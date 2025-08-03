@@ -2897,16 +2897,14 @@ class Window1Content(ctk.CTkFrame):
           5) Set switches & phase-shifter
           6) Run run_rp_calibration() on the selected node
         """
-        # import json, time, logging
-        # from app.utils.appdata import AppData
-
         try:
             with open("calibration_steps.json", "r") as f:
                 payload = json.load(f)
             steps = payload.get("steps", [])
             total = len(steps)
 
-            for idx, step in enumerate(steps, start=1):
+            start = getattr(AppData, "current_calibration_step", 0)
+            for idx, step in enumerate(steps[start:], start=start+1):
                 node      = step["calibration_node"]
                 io_mode   = step.get("Io_config", "")
                 extras    = step.get("additional_nodes", {})
