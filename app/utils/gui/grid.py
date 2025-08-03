@@ -1622,29 +1622,46 @@ class Example(Frame):
         self.event_generate("<<SelectionUpdated>>")
         self.update_selection()
 
-
     def increment_step(self):
         """
         Advance one step:
-          • In edit mode: just move through self.all_steps.
-          • In view mode: load the next step from calibration_steps.json.
+          • In edit mode: always bump the counter so you can add new steps
+          • In view mode: load the next step from calibration_steps.json
         """
         if self.edit_mode:
-            # — EDIT mode: walk through the saved steps list —
+            # — EDIT mode: just advance the counter, no clamping —
+            self.current_step += 1
             total = len(self.all_steps)
-            if total == 0:
-                return  # nothing to do
-            # clamp and advance
-            next_idx = min(self.current_step + 1, total - 1)
-            if next_idx != self.current_step:
-                self.current_step = next_idx
-                # refresh label, 1-based
-                self.step_label.configure(text=f"Step {self.current_step}/{total}")
+            # if you prefer 1-based display, do current_step+1 here
+            self.step_label.configure(text=f"Step {self.current_step}/{total}")
+            return
 
-        else:
-            # — VIEW mode: pull from the merged JSON file —
-            # ask import_calibration to load step current_step+1
-            self.import_calibration(step_idx=self.current_step)
+        # — VIEW mode: pull from calibration_steps.json —
+        # note: import_calibration will clamp internally if you go past the end
+        self.import_calibration(step_idx=self.current_step + 1)
+
+    # def increment_step(self):
+    #     """
+    #     Advance one step:
+    #       • In edit mode: just move through self.all_steps.
+    #       • In view mode: load the next step from calibration_steps.json.
+    #     """
+    #     if self.edit_mode:
+    #         # — EDIT mode: walk through the saved steps list —
+    #         total = len(self.all_steps)
+    #         if total == 0:
+    #             return  # nothing to do
+    #         # clamp and advance
+    #         next_idx = min(self.current_step + 1, total - 1)
+    #         if next_idx != self.current_step:
+    #             self.current_step = next_idx
+    #             # refresh label, 1-based
+    #             self.step_label.configure(text=f"Step {self.current_step}/{total}")
+
+    #     else:
+    #         # — VIEW mode: pull from the merged JSON file —
+    #         # ask import_calibration to load step current_step+1
+    #         self.import_calibration(step_idx=self.current_step)
 
     # def import_calibration(self, filepath="calibration_steps.json", step_idx=None):
     #     """
