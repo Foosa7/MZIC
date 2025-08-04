@@ -238,7 +238,7 @@
     {
       "step": 11,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 11,
       "calibration": "RP",
       "calibration_node": "L5",
       "Phase_shifter": "Internal",
@@ -260,7 +260,7 @@
     {
       "step": 12,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 11,
       "calibration": "RP",
       "calibration_node": "K5",
       "Phase_shifter": "Internal",
@@ -283,7 +283,7 @@
     {
       "step": 13,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 11,
       "calibration": "RP",
       "calibration_node": "J4",
       "Phase_shifter": "Internal",
@@ -307,7 +307,7 @@
     {
       "step": 14,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 11,
       "calibration": "RP",
       "calibration_node": "I4",
       "Phase_shifter": "Internal",
@@ -332,7 +332,7 @@
     {
       "step": 15,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 11,
       "calibration": "RP",
       "calibration_node": "H3",
       "Phase_shifter": "Internal",
@@ -358,7 +358,7 @@
     {
       "step": 16,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 11,
       "calibration": "RP",
       "calibration_node": "G3",
       "Phase_shifter": "Internal",
@@ -385,7 +385,7 @@
     {
       "step": 17,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 11,
       "calibration": "RP",
       "calibration_node": "F2",
       "Phase_shifter": "Internal",
@@ -413,7 +413,7 @@
     {
       "step": 18,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 11,
       "calibration": "RP",
       "calibration_node": "E2",
       "Phase_shifter": "Internal",
@@ -442,7 +442,7 @@
     {
       "step": 19,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 11,
       "calibration": "RP",
       "calibration_node": "D1",
       "Phase_shifter": "Internal",
@@ -472,7 +472,7 @@
     {
       "step": 20,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 11,
       "calibration": "RP",
       "calibration_node": "C1",
       "Phase_shifter": "Internal",
@@ -503,7 +503,7 @@
     {
       "step": 21,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 9,
       "calibration": "RP",
       "calibration_node": "L4",
       "Phase_shifter": "Internal",
@@ -535,7 +535,7 @@
     {
       "step": 22,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 9,
       "calibration": "RP",
       "calibration_node": "K4",
       "Phase_shifter": "Internal",
@@ -568,7 +568,7 @@
     {
       "step": 23,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 9,
       "calibration": "RP",
       "calibration_node": "J3",
       "Phase_shifter": "Internal",
@@ -602,7 +602,7 @@
     {
       "step": 24,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 9,
       "calibration": "RP",
       "calibration_node": "I3",
       "Phase_shifter": "Internal",
@@ -637,7 +637,7 @@
     {
       "step": 25,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 9,
       "calibration": "RP",
       "calibration_node": "H2",
       "Phase_shifter": "Internal",
@@ -673,7 +673,7 @@
     {
       "step": 26,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 9,
       "calibration": "RP",
       "calibration_node": "G2",
       "Phase_shifter": "Internal",
@@ -710,7 +710,7 @@
     {
       "step": 27,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 9,
       "calibration": "RP",
       "calibration_node": "F1",
       "Phase_shifter": "Internal",
@@ -748,7 +748,7 @@
     {
       "step": 28,
       "input_port": 1,
-      "output_port": null,
+      "output_port": 9,
       "calibration": "RP",
       "calibration_node": "E1",
       "Phase_shifter": "Internal",
@@ -1332,7 +1332,7 @@
     },
     {
       "step": 41,
-      "input_port": null,
+      "input_port": 3,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "A2",
@@ -1353,7 +1353,7 @@
     },
     {
       "step": 42,
-      "input_port": null,
+      "input_port": 3,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "B2",
@@ -1374,7 +1374,7 @@
     },
     {
       "step": 43,
-      "input_port": null,
+      "input_port": 3,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "C3",
@@ -1395,7 +1395,7 @@
     },
     {
       "step": 44,
-      "input_port": null,
+      "input_port": 3,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "D3",
@@ -1416,7 +1416,7 @@
     },
     {
       "step": 45,
-      "input_port": null,
+      "input_port": 3,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "E4",
@@ -1437,7 +1437,7 @@
     },
     {
       "step": 46,
-      "input_port": null,
+      "input_port": 3,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "F4",
@@ -1458,7 +1458,7 @@
     },
     {
       "step": 47,
-      "input_port": null,
+      "input_port": 3,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "G5",
@@ -1479,7 +1479,7 @@
     },
     {
       "step": 48,
-      "input_port": null,
+      "input_port": 3,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "H5",
@@ -1500,7 +1500,7 @@
     },
     {
       "step": 49,
-      "input_port": null,
+      "input_port": 3,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "I6",
@@ -1521,7 +1521,7 @@
     },
     {
       "step": 50,
-      "input_port": null,
+      "input_port": 5,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "A3",
@@ -1542,7 +1542,7 @@
     },
     {
       "step": 51,
-      "input_port": null,
+      "input_port": 5,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "B3",
@@ -1563,7 +1563,7 @@
     },
     {
       "step": 52,
-      "input_port": null,
+      "input_port": 5,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "C4",
@@ -1584,7 +1584,7 @@
     },
     {
       "step": 53,
-      "input_port": null,
+      "input_port": 5,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "D4",
@@ -1605,7 +1605,7 @@
     },
     {
       "step": 54,
-      "input_port": null,
+      "input_port": 5,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "E5",
@@ -1626,7 +1626,7 @@
     },
     {
       "step": 55,
-      "input_port": null,
+      "input_port": 5,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "F5",
@@ -1647,7 +1647,7 @@
     },
     {
       "step": 56,
-      "input_port": null,
+      "input_port": 5,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "G6",
@@ -1668,7 +1668,7 @@
     },
     {
       "step": 57,
-      "input_port": null,
+      "input_port": 7,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "A4",
@@ -1689,7 +1689,7 @@
     },
     {
       "step": 58,
-      "input_port": null,
+      "input_port": 7,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "B4",
@@ -1710,7 +1710,7 @@
     },
     {
       "step": 59,
-      "input_port": null,
+      "input_port": 7,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "C5",
@@ -1731,7 +1731,7 @@
     },
     {
       "step": 60,
-      "input_port": null,
+      "input_port": 7,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "D5",
@@ -1752,7 +1752,7 @@
     },
     {
       "step": 61,
-      "input_port": null,
+      "input_port": 7,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "E6",
@@ -1773,7 +1773,7 @@
     },
     {
       "step": 62,
-      "input_port": null,
+      "input_port": 9,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "A5",
@@ -1794,7 +1794,7 @@
     },
     {
       "step": 63,
-      "input_port": null,
+      "input_port": 9,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "B5",
@@ -1815,7 +1815,7 @@
     },
     {
       "step": 64,
-      "input_port": null,
+      "input_port": 9,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "C6",
@@ -1836,7 +1836,7 @@
     },
     {
       "step": 65,
-      "input_port": null,
+      "input_port": 9,
       "output_port": 12,
       "calibration": "RP",
       "calibration_node": "E6",

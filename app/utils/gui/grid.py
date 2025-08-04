@@ -452,6 +452,7 @@ class Example(Frame):
         self.canvas.itemconfig(label_id, fill="red")
         AppData.selected_label = label
         AppData.update_last_selection(label, None)
+        logging.info(f"Selected cross: {label}")
 
 
     def get_cross_modes(self):
@@ -1319,7 +1320,7 @@ class Example(Frame):
         if not self.playing:
             return
         self.next_step()
-        # schedule next advance in 1 000 ms
+        # schedule next advance in  600 ms
         self.after(600, self._auto_advance)
 
     def export_calibration_step(self):
