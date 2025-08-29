@@ -19,7 +19,7 @@ class DeviceControlWidget(ctk.CTkFrame):
         
         self.status_label = ctk.CTkLabel(
             self.header_frame,
-            text="Device Control",
+            text="Device Info",
             anchor="center",
             font=("TkDefaultFont", 13, "bold"),
             justify="center"
