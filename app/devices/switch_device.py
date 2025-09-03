@@ -23,16 +23,16 @@ class Switch:
         command = [0xEF, 0xEF, 0x06, 0xFF, 0x0D, 0x00, 0x00, channel]
         command.append(self._checksum(command))
 
-        print(f"[INFO][SWITCH] Sending command to {self.port}: {bytes(command).hex()}")  # Fixed: port -> self.port
+        logging.info(f"[SWITCH] Sending command to {self.port}: {bytes(command).hex()}")  # Fixed: port -> self.port
 
         with self._open_serial() as ser:
             ser.write(bytes(command))
             response = ser.read(7)
 
         if response:
-            print(f"[INFO][SWITCH] Received response: {response.hex()}")
+            logging.info(f"[SWITCH] Received response: {response.hex()}")
         else:
-            print(f"[ERROR][SWITCH] No response received — device may be ignoring command.")
+            logging.error(f"[SWITCH] No response received — device may be ignoring command.")
 
     def get_channel(self):
         """
@@ -53,10 +53,10 @@ class Switch:
             if (response[0] == 0xED and response[1] == 0xFA and response[4] == 0x02) or \
                (response[0] == 0xEF and response[1] == 0xEF and response[4] == 0x02):
                 current_channel = response[5]
-                print(f"[INFO][Switch] Current active channel: {current_channel}")
+                logging.info(f"[Switch] Current active channel: {current_channel}")
                 return current_channel
         
-        print(f"[INFO][Switch] Failed to get channel. Response: {response.hex()}")
+        logging.info(f"[Switch] Failed to get channel. Response: {response.hex()}")
         return None
 
 ## ef ef 06 ff 0d 00 00 01 f1 for channel 1

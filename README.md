@@ -16,6 +16,9 @@ pip install -r requirements.txt
 python main.py
 ```
 
+![Application Architecture](https://github.com/Foosa7/MZIC/blob/auto_calibrate/docs/assets/APP_ARCH.drawio.png)
+
+
 ## Features
 
 - **Multi-device Control**: Qontrol (64ch), Thorlabs power meters, NI USB-6000 DAQ, 1×12 optical switch

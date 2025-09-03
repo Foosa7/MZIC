@@ -1,6 +1,5 @@
 import numpy as np
 
-
 class Beamsplitter:
     """This class defines a beam splitter
 
@@ -423,8 +422,8 @@ def custom_angle(x1, x2):
 
 if __name__ == "__main__":
     
-    U = np.eye(3, dtype=np.complex128)
-    Int = decomposition(U,global_phase=True)
+    U = np.eye(8, dtype=np.complex128)
+    Int = decomposition(U,global_phase=False)
     Int.draw()
     Ure  = Int.calculate_transformation()
     error = abs(np.max(Ure-U))

@@ -1,6 +1,7 @@
 # app/gui/widgets.py
 
 from app.imports import *
+from app.utils.appdata import AppData
 
 class DeviceControlWidget(ctk.CTkFrame):
     def __init__(self, master, connect_command=None, disconnect_command=None, *args, **kwargs):
@@ -18,7 +19,7 @@ class DeviceControlWidget(ctk.CTkFrame):
         
         self.status_label = ctk.CTkLabel(
             self.header_frame,
-            text="Device Control",
+            text="Device Info",
             anchor="center",
             font=("TkDefaultFont", 13, "bold"),
             justify="center"
@@ -280,6 +281,20 @@ class AppControlWidget(ctk.CTkFrame):
         )
         self.export_button.pack(fill="x", pady=2)
 
+    def on_mesh_change(self, new_size):
+        """Handle mesh size changes."""
+        # Update AppData grid size
+        AppData.update_grid_size(new_size)
+        
+        # Call the external change command if provided
+        if self.mesh_change_command:
+            self.mesh_change_command(new_size)
+            
+    def get_current_mesh_size(self):
+        """Get the current mesh size."""
+        return self.mesh_optionmenu.get()
+
+
 class WindowSelectionWidget(ctk.CTkFrame):
     def __init__(self, master, change_command=None, *args, **kwargs):
         """
@@ -486,10 +501,19 @@ class PhaseShifterSelectionWidget(ctk.CTkFrame):
         
         self.change_command = change_command
         # Trigger initial update to ensure the change_command is called with default value
-        self.on_radio_change()  # Add this line
+        self.on_radio_change()  
     
     def on_radio_change(self):
-        """Handles radio button selection change."""
+        """Called whenever the user switches θ/φ.  Writes into AppData and fires change_command."""
+        choice = self.radio_var.get()  # "theta" or "phi"
+        # map to whatever you want saved—here I’ll store the literal internal/external:
+        if choice == "theta":
+            AppData.phase_shifter_selection = "Internal"
+        else:
+            AppData.phase_shifter_selection = "External"
+
+        # If there’s an external callback, let it know
         if self.change_command:
-            self.change_command(self.radio_var.get())
+            self.change_command(AppData.phase_shifter_selection)
+
             

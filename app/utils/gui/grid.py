@@ -5,6 +5,8 @@ from collections import defaultdict
 import json
 import customtkinter as ctk
 import tkinter.messagebox as messagebox
+import logging, os
+from datetime import datetime
 
 class Node:
     """Represents a node."""
@@ -21,13 +23,24 @@ class Path:
         self.line_id = line_id
 
 class Example(Frame):
-    def __init__(self, master=None, grid_n=8, scale=1):
+    def __init__(self, master=None, grid_n=12, scale=1, calibration_json=None, get_cross_modes_func=None, auto_calibrate_callback=None):
+
         """
         master: parent widget.
         grid_n: number of columns (and related rows) for the grid.
         scale: scaling factor to adjust the grid's size while keeping the ratios.
         """
         super().__init__(master)
+        # if calibration_json and get_cross_modes_func:
+        #     self.step_lines = convert_calibration_to_grid_inline(
+        #         calibration_json, get_cross_modes_func)
+        # else:
+        self.step_lines = []    
+        self.all_steps = []    
+        self.playing = False
+        self.auto_calibrate_callback = auto_calibrate_callback
+        self.current_step = 0
+        self.edit_mode = False  # Start in edit mode  
         self.grid_n = grid_n
         self.scale = scale
         self.selection_callback = None  # Callback to update dynamic selection display.
@@ -38,48 +51,108 @@ class Example(Frame):
         self.io_config = "None"  # Default I/O configuration
 
     def initUI(self):
+        self.configure(bg='grey16')
         self.pack(fill=BOTH, expand=1)
-        
-        # Control frame (optional)
-        # control_frame = Frame(self)
-        # control_frame.pack(side='top', fill='x')
-        
-        # self.coord_label = Label(control_frame, text="X: 0, Y: 0", font=("Arial", 12))
-        # self.coord_label.pack(side='left', padx=10, pady=5)
-        
-        # Create canvas with grey background and no highlight border.
         self.canvas = Canvas(self, bg='grey16', highlightthickness=0)
-        
         self.nodes = {}
         self.paths = []
         self.selected_paths = set()
         self.cross_labels = {}
-        
-        # Base values (for the original 8x8 grid)
-        base_horizontal = 100
-        base_vertical = 200
-        base_arm = 50
-        base_start_x = 150
-        base_start_y = 80
-        
-        # Apply the scaling factor (e.g. 0.5 will use half the size)
+
+
+        ctrl = Frame(self, bg='grey16')
+        ctrl.pack(side='bottom', fill='x', pady=10)
+
+        # left counter
+        ctrl.grid_columnconfigure(1, weight=1)
+        self.step_label = ctk.CTkButton(
+            ctrl,
+            text=f"Step {self.current_step}/{len(self.step_lines)}",
+            width=80, corner_radius=6,
+            fg_color=None, hover=False, state="enabled"
+        )
+        self.step_label.grid(row=0, column=0, padx=10)
+
+        # center nav
+        nav_frame = Frame(ctrl, bg='grey16')
+        nav_frame.grid(row=0, column=1)
+        self.back_btn = ctk.CTkButton(nav_frame, text="⏮ Back", width=80, command=self.decrement_step, fg_color="transparent")
+        self.back_btn.pack(side='left', padx=5)
+        # self.play_btn = ctk.CTkButton(nav_frame, text="▶ Play", width=80, command=self.toggle_play, fg_color="transparent")
+        # ▶ Play now either starts grid‐stepping or runs auto‐calibration
+        self.play_btn = ctk.CTkButton(
+            nav_frame,
+            text="▶ Play",
+            width=80,
+            command=self._on_play_clicked,
+            fg_color="transparent"
+        )
+
+    
+        self.play_btn.pack(side='left', padx=5)
+        self.next_btn = ctk.CTkButton(
+            nav_frame,
+            text="Next ⏭",
+            width=80,
+            command=self.next_step,
+            text_color="white",
+            fg_color="transparent"
+
+        )
+        self.next_btn.pack(side='left', padx=5)
+        self.bind_all("<space>", lambda e: self.next_btn.invoke())
+
+
+        # —— save button on the right ——
+        self.mode_btn = ctk.CTkButton(
+            ctrl,
+            text="👁️ View",              # Start in view mode
+            width=80,
+            corner_radius=6,
+            command=self.toggle_edit_mode
+        )
+        self.mode_btn.grid(row=0, column=2, padx=10)
+
+        # track the mode
+        self.edit_mode = False     # = View mode
+
+        # Set geometry based on grid size
+        if self.grid_n == 8:
+            base_horizontal = 100
+            base_vertical = 200
+            base_arm = 50
+            base_start_x = 150
+            base_start_y = 80
+        elif self.grid_n == 12:
+            base_horizontal = 100*0.8
+            base_vertical = 200*0.8
+            base_arm = 50*0.8
+            base_start_x = 130
+            base_start_y = 70
+        else:
+            # Fallback/default values
+            base_horizontal = 100
+            base_vertical = 200
+            base_arm = 50
+            base_start_x = 150
+            base_start_y = 80
+
+        # Apply the scaling factor (if you want to keep it for other cases)
         horizontal_spacing = base_horizontal * self.scale
         vertical_spacing = base_vertical * self.scale
         arm_length = base_arm * self.scale
         start_x = base_start_x * self.scale
         start_y = base_start_y * self.scale
-        
-        # Create the grid using the computed parameters.
+
         self.create_nxn_grid(
-            n=self.grid_n, 
+            n=self.grid_n,
             start_x=start_x,
             start_y=start_y,
             horizontal_spacing=horizontal_spacing,
             vertical_spacing=vertical_spacing,
             arm_length=arm_length
         )
-        
-        # self.canvas.bind("<Motion>", self.show_coordinates)
+
         self.canvas.bind("<Button-1>", self.on_canvas_click)
         self.canvas.pack(fill=BOTH, expand=1)
 
@@ -217,21 +290,51 @@ class Example(Frame):
         for i, node in enumerate(sorted_nodes):
             # Determine extension parameters
             is_special = f"X_{second_last_col}" in node.name and side == "right"
-            ext_length = extension * 3 if is_special else extension
+            if n == 8 and is_special:
+                ext_length = extension * 3
+            elif n == 12 and is_special:
+                ext_length = extension * 2.6
+            else:
+                ext_length = extension
             
             # Calculate extension position
             new_x = node.x + (ext_length if side == "right" else -ext_length)
             ext_node = Node(f"{node.name}_EXT", new_x, node.y)
             self.nodes[ext_node.name] = ext_node
-            self.create_path(node, ext_node)
 
-            # Add labels for 8x8 grid
+            # figure out this node’s numeric label BEFORE drawing
+            if n == 8:
+                label = 14 - i if side == "left" else 7 + i
+            elif n == 12:
+                label = i + 1 if side == "left" else i + 1
+            else:
+                # skip any unexpected n
+                continue
+
+
+            # self.create_path(node, ext_node)
+            ext_path = self.create_path(node, ext_node)
+            line_id   = ext_path.line_id
+            label_tag = f"{'input' if side=='left' else 'output'}_label_{label}"
+            self.canvas.addtag_withtag(label_tag, line_id)
+
+            # Bind clicks on the line (via its tag) to the same handler as the text
+            self.canvas.tag_bind(
+                label_tag,
+                "<Button-1>",
+                lambda event, tag=label_tag: self.on_side_label_click(event, tag)
+            )
+
+
+            # Add labels for grid
             if n == 8:
                 label = 14 - i if side == "left" else 7 + i
                 self._draw_side_label(is_special, label, side, new_x, node.y)
             elif n == 12:
-                label = 22 - i if side == "left" else 11 + i
+                label = i + 1 if side == "left" else i + 1
                 self._draw_side_label(is_special, label, side, new_x, node.y)
+            self._draw_side_label(is_special, label, side, new_x, node.y)
+
 
         if side == "right" and col == second_last_col and n == 8:
             self.connect_vertical_extensions(col, (n // 2) - 1, extension * 3)
@@ -328,49 +431,64 @@ class Example(Frame):
             self.create_path(self.nodes[center_name], self.nodes[arm_name])
 
     def on_label_click(self, label, label_id):
-        """Handles label selection and stores selected labels in AppData."""
-        if not hasattr(AppData, "selected_labels"):
-            AppData.selected_labels = set()
-        if label in AppData.selected_labels:
-            AppData.selected_labels.remove(label)
-            self.canvas.itemconfig(label_id, fill="white")
-        else:
-            AppData.selected_labels.add(label)
-            self.canvas.itemconfig(label_id, fill="red")
-        print("Selected labels:", AppData.selected_labels)
+        """
+        Only one cross label may be selected; clicking the same label again deselects it.
+        """
+        # If this label is already selected → unselect everything
+        if AppData.selected_label == label:
+            # 1) clear highlight
+            for text_id in self.cross_labels.values():
+                self.canvas.itemconfig(text_id, fill="white")
+            # 2) clear selection
+            AppData.selected_label = ""
+            # 3) update AppData.last_selected to no cross
+            AppData.update_last_selection("", None)
+            return
+
+        # Otherwise, select this one and clear any prior
+        for text_id in self.cross_labels.values():
+            self.canvas.itemconfig(text_id, fill="white")
+
+        self.canvas.itemconfig(label_id, fill="red")
+        AppData.selected_label = label
+        AppData.update_last_selection(label, None)
+        logging.info(f"Selected cross: {label}")
+
 
     def get_cross_modes(self):
-        """Returns a dict mapping cross labels to their selection type (bar/cross/split)."""
+        """Returns a dict mapping cross labels to their selection type (bar/cross/split/arbitrary)."""
         cross_arms = defaultdict(set)
-        
-        # Collect selected arms per cross.
         for path in self.paths:
             if path.line_id in self.selected_paths:
                 center, arm = self._parse_path_components(path)
                 if center and arm:
-                    # Handle arm pairs (like "TL-BR") from cross connections.
                     if '-' in arm:
                         cross_arms[center].update(arm.split('-'))
                     else:
                         cross_arms[center].add(arm)
 
-        # Determine mode for each cross.
         modes = {}
         for cross, arms in cross_arms.items():
             arm_set = set(arms)
-            if len(arm_set) != 2 and len(arm_set) != 3:
-                continue  # Only consider pairs or triplets.
-            if arm_set in [{'BR', 'BL'}, {'TR', 'TL'}]:
-                modes[cross] = 'bar_state'
-            elif arm_set in [{'TL', 'BR'}, {'TR', 'BL'}]:
-                modes[cross] = 'cross_state'
-            elif arm_set in [{'TR', 'BR', 'TL'}, {'TR', 'BR', 'BL'}]:  
-                modes[cross] = 'split_state'
-        
-        print("Computed cross modes:", modes)
+
+            # bar = the two horizontals or the two verticals
+            if arm_set in ({"BR", "BL"}, {"TR", "TL"}):
+                modes[cross] = "bar"
+
+            # cross = diagonal
+            elif arm_set in ({"TL", "BR"}, {"TR", "BL"}):
+                modes[cross] = "cross"
+
+            # split = any three out of four
+            elif arm_set in ({"TR", "BR", "TL"}, {"TR", "BR", "BL"},
+                             {"TL", "TR", "BL"}, {"TL", "BL", "BR"}):
+                modes[cross] = "split"
+
+            # arbitrary = all four arms
+            elif arm_set == {"TL", "TR", "BR", "BL"}:
+                modes[cross] = "arbitrary"
+
         return modes
-
-
 
     def connect_nodes(self, node1_name, node2_name):
         """Connects two nodes if they exist."""
@@ -384,42 +502,81 @@ class Example(Frame):
             node2.x, node2.y,
             fill="white", width=2
         )
-        self.paths.append(Path(node1, node2, line_id))
+        p = Path(node1, node2, line_id)
+        self.paths.append(p)
+        return p    
+
+    # def on_canvas_click(self, event):
+    #     """Handles path selection."""
+    #     for path in self.paths:
+    #         coords = self.canvas.coords(path.line_id)
+    #         if len(coords) >= 4 and self.is_point_near_line(event.x, event.y, *coords[:4], 15):  # 15 pixels tolerance
+    #             self.toggle_path_selection(path)
 
     def on_canvas_click(self, event):
-        """Handles path selection."""
+        """Handles clicks on non‐extension paths (cross‐arms) only."""
+        # Use 10 px tolerance if grid_n is 12, else 15
+        tolerance = 10 if self.grid_n == 12 else 15
+
         for path in self.paths:
+            # Skip extension lines – they have tags like "input_label_X" or "output_label_X"
+            tags = self.canvas.gettags(path.line_id)
+            if any(t.startswith(("input_label_", "output_label_")) for t in tags):
+                continue
+
             coords = self.canvas.coords(path.line_id)
-            if len(coords) >= 4 and self.is_point_near_line(event.x, event.y, *coords[:4], 15):  # 15 pixels tolerance
+            # Make sure we have at least two points (x1,y1,x2,y2)
+            if len(coords) >= 4 and self.is_point_near_line(event.x, event.y, *coords[:4], tolerance):
                 self.toggle_path_selection(path)
 
-    def on_side_label_click(self, event, label_tag):
-        """Handles click on a side label by turning it red and calling the appropriate handler."""
-        # Change the label color to red.
-        self.canvas.itemconfig(label_tag, fill="red")
-        
-        # Determine if it's an input or output label and extract the label number.
-        if label_tag.startswith("input_label_"):
-            label_number = label_tag.split("input_label_")[-1]
-            # Call your function that handles left-side input labels.
-            self.handle_input_label_selection(label_number)
-        elif label_tag.startswith("output_label_"):
-            label_number = label_tag.split("output_label_")[-1]
-            # Call your function that handles right-side output labels.
-            self.handle_output_label_selection(label_number)
 
+
+    def on_side_label_click(self, event, label_tag):
+        """Clicking label now toggles both the text *and* its extension line."""
+        # find all items (line + text) sharing this tag
+        items = self.canvas.find_withtag(label_tag)
+        if not items:
+            return
+
+        # decide new color
+        current = self.canvas.itemcget(items[0], "fill")
+        new_color = "white" if current=="red" else "red"
+
+        # flip every item
+        for item in items:
+            self.canvas.itemconfig(item, fill=new_color)
+
+        # now update AppData.selected_{input,output}_pins & self.selected_paths
+        num = int(label_tag.split("_")[-1])
+        if label_tag.startswith("input_label_"):
+            AppData.selected_input_pins.clear()
+            if new_color=="red":
+                AppData.selected_input_pins.add(num)
+        else:
+            AppData.selected_output_pins.clear()
+            if new_color=="red":
+                AppData.selected_output_pins.add(num)
+
+        # sync selected_paths for extension lines
+        for path in self.paths:
+            if label_tag in self.canvas.gettags(path.line_id):
+                if new_color=="red":
+                    self.selected_paths.add(path.line_id)
+                else:
+                    self.selected_paths.discard(path.line_id)
+            
     # Multiple selection of output labels 
     def handle_input_label_selection(self, label_number):
         # Map label number to pin index
         pin_map = {
+            "1": 1,
+            "2": 2,
+            "3": 3,
+            "4": 4,
+            "5": 5,
+            "6": 6,
             "7": 7,
-            "8": 6,
-            "9": 5,
-            "10": 4,
-            "11": 3,
-            "12": 2,
-            "13": 1,
-            "14": 0
+            "8": 8
         }
 
         if label_number not in pin_map:
@@ -443,26 +600,26 @@ class Example(Frame):
 
         # If the clicked pin was already selected, it was just unselected — so we're done
         if in_pin_idx == prev_selected_idx:
-            print(f"Input Unpinned channel {in_pin_idx}")
+            logging.info(f"Input Unpinned channel {in_pin_idx}")
             return
 
         # Otherwise, select the new pin
         AppData.selected_input_pins.add(in_pin_idx)
         self.canvas.itemconfig(label_tag, fill="red")
-        print(f"Input Pinned channel {in_pin_idx}")
+        logging.info(f"Input Pinned channel {in_pin_idx}")
 
 
     def handle_output_label_selection(self, label_number):
         # Map label number to pin index
         pin_map = {
+            "1": 1,
+            "2": 2,
+            "3": 3,
+            "4": 4,
+            "5": 5,
+            "6": 6,
             "7": 7,
-            "8": 6,
-            "9": 5,
-            "10": 4,
-            "11": 3,
-            "12": 2,
-            "13": 1,
-            "14": 0
+            "8": 8
         }
 
         if label_number not in pin_map:
@@ -486,13 +643,13 @@ class Example(Frame):
 
         # If the clicked pin was already selected, it was just unselected — so we're done
         if in_pin_idx == prev_selected_idx:
-            print(f"Output Unpinned channel {in_pin_idx}")
+            logging.info(f"Output Unpinned channel {in_pin_idx}")
             return
 
         # Otherwise, select the new pin
         AppData.selected_output_pins.add(in_pin_idx)
         self.canvas.itemconfig(label_tag, fill="red")
-        print(f"Output Pinned channel {in_pin_idx}")
+        logging.info(f"Output Pinned channel {in_pin_idx}")
 
 
     # def handle_output_label_selection(self, label_number):
@@ -526,14 +683,32 @@ class Example(Frame):
     #         print(f"Output Pinned channel {out_pin_idx}")
 
     def toggle_path_selection(self, path):
-        """Toggles path selection state."""
         adding = path.line_id not in self.selected_paths
+        color  = "red" if adding else "white"
+
+        # flip the line
+        self.canvas.itemconfig(path.line_id, fill=color)
         if adding:
-            self.canvas.itemconfig(path.line_id, fill="red")
             self.selected_paths.add(path.line_id)
         else:
-            self.canvas.itemconfig(path.line_id, fill="white")
             self.selected_paths.remove(path.line_id)
+
+        #— if the line has a side‐label tag, flip that text too
+        for tag in self.canvas.gettags(path.line_id):
+            if tag.startswith(("input_label_","output_label_")):
+                for item in self.canvas.find_withtag(tag):
+                    self.canvas.itemconfig(item, fill=color)
+
+                # mirror pin state
+                num = int(tag.split("_")[-1])
+                if tag.startswith("input_label_"):
+                    AppData.selected_input_pins.clear()
+                    if adding:
+                        AppData.selected_input_pins.add(num)
+                else:
+                    AppData.selected_output_pins.clear()
+                    if adding:
+                        AppData.selected_output_pins.add(num)
         
         affected_crosses = set()
         for node in [path.node1, path.node2]:
@@ -570,7 +745,7 @@ class Example(Frame):
 
     def update_input_box_mode(self, visible_label):
         """Updates the theta input box for the given cross (by visible label) with the default value.
-        Inserts 1 if mode is 'bar_state' and 2 if mode is 'cross_state'."""
+        Inserts 1 if mode is 'bar' and 2 if mode is 'cross_state'."""
         if visible_label not in self.input_boxes:
             return
         modes = self.get_cross_modes()  # modes keyed by visible labels (e.g. "A1", "A2")
@@ -580,17 +755,19 @@ class Example(Frame):
         # Clear any current value.
         theta_entry.delete(0, "end")
         
-        if mode == 'bar_state':
+        if mode == 'bar':
             theta_entry.insert(0, "1")
-            print(f"{visible_label}: Bar mode detected. Inserting 1.")
-        elif mode == 'cross_state':
-            theta_entry.insert(0, "2")
-            print(f"{visible_label}: Cross mode detected. Inserting 2.")
-        elif mode == 'split_state':
+            logging.info(f"{visible_label}: Bar mode detected. Inserting 1.")
+        elif mode == 'cross':
+            theta_entry.insert(0, "0")
+            logging.info(f"{visible_label}: Cross mode detected. Inserting 2.")
+        elif mode == 'split':
             theta_entry.insert(0, "0.5")
-            print(f"{visible_label}: Split mode detected. Inserting 1.5.")            
+            logging.info(f"{visible_label}: Split mode detected. Inserting 1.5.") 
+        elif mode == 'arbitrary':
+            logging.info(f"{visible_label}: Arbitrary mode detected.")           
         else:
-            print(f"{visible_label}: No matching mode. Mode value: {mode}")
+            logging.info(f"{visible_label}: No matching mode. Mode value: {mode}")
 
 
 
@@ -786,7 +963,7 @@ class Example(Frame):
                     center_key = key
                     break
             if not center_key:
-                print("No center key found for", cross_label)
+                logging.info("No center key found for", cross_label)
                 return
             actual_label = cross_label
 
@@ -802,16 +979,16 @@ class Example(Frame):
         # Get the mode using the visible label (e.g. "A1")
         modes = self.get_cross_modes()  # modes keyed by visible labels (like "A1", "A2", etc.)
         mode = modes.get(actual_label)
-        print(f"Mode for {actual_label} is: {mode}")
+        logging.info(f"Mode for {actual_label} is: {mode}")
         
-        if mode == 'bar_state':
+        if mode == 'bar':
             theta_entry.insert(0, "1")
-            print("Bar")
-        elif mode == 'cross_state':
-            theta_entry.insert(0, "2")
-            print("Cross")
+            logging.info("Bar")
+        elif mode == 'cross':
+            theta_entry.insert(0, "0")
+            logging.info("Cross")
         else:
-            print(f"No matching mode for {actual_label}. Mode value: {mode}")
+            logging.info(f"No matching mode for {actual_label}. Mode value: {mode}")
         
         # Phi input.
         phi_label_id = self.canvas.create_text(input_x, y + 20, text="φ:", anchor='w', font=("Arial", 14), fill="white")
@@ -951,8 +1128,6 @@ class Example(Frame):
 
         return json.dumps(export_data, indent=2)
 
-
-
     def import_paths_json(self, json_str):
         """
         Imports path selection from a JSON string.
@@ -967,7 +1142,7 @@ class Example(Frame):
         try:
             imported = json.loads(json_str) #default_json_grid 
         except Exception as e:
-            print("Invalid JSON:", e)
+            logging.error("Invalid JSON:", e)
             return
 
         # Clear current selection.
@@ -1013,6 +1188,687 @@ class Example(Frame):
 
         self.event_generate("<<SelectionUpdated>>")  # Add event trigger        
         self.update_selection()
+
+    def load_step(self, idx):
+        """Import the JSON for step idx and refresh the grid selection."""
+        json_str = self.step_lines[idx]
+        self.import_paths_json(json_str)
+        self.step_label.config(text=f"Step {self.current_step}/{len(self.step_lines)}") # update counter
+        # self.import_calibration("calibration_steps.json")
+
+    def prev_step(self):
+        if not self.step_lines:
+            return
+        self.current_step = (self.current_step - 1) % len(self.step_lines)
+        self.load_step(self.current_step)
+
+    # def increment_step(self):
+    #     """Increment the step counter by one and update the label."""
+    #     # bump the counter
+    #     self.current_step += 1
+
+    #     # now update the button’s text
+    #     self.step_label.configure(
+    #         text=f"Step {self.current_step}/{len(self.step_lines)}"
+    #     )
+
+    def increment_step(self):
+        """Go forward one step: load that step’s data from calibration_steps.json."""
+        # 1) Load the file
+        filepath = "calibration_steps.json"
+        try:
+            with open(filepath, "r") as f:
+                payload = json.load(f)
+        except Exception as e:
+            logging.error("Could not open %s: %s", filepath, e)
+            messagebox.showerror("Error", f"Cannot load calibration file:\n{e}")
+            return
+
+        steps = payload.get("steps", [])
+        total = len(steps)
+        if total == 0:
+            messagebox.showwarning("No steps", "Calibration file has no steps.")
+            return
+
+        # 2) If we're already at the last step, do nothing
+        if self.current_step >= total - 1:
+            return
+
+        # 3) Otherwise, load & render the next step
+        self.import_calibration(step_idx=self.current_step + 1)
+
+
+    # def increment_step(self):
+    #     """
+    #     Advance one step:
+    #     - EDIT MODE: just bump through the steps you've saved (self.all_steps).
+    #     - VIEW MODE: load the next step from calibration_steps.json.
+    #     """
+    #     if self.edit_mode:
+    #         total = len(self.all_steps)
+    #         # nothing to do if you haven't saved anything yet,
+    #         # or if you're already on the last saved step
+    #         if total == 0 or self.current_step >= total - 1:
+    #             return
+
+    #         # move to the next saved step
+    #         self.current_step += 1
+
+    #         # update the counter in 1-based form
+    #         self.step_label.configure(
+    #             text=f"Step {self.current_step+1}/{total}"
+    #         )
+
+    #     else:
+    #         # VIEW MODE: import from merged JSON
+    #         next_idx = self.current_step + 1
+    #         self.import_calibration(step_idx=next_idx)
+
+    # def decrement_step(self):
+    #     """Decrement the step counter by one (down to 0) and update the label."""
+    #     # don’t go below the first step
+    #     if self.current_step <= 0:
+    #         return
+
+    #     # bump the counter down
+    #     self.current_step -= 1
+
+    #     # update the on-screen label
+    #     self.step_label.configure(
+    #         text=f"Step {self.current_step}/{len(self.step_lines)}"
+    #     )
+
+    def decrement_step(self):
+        """Go back one step: load that step’s data from calibration_steps.json."""
+        # If we're already at the first step, do nothing
+        if self.current_step <= 0:
+            return
+
+        # Load & render step (this also updates self.current_step and the label)
+        self.import_calibration(step_idx=self.current_step - 1)
+
+
+    def save_current_and_next_step(self):
+        """
+        Save the current calibration step into the merged JSON file,
+        then advance the counter and load the next step.
+        """
+        # 1) save the data for the current step
+        try:
+            self.save_current_step()
+        except Exception as e:
+            logging.error("Aborting advance: failed to save current step: %s", e)
+            messagebox.showerror("Error", f"Could not save current step: {e}")
+            return
+
+        # 2) advance to the next step (and load it)
+        self.increment_step()
+
+    def toggle_play(self):
+        if self.playing:
+            # stop
+            self.playing = False
+            self.play_btn.configure(text="▶ Play")
+        else:
+            # start
+            self.playing = True
+            self.play_btn.configure(text="⏸ Pause")
+            self._auto_advance()
+
+    def _auto_advance(self):
+        """Advance one step every 1 second while playing."""
+        if not self.playing:
+            return
+        self.next_step()
+        # schedule next advance in  600 ms
+        self.after(600, self._auto_advance)
+
+    def export_calibration_step(self):
+        """
+        Build a calibration‐step dict matching your JSON schema:
+          {
+            "step": 0,
+            "input_port": 1,
+            "output_port": 12,
+            "calibration": "RP",
+            "calibration_node": "A1",
+            "Phase_shifter": "Internal",
+            "Io_config": "Cross",
+            "additional_nodes": { ... }
+          }
+        """
+        # 1) Step index
+        step = len(self.all_steps)
+        logging.info(f"Exporting step {step}")
+
+
+        # 2) Grab the one selected input/output pin (they are stored as ints 1–8)
+        input_port  = next(iter(AppData.selected_input_pins),  None)
+        output_port = next(iter(AppData.selected_output_pins), None)
+
+        # 3) Calibration node = the one cross‐label stored in AppData.selected_label
+        cal_node = AppData.selected_label if isinstance(AppData.selected_label, str) else None
+
+
+        # 4) Phase shifter choice from AppData
+        phase_shifter = AppData.phase_shifter_selection
+
+        # 5) Compute Io_config + additional_nodes from the current cross modes
+        cross_modes = self.get_cross_modes_numbers()  # e.g. {"A1":"cross", "B1":"bar", ...}
+        # io_config = cross_modes.get(cal_node, "cross").capitalize()
+
+       # if cal_node is None or missing, default to “Cross”
+        io_config = (
+            cross_modes.get(cal_node, "cross").capitalize()
+            if cal_node in cross_modes
+            else "Cross"
+        )
+
+        additional_nodes = {
+            node: mode.capitalize()
+            for node, mode in cross_modes.items()
+            if node != cal_node
+        }
+
+        # 6) Assemble and return the dict
+        return {
+            "step":             step,
+            "input_port":       input_port,
+            "output_port":      output_port,
+            "calibration":      "RP",
+            "calibration_node": cal_node,
+            "Phase_shifter":    phase_shifter,
+            "Io_config":        io_config,
+            "additional_nodes": additional_nodes
+        }
+    
+
+    def save_current_step(self):
+        """
+        Called when the Save button is clicked:
+          - builds the current calibration‐step dict
+          - writes it to step_<n>.json
+        """
+        # 1) export current‐step dict
+        step_data = self.export_calibration_step()
+
+        # 2) append
+        # self.all_steps.append(step_data)
+        # 2) overwrite if editing an existing step, otherwise append
+        if 0 <= self.current_step < len(self.all_steps):
+            self.all_steps[self.current_step] = step_data
+        else:
+            self.all_steps.append(step_data)
+            
+        # 3) build top‐level structure
+        payload = {
+            "metadata": {
+                "created_at": datetime.now().isoformat(),
+                "total_steps": len(self.all_steps),
+                # you can add more global fields here, e.g.
+                # "phase_shifter": AppData.phase_shifter_selection
+            },
+            "steps": self.all_steps
+        }
+
+        # 4) write single file
+        try:
+            with open("calibration_steps.json", "w") as f:
+                json.dump(payload, f, indent=2)
+                self.current_step += 1  # Advance the step counter after saving
+                # logging.info(f"Saved: Merged {len(self.all_steps)} steps into calibration_steps.json")
+        
+
+        except Exception as e:
+            logging.error("Failed to write merged JSON: %s", e)
+            messagebox.showerror("Error", f"Could not save merged file: {e}")
+
+    def next_step(self):
+        """Just advance the counter & load without saving (view mode)."""
+        self.current_step += 1
+        AppData.current_calibration_step = self.current_step
+        logging.info(f"Advancing to step {self.current_step}")
+        self.import_calibration(step_idx=self.current_step)
+
+    def toggle_edit_mode(self):
+        """Toggle between view and edit modes."""
+        # if we’re about to go into edit mode, load the master file
+        if not self.edit_mode:
+            # …you’re switching *into* edit mode…
+            if os.path.exists("calibration_steps.json"):
+                try:
+                    with open("calibration_steps.json","r") as f:
+                        payload = json.load(f)
+                    self.all_steps = payload.get("steps", [])
+                except Exception as e:
+                    logging.warning("Could not pre-load existing steps: %s", e)
+                    self.all_steps = []
+        # now flip the flag
+        self.edit_mode = not self.edit_mode
+
+        if self.edit_mode:
+            self.mode_btn.configure(text="✏️ Edit")
+            self.next_btn.configure(command=self.save_current_and_next_step)
+            for b in (self.back_btn, self.play_btn, self.next_btn):
+                b.configure(fg_color="red", hover_color="#690000", text_color="black")
+        else:
+            self.mode_btn.configure(text="👁️ View")
+            self.next_btn.configure(command=self.next_step)
+            for b in (self.back_btn, self.play_btn, self.next_btn):
+                b.configure(fg_color="transparent", hover_color="#144870", text_color="white")
+
+    # def save_current_step(self):
+    #     """
+    #     Called when the Save button is clicked:
+    #       - builds the current calibration‐step dict
+    #       - writes it to step_<n>.json
+    #     """
+    #     # 1) export current‐step dict
+    #     step_data = self.export_calibration_step()
+
+    #     # 2) append
+    #     self.all_steps.append(step_data)
+
+    #     # 3) build top‐level structure
+    #     payload = {
+    #         "metadata": {
+    #             "created_at": datetime.now().isoformat(),
+    #             "total_steps": len(self.all_steps),
+    #             # you can add more global fields here, e.g.
+    #             # "phase_shifter": AppData.phase_shifter_selection
+    #         },
+    #         "steps": self.all_steps
+    #     }
+
+    #     # 4) write single file
+    #     try:
+    #         with open("calibration_steps.json", "w") as f:
+    #             json.dump(payload, f, indent=2)
+    #             # logging.info(f"Saved: Merged {len(self.all_steps)} steps into calibration_steps.json")
+
+    #     except Exception as e:
+    #         logging.error("Failed to write merged JSON: %s", e)
+    #         messagebox.showerror("Error", f"Could not save merged file: {e}")
+
+    # def next_step(self):
+    #     """Just advance the counter & load without saving (view mode)."""
+    #     self.current_step += 1
+    #     logging.info(f"Advancing to step {self.current_step}")
+    #     self.import_calibration(step_idx=self.current_step)
+
+    # def toggle_edit_mode(self):
+    #     """Toggle between view and edit modes.
+    #        In edit mode, Next ⏭ will SAVE instead of advancing."""
+    #     self.edit_mode = not self.edit_mode
+
+    #     if self.edit_mode:
+    #         # now in edit mode
+    #         self.mode_btn.configure(text="✏️ Edit")
+    #         # Next → save
+    #         self.next_btn.configure(command=self.save_current_and_next_step)
+    #         # visually highlight “Next” when it’s acting as save
+    #         for b in (self.back_btn, self.play_btn, self.next_btn):
+    #             b.configure(fg_color="red", hover_color="#690000", text_color="black")
+    #         self.next_btn.configure(command=self.save_current_and_next_step)
+
+    #     else:
+    #         # back to view mode
+    #         self.mode_btn.configure(text="👁️ View")
+    #         # Next → just advance
+    #         self.next_btn.configure(command=self.next_step)
+    #         # restore default look
+    #         for b in (self.back_btn, self.play_btn, self.next_btn):
+    #            b.configure(fg_color="transparent", hover_color = "#144870", text_color="white")
+    #         self.next_btn.configure(command=self.next_step)
+
+
+    def import_calibration(self, filepath="calibration_steps.json", step_idx=None):
+        """
+        Load calibration_steps.json, pick out step #step_idx (0-based),
+        highlight:
+        - Cross‐center labels (orange + green) and arms (red)
+        - Input/output side‐labels and extension lines (red)
+        """
+        # 1) Load JSON
+        try:
+            with open(filepath, "r") as f:
+                payload = json.load(f)
+        except Exception as e:
+            logging.error("Failed to load %s: %s", filepath, e)
+            messagebox.showerror("Error", f"Could not load calibration file:\n{e}")
+            return
+
+        steps = payload.get("steps", [])
+        total = len(steps)
+        if total == 0:
+            messagebox.showwarning("No steps", "Calibration file has no steps.")
+            return
+
+        # 2) Clamp step index
+        idx = 0 if step_idx is None else max(0, min(step_idx, total - 1))
+        step_data = steps[idx]
+
+        # 3) Clear all old highlights
+        #    a) Lines
+        for p in self.paths:
+            self.canvas.itemconfig(p.line_id, fill="white")
+        self.selected_paths.clear()
+
+        #    b) Cross‐labels
+        for tid in self.cross_labels.values():
+            self.canvas.itemconfig(tid, fill="white")
+
+        #    c) IO labels (common tag "io_label")
+        self.canvas.itemconfig("io_label", fill="white")
+        AppData.selected_input_pins.clear()
+        AppData.selected_output_pins.clear()
+
+        # 4) Highlight cross‐centers and arms (as before) …
+        arm_specs = {}
+        # 4a) calibration_node
+        cal_label = step_data.get("calibration_node")
+        io_mode   = step_data.get("Io_config", "")
+        if cal_label:
+            arm_specs[cal_label] = mode_to_arms(io_mode)
+            # text label → orange
+            for key, tid in self.cross_labels.items():
+                if self.canvas.itemcget(tid, "text") == cal_label:
+                    self.canvas.itemconfig(tid, fill="orange")
+                    break
+        # 4b) additional_nodes → green
+        for node_label, mode_str in step_data.get("additional_nodes", {}).items():
+            arm_specs[node_label] = mode_to_arms(mode_str)
+            for key, tid in self.cross_labels.items():
+                if self.canvas.itemcget(tid, "text") == node_label:
+                    self.canvas.itemconfig(tid, fill="white")
+                    break
+        # 4c) color those arms red
+        for path in self.paths:
+            center, arm = self._parse_path_components(path)
+            if center in arm_specs and arm in arm_specs[center]:
+                self.canvas.itemconfig(path.line_id, fill="red")
+                self.selected_paths.add(path.line_id)
+
+        # 5) Highlight input_port / output_port
+        inp = step_data.get("input_port")
+        outp = step_data.get("output_port")
+
+        def _highlight_io(port, tag_prefix, pin_set):
+            if port is None:
+                return
+            lbl_tag = f"{tag_prefix}_label_{port}"
+            # 5a) highlight the text
+            self.canvas.itemconfig(lbl_tag, fill="red")
+            pin_set.clear()
+            pin_set.add(port)
+            # 5b) highlight its extension line(s)
+            for path in self.paths:
+                if lbl_tag in self.canvas.gettags(path.line_id):
+                    self.canvas.itemconfig(path.line_id, fill="red")
+                    self.selected_paths.add(path.line_id)
+
+        _highlight_io(inp,  "input",  AppData.selected_input_pins)
+        _highlight_io(outp, "output", AppData.selected_output_pins)
+
+        # 6) Re-create any needed input‐boxes (θ/φ) for crosses
+        for center_label, arms in arm_specs.items():
+            if arms and center_label not in self.input_boxes:
+                self.create_input_boxes(center_label)
+
+        # 7) Update counter & state
+        self.current_step = idx
+        self.step_label.configure(text=f"Step {idx}/{total}")
+
+        # 8) Fire update event
+        self.event_generate("<<SelectionUpdated>>")
+        self.update_selection()
+
+    def increment_step(self):
+        """
+        Advance one step:
+          • In edit mode: always bump the counter so you can add new steps
+          • In view mode: load the next step from calibration_steps.json
+        """
+        if self.edit_mode:
+            # — EDIT mode: just advance the counter, no clamping —
+            self.current_step += 1
+            total = len(self.all_steps)
+            # if you prefer 1-based display, do current_step+1 here
+            self.step_label.configure(text=f"Step {self.current_step}/{total}")
+            return
+
+        # — VIEW mode: pull from calibration_steps.json —
+        # note: import_calibration will clamp internally if you go past the end
+        self.import_calibration(step_idx=self.current_step + 1)
+
+    # def increment_step(self):
+    #     """
+    #     Advance one step:
+    #       • In edit mode: just move through self.all_steps.
+    #       • In view mode: load the next step from calibration_steps.json.
+    #     """
+    #     if self.edit_mode:
+    #         # — EDIT mode: walk through the saved steps list —
+    #         total = len(self.all_steps)
+    #         if total == 0:
+    #             return  # nothing to do
+    #         # clamp and advance
+    #         next_idx = min(self.current_step + 1, total - 1)
+    #         if next_idx != self.current_step:
+    #             self.current_step = next_idx
+    #             # refresh label, 1-based
+    #             self.step_label.configure(text=f"Step {self.current_step}/{total}")
+
+    #     else:
+    #         # — VIEW mode: pull from the merged JSON file —
+    #         # ask import_calibration to load step current_step+1
+    #         self.import_calibration(step_idx=self.current_step)
+
+    # def import_calibration(self, filepath="calibration_steps.json", step_idx=None):
+    #     """
+    #     Load merged calibration JSON and highlight nodes for one step.
+    #     If step_idx is None, it tries to match JSON 'step' == self.current_step,
+    #     otherwise falls back to the first step.
+    #     """
+    #     try:
+    #         with open(filepath, "r") as f:
+    #             payload = json.load(f)
+    #     except Exception as e:
+    #         logging.error("Failed to load calibration file: %s", e)
+    #         messagebox.showerror("Error", f"Could not load calibration file:\n{e}")
+    #         return
+
+    #     steps = payload.get("steps", [])
+    #     if not steps:
+    #         messagebox.showwarning("No steps", "That file contains no steps.")
+    #         return
+
+    #     # pick the right step
+    #     if step_idx is None:
+    #         step_data = next((s for s in steps if s.get("step") == self.current_step), steps[0])
+    #         idx = step_data.get("step", 0)
+    #     else:
+    #         if not (0 <= step_idx < len(steps)):
+    #             messagebox.showwarning(
+    #                 "Invalid step",
+    #                 f"Step index {step_idx} out of range (0–{len(steps)-1})."
+    #             )
+    #             return
+    #         step_data = steps[step_idx]
+    #         idx = step_idx
+
+    #     # highlight it
+    #     self._highlight_step(step_data)
+
+    #     # update the UI counter: show “Step X/Y”
+    #     total = len(steps)
+    #     self.step_label.configure(text=f"Step {idx}/{total-1}")
+    #     # keep self.current_step in sync
+    #     self.current_step = idx
+
+    def _highlight_step(self, step_data):
+        """
+        Given one step dict, clear old highlights and
+        highlight calibration_node + additional_nodes.
+        """
+        cal_node = step_data.get("calibration_node")
+        additional = step_data.get("additional_nodes", {})
+
+        # clear existing highlights (text items back to white)
+        for text_id in self.cross_labels.values():
+            self.canvas.itemconfig(text_id, fill="white")
+
+        # highlight main calibration node in orange
+        if cal_node:
+            # find internal key for cal_node label
+            for key, text_id in self.cross_labels.items():
+                if self.canvas.itemcget(text_id, 'text') == cal_node:
+                    self.canvas.itemconfig(text_id, fill="orange")
+                    break
+
+        # highlight additional nodes (green for Cross, red otherwise)
+        for node_name, mode in additional.items():
+            for key, text_id in self.cross_labels.items():
+                if self.canvas.itemcget(text_id, 'text') == node_name:
+                    color = 'white' if mode.lower() == 'cross' else 'red'
+                    self.canvas.itemconfig(text_id, fill=color)
+                    break
+
+        # update counter display
+        self.step_label.configure(text=f"Step {step_data.get('step', self.current_step)}/{len(self.step_lines)}")
+
+
+
+    def convert_calibration_to_grid_inline(calibration_json, get_cross_modes_func):
+        """
+        Convert calibration JSON to inline JSON strings per step.
+        Each step is output as a single-line JSON of nodes.
+        """
+        lines = []
+        cross_modes = get_cross_modes_func()
+
+        for step_data in calibration_json.get("calibration_steps", []):
+            grid = {}
+
+            # Calibration node
+            cal_node = step_data["calibration_node"]
+            mode = step_data.get("Io_config", cross_modes.get(cal_node, "cross"))
+            grid[cal_node] = {"arms": mode_to_arms(mode), "theta": "0", "phi": "0"}
+
+            # Additional nodes
+            for node, io_state in step_data.get("additional_nodes", {}).items():
+                grid[node] = {"arms": mode_to_arms(io_state.lower()), "theta": "0", "phi": "0"}
+
+            # Dump as single-line JSON
+            line = json.dumps(grid, separators=(',', ':'))
+            lines.append(line)
+
+        return lines
+
+    def _on_play_clicked(self):
+        """
+        When ▶ Play is clicked:
+          • if an auto_calibrate_callback was provided → call it.
+          • else → fall back to the old toggle_play behavior.
+        """
+        # if callable(self.auto_calibrate_callback):
+        #     # hand off control to window1.auto_calibrate()
+        #     self.auto_calibrate_callback()
+        # else:
+        #     # no callback set → just do the regular play/step
+        #     self.toggle_play()
+        # 1) always flip the play/pause state and button text
+        self.toggle_play()
+
+        # 2) if we just went into PLAY, hand off to the window’s auto_calibrate
+        if self.playing and callable(self.auto_calibrate_callback):
+            self.auto_calibrate_callback()
+
+
+    def get_cross_modes_numbers(self):
+        """
+        Returns a dict mapping each cross label to one of:
+        - "bar0"/"bar1" (two‐arm horizontal/vertical)
+        - "cross0"/"cross1" (two‐arm diagonals)
+        - "split0"…"split3" (three‐arm patterns, missing TL, TR, BR, or BL)
+        - "arbitrary" (all four arms)
+        """
+        cross_arms = defaultdict(set)
+        for path in self.paths:
+            if path.line_id in self.selected_paths:
+                center, arm = self._parse_path_components(path)
+                if center and arm:
+                    # If arm is a compound like "TL-BR", split it
+                    for a in arm.split("-"):
+                        cross_arms[center].add(a)
+
+        modes = {}
+        for cross, arms in cross_arms.items():
+            arm_set = set(arms)
+            # BAR patterns
+            if   arm_set == {"TL", "TR"}:
+                modes[cross] = "bar0"
+            elif arm_set == {"BL", "BR"}:
+                modes[cross] = "bar1"
+
+            # CROSS patterns
+            elif arm_set == {"TL", "BR"}:
+                modes[cross] = "cross0"
+            elif arm_set == {"TR", "BL"}:
+                modes[cross] = "cross1"
+
+            # SPLIT patterns: one missing arm
+            elif len(arm_set) == 3:
+                # Determine which arm is missing
+                all_arms = {"TL", "TR", "BR", "BL"}
+                missing = (all_arms - arm_set).pop()  # get the one missing
+                missing_index = {"TL": 0, "TR": 1, "BR": 2, "BL": 3}[missing]
+                modes[cross] = f"split{missing_index}"
+
+            # ARBITRARY: all four arms
+            elif arm_set == {"TL", "TR", "BR", "BL"}:
+                modes[cross] = "arbitrary"
+
+        return modes
+
+
+def mode_to_arms(mode):
+    """
+    Convert IO mode (with 0–3 suffix) to the list of arms.
+    """
+    m = mode.lower()
+    # BAR patterns
+    if m == "bar0":
+        return ["TL", "TR"]
+    if m == "bar1":
+        return ["BL", "BR"]
+
+    # CROSS patterns
+    if m == "cross0":
+        return ["TL", "BR"]
+    if m == "cross1":
+        return ["TR", "BL"]
+
+    # SPLIT patterns (3-of-4); split means missing arm index N
+    if m == "split0":  # missing TL
+        return ["TR", "BR", "BL"]
+    if m == "split1":  # missing TR
+        return ["TL", "BR", "BL"]
+    if m == "split2":  # missing BR
+        return ["TL", "TR", "BL"]
+    if m == "split3":  # missing BL
+        return ["TL", "TR", "BR"]
+
+    # ARBITRARY: all four arms
+    if m == "arbitrary":
+        return ["TL", "TR", "BL", "BR"]
+
+    # fallback: no arms
+    return []
+
+
+
+
 
 def main():
     root = Tk()

@@ -89,10 +89,6 @@ class MainWindow(ctk.CTk):
         self.load_window_content(selected_window)
 
     def load_window_content(self, window_name):
-        
-        # If the current content is Window3, save all NxN data
-        if isinstance(self.current_content, Window3Content) and self.current_content.winfo_exists():
-            self.current_content.handle_all_tabs(operation='save')
     
         # Clear the right panel.
         for widget in self.right_panel.winfo_children():
@@ -114,10 +110,25 @@ class MainWindow(ctk.CTk):
                 switch_input = self.switch_input,
                 switch_output = self.switch_output,
                 grid_size=mesh_size,
-                phase_selector=self.calibration_control,  # Pass the existing widget
-
+                phase_selector=self.calibration_control,  
             )
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
+
+            grid = self.current_content.custom_grid
+            orig_toggle = grid.toggle_play
+
+            # capture the content’s own auto_calibrate
+            autocal = getattr(self.current_content, "auto_calibrate", None)
+            if autocal is None:
+                def autocal(): 
+                    logging.warning("No auto_calibrate on current_content")
+
+            def _play_and_autocal():
+                orig_toggle()
+                autocal()
+
+            grid.play_btn.configure(command=_play_and_autocal)
+
         elif window_name == "Window 2":
             # Create the Window2Content (which integrates the Qontrol control panel)
             self.current_content = Window2Content(
@@ -132,16 +143,15 @@ class MainWindow(ctk.CTk):
         elif window_name == "Window 3":
             # Retrieve the mesh size from the OptionMenu.
             mesh_size = self.app_control.mesh_optionmenu.get()
-            self.current_content = Window3Content(  # Use Window3Content, even if it's similar to Window1Content
+            self.current_content = Window3Content(  
                 self.right_panel,
-                channel=0,
-                fit="Linear",
-                IOconfig="Config1",
                 app=self.appdata,
                 qontrol=self.qontrol,
                 thorlabs=self.thorlabs,
-                daq = self.daq,
-                switch=self.switch_output,
+                daq=self.daq,
+                switch=self.switch_output,  # For backward compatibility
+                switch_input=self.switch_input,
+                switch_output=self.switch_output,
                 grid_size=mesh_size
             )            
             self.current_content.pack(expand=True, fill="both", padx=10, pady=10)
@@ -149,28 +159,6 @@ class MainWindow(ctk.CTk):
         else:
             placeholder = ctk.CTkLabel(self.right_panel, text=f"{window_name} content not implemented yet.")
             placeholder.pack(expand=True, fill="both", padx=10, pady=10)
-
-    # def connect_devices(self):
-    #     if self.qontrol:
-    #         # Check if the device is already connected (assuming self.qontrol.device is set when connected)
-    #         if hasattr(self.qontrol, "device") and self.qontrol.device is not None:
-    #             # Already connected; update device info only.
-    #             params = self.qontrol.params
-    #             params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
-    #             self.device_control.update_device_info(params)
-    #         else:
-    #             # Not connected yet, so connect.
-    #             self.qontrol.connect()
-    #             params = self.qontrol.params
-    #             params["Global Current Limit"] = self.qontrol.globalcurrrentlimit
-    #             self.device_control.update_device_info(params)
-    #     else:
-    #         messagebox.showerror("Connection Error", "No Qontrol device available!")
-
-    # def disconnect_devices(self):
-    #     if self.qontrol:
-    #         self.qontrol.disconnect()
-    #     self.device_control.update_device_info({})
 
     def connect_devices(self):
         # Handle Qontrol connection should be connected by default
@@ -304,14 +292,18 @@ class MainWindow(ctk.CTk):
         # Call the import function to update the appdata.
         importfunc(self.appdata)
         # For demonstration, print one of the imported matrices.
-        print("[INFO] Updated with Pickle file:", self.appdata.caliparamlist_lincub_cross[1])
+        logging.info("Updated with Pickle file:", self.appdata.caliparamlist_lincub_cross[1])
         # messagebox.showinfo("Import", "Data imported successfully!")
 
     def export_data(self):
-        print("[INFO] Export function triggered.")
+        logging.info("Export function triggered.")
 
     def mesh_changed(self, new_mesh_size):
-        print("[INFO] Mesh size changed to:", new_mesh_size)
+        """Handle mesh size changes."""
+        logging.info("Mesh size changed to:", new_mesh_size)
+        
+        # Update AppData grid size
+        AppData.update_grid_size(new_mesh_size)
     
         # If the current tab is Window 1 => update
         if isinstance(self.current_content, Window1Content):
