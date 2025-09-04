@@ -35,7 +35,11 @@ class Window1Content(ctk.CTkFrame):
                 # Do interpolation (replace with your actual logic)
                 reader.load_sweep_file(f"{node}_theta_200_steps.csv")
                 interpolated = reader.theta_trans(theta_val * np.pi, reader.theta, reader.theta_corrected) / np.pi
-                self.interpolated_theta[node] = interpolated
+                if interpolated != 0:
+                    self.interpolated_theta[node] = interpolated
+                else:
+                    self.interpolated_theta[node] = 0.001
+                
                 #updated.append(f"{node}: {interpolated:.3f}")
                 updated.append(f"{node}: {interpolated:.4g} π \n")
             # Show updated values

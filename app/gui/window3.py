@@ -9,6 +9,8 @@ from app.utils.appdata import AppData
 from app.utils.switch_measurements import SwitchMeasurements
 
 class Window3Content(ctk.CTkFrame):
+    def _on_nh_fixed_toggle(self):
+        AppData.nh_fixed_enabled = self.nh_fixed_var.get()
     
     def __init__(self, master, channel, fit, IOconfig, app, qontrol, thorlabs, daq, switch, grid_size = "8x8", **kwargs):
         super().__init__(master, **kwargs)
@@ -89,6 +91,21 @@ class Window3Content(ctk.CTkFrame):
             command=self.cycle_unitaries, width=140, height=32
         )
         self.cycle_unitaries_button.grid(row=1, column=0, padx=10, pady=4, sticky="w")
+        
+        
+        # NH fixed toggle
+        self.nh_fixed_var = ctk.BooleanVar(value=getattr(AppData, "nh_fixed_enabled", False))
+        self.nh_fixed_checkbox = ctk.CTkCheckBox(
+            self.cycle_frame,
+            text="NH fixed phi",
+            variable=self.nh_fixed_var,
+            command=self._on_nh_fixed_toggle
+        )
+        self.nh_fixed_checkbox.grid(row=1, column=1, columnspan=1, padx=(10, 0), pady=4)
+        
+        
+        
+        
         
         # Interpolation toggle 
         self.interpolation_var = ctk.BooleanVar(value=getattr(AppData, "interpolation_enabled", False))
@@ -368,7 +385,11 @@ class Window3Content(ctk.CTkFrame):
                     theta_val = float(json_grid[node]['theta'])
                     reader.load_sweep_file(f"{node}_theta_200_steps.csv")
                     interpolated_theta = reader.theta_trans(theta_val * np.pi, reader.theta, reader.theta_corrected) / np.pi
-                    interpolated[node] = interpolated_theta
+                    if interpolated_theta != 0:
+                        interpolated[node] = interpolated_theta
+                    else:
+                        interpolated[node] = 0.001
+                    
                     # 直接修改 AppData.default_json_grid 里的 theta
                     json_grid[node]['theta'] = str(interpolated_theta)
                 except Exception as e:
@@ -389,7 +410,12 @@ class Window3Content(ctk.CTkFrame):
                     A_phi += np.pi
                     A_phi = A_phi % (2 * np.pi)
                     A_phi /= np.pi
-                    json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+                    if getattr(AppData, "nh_fixed_enabled", True):
+                        json_output = mzi_lut.get_json_output_from_theta_phi_fixed(self.n, A_theta, A_phi)
+                    else:
+                        json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+
+
                 elif package == "interferometer":
                     I = unitary.decomposition(matrix_u, global_phase=self.global_phase_var.get())
                     bs_list = I.BS_list
@@ -747,7 +773,12 @@ class Window3Content(ctk.CTkFrame):
                         A_phi += np.pi
                         A_phi = A_phi % (2 * np.pi)
                         A_phi /= np.pi
-                        json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+                        if getattr(AppData, "nh_fixed_enabled", True):
+                            json_output = mzi_lut.get_json_output_from_theta_phi_fixed(self.n, A_theta, A_phi)
+                        else:
+                            json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+
+
                     elif package == "interferometer":
                         I = unitary.decomposition(U_step, global_phase=use_global_phase)
                         bs_list = I.BS_list
@@ -771,7 +802,9 @@ class Window3Content(ctk.CTkFrame):
                                 theta_val = float(json_output[node]['theta'])
                                 reader.load_sweep_file(f"{node}_theta_200_steps.csv")
                                 interpolated_theta = reader.theta_trans(theta_val * np.pi, reader.theta, reader.theta_corrected) / np.pi
-                                interpolated[node] = interpolated_theta
+                                
+                                interpolated_theta = max(interpolated_theta, 0.001)
+                               
                                 json_output[node]['theta'] = str(interpolated_theta)
                             except Exception as e:
                                 self.update_status(f"  ✖ Interpolation failed for {node}: {e}", "error")
@@ -1260,8 +1293,11 @@ class Window3Content(ctk.CTkFrame):
                 A_theta *= 2/np.pi
                 A_phi += np.pi
                 A_phi = A_phi % (2*np.pi)
-                A_phi *= 2/np.pi
-                json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
+                A_phi /= np.pi
+                if getattr(AppData, "nh_fixed_enabled", True):
+                    json_output = mzi_lut.get_json_output_from_theta_phi_fixed(self.n, A_theta, A_phi)
+                else:
+                    json_output = mzi_lut.get_json_output_from_theta_phi(self.n, A_theta, A_phi)
             
             ### choose the interferometer package
             elif package == 'interferometer':

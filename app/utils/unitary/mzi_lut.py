@@ -206,7 +206,8 @@ def map_pnn(n, A_theta, A_phi):
             break  # Prevent index errors for large N
 
         if i == 2:
-            A_phi[i] = 0  # 这里保留原有特殊处理
+            A_theta[i] = 2  # Keep the input at the same port (14)
+        
 
         label = flat_labels[label_idx]
         mapping[label] = (A_theta[i], A_phi[i])
@@ -214,16 +215,71 @@ def map_pnn(n, A_theta, A_phi):
     
     return mapping
 
-def get_json_output_from_theta_phi(n, A_theta, A_phi):
+def get_json_output_from_theta_phi_fixed(n, A_theta, A_phi):
     """
     采用PNN物理映射方式，直接用A_theta和A_phi生成JSON输出
     """
     mapping = map_pnn(n, A_theta, A_phi)
     output = {}
     for label, (theta, phi) in mapping.items():
+        if label in ("F1",):
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": str(theta),
+                "phi": 0.5,
+            }
+        elif label in ("G1", "H1", "G2"):
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": str(theta),
+                "phi": 1,
+            }
+        elif label == "E1":
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": 2.0,
+                "phi": 1.5,
+            }
+        elif label == "E2":
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": 2.0,
+                "phi": 1.5,
+            }
+        elif label in ("A1", "C1"):
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": 1.0,
+                "phi": 0,
+            }
+        elif label in ("B1", "D1"):
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": 2.0,
+                "phi": 0,
+            }
+        else:
+            output[label] = {
+                "arms": ['TL', 'TR', 'BL', 'BR'],
+                "theta": 2.0,
+                "phi": 0.0,
+            }
+    return output
+
+def get_json_output_from_theta_phi(n, A_theta, A_phi):
+    """
+    Generate JSON output with additional metadata and formatted theta/phi values.
+    """
+    mapping = map_pnn(n, A_theta, A_phi)
+    output = {}
+    
+    
+    for label, (theta, phi) in mapping.items():
+
         output[label] = {
             "arms": ['TL', 'TR', 'BL', 'BR'],
-            "theta": str(theta),
-            "phi": str(phi),
+            "theta": str(theta),  # Format theta to 10 decimal places
+            "phi": f"{phi:.4g}",     # Format phi to 10 decimal places
         }
+
     return output

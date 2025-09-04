@@ -2,6 +2,7 @@
 from threading import Lock
 
 class AppData:
+    nh_fixed_enabled = False
     unitary_textbox_content = ""
     interpolation_enabled = False
     interpolated_theta = {}
