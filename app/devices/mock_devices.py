@@ -1,4 +1,4 @@
-#from app.imports import *
+from app.imports import *
 
 # Mock Qontrol Device
 class MockQontrol:
@@ -10,10 +10,10 @@ class MockQontrol:
         self.i = [0] * self.n_chs
 
     def connect(self):
-        print("MockQontrol: Connected successfully.")
+        logging.info("MockQontrol: Connected successfully.")
 
     def close(self):
-        print("MockQontrol: Connection closed.")
+        logging.info("MockQontrol: Connection closed.")
 
 class MockSwitch:
     def __init__(self):
@@ -37,20 +37,20 @@ class MockSwitch:
         command.append(self._checksum(command))
 
         # Print the hex code of the command
-        print(f"[MOCK][SWITCH] Sending command: {bytes(command).hex()}")
+        logging.info(f"[MOCK][SWITCH] Sending command: {bytes(command).hex()}")
 
         # Simulate setting the channel
         self.current_channel = channel
-        print(f"[MOCK][SWITCH] Channel set to {channel}")
+        logging.info(f"[MOCK][SWITCH] Channel set to {channel}")
 
     def get_channel(self):
         """
         Simulates querying the switch to find the currently active channel.
         """
         if self.current_channel is None:
-            print("[MOCK][SWITCH] No channel set yet.")
+            logging.info("[MOCK][SWITCH] No channel set yet.")
             return None
-        print(f"[MOCK][SWITCH] Current channel is {self.current_channel}")
+        logging.info(f"[MOCK][SWITCH] Current channel is {self.current_channel}")
         return self.current_channel
     
 # Mock Thorlabs PM100D Power Meter
@@ -64,17 +64,17 @@ class MockThorlabsPM100:
     def connect(self):
         """Simulates connecting to the power meter."""
         self.connected = True
-        print("[INFO][Mock] Thorlabs PM100D connected.")
+        logging.info("[Mock] Thorlabs PM100D connected.")
 
     def disconnect(self):
         """Simulates disconnecting the power meter."""
         self.connected = False
-        print("[INFO][Mock] Thorlabs PM100D disconnected.")
+        logging.info("[Mock] Thorlabs PM100D disconnected.")
 
     def read_power(self):
         """Simulated power reading."""
         if not self.connected:
-            print("[WARN][Mock] Trying to read power while disconnected!")
+            logging.warning("[WARN][Mock] Trying to read power while disconnected!")
         return self.power
 
 class MockDAQ:
@@ -91,7 +91,7 @@ class MockDAQ:
     def connect(self, device_name=None):
         # Always "succeed" in connecting
         self._is_connected = True
-        print(f"[INFO][MockDAQ] Connected (mock) to device_name='{device_name}'")
+        logging.info(f"[MockDAQ] Connected (mock) to device_name='{device_name}'")
         return True
 
     def list_ai_channels(self):
@@ -104,7 +104,7 @@ class MockDAQ:
         Returns a fixed set of voltage samples for a single mock channel.
         """
         if not self._is_connected:
-            print("[INFO][MockDAQ] Device not connected.")
+            logging.info("[MockDAQ] Device not connected.")
             return None
 
         # Default to our single channel if none specified
@@ -112,7 +112,7 @@ class MockDAQ:
             channels = self.list_ai_channels()
 
         if not channels:
-            print("[INFO][MockDAQ] No channels to read from.")
+            logging.info("[MockDAQ] No channels to read from.")
             return None
 
         # Return a fixed value for each sample, e.g., 0.0 volts
@@ -125,7 +125,7 @@ class MockDAQ:
         Returns a fixed set of voltage samples for a single mock channel.
         """
         if not self._is_connected:
-            print("[INFO][MockDAQ] Device not connected.")
+            logging.info("[MockDAQ] Device not connected.")
             return None
 
         # Default to our single channel if none specified
@@ -133,7 +133,7 @@ class MockDAQ:
             channels = self.list_ai_channels()
 
         if not channels:
-            print("[INFO][MockDAQ] No channels to read from.")
+            logging.info("[MockDAQ] No channels to read from.")
             return None
 
         # Return a fixed value for each sample, e.g., 0.0 volts
@@ -144,22 +144,22 @@ class MockDAQ:
 
     def show_status(self):
         if not self._is_connected:
-            print("[INFO][MockDAQ] No device is connected.")
+            logging.info("[MockDAQ] No device is connected.")
         else:
-            print(f"[INFO][MockDAQ] Device Name: {self.device_name}")
-            print(f"[INFO][MockDAQ] AI Channels: {self.list_ai_channels()}")
+            logging.info(f"[MockDAQ] Device Name: {self.device_name}")
+            logging.info(f"[MockDAQ] AI Channels: {self.list_ai_channels()}")
 
     def disconnect(self):
         if self._is_connected:
-            print(f"[INFO][MockDAQ] Disconnecting device: {self.device_name}")
+            logging.info(f"[MockDAQ] Disconnecting device: {self.device_name}")
             self._is_connected = False
             self.device_name = None
         else:
-            print("[INFO][MockDAQ] No device to disconnect.")
+            logging.info("[MockDAQ] No device to disconnect.")
 
     def list_ai_channels(self):
         if not self._is_connected:
-            print("[INFO][MockDAQ] Device not connected.")
+            logging.info("[MockDAQ] Device not connected.")
             return []  # Return an empty list instead of None
         return [f"{self.device_name}/ai{i}" for i in range(8)]
 
@@ -175,7 +175,7 @@ class MockDAQ:
         :return: A list of simulated power values in the specified unit.
         """
         if not self._is_connected:
-            print("[INFO][MockDAQ] Device not connected.")
+            logging.info("[MockDAQ] Device not connected.")
             return None
 
         # Default to all available channels if none are specified
@@ -183,7 +183,7 @@ class MockDAQ:
             channels = self.list_ai_channels()
 
         if not channels:
-            print("[INFO][MockDAQ] No channels to read from.")
+            logging.info("[MockDAQ] No channels to read from.")
             return []  # Return an empty list if no channels are available
 
         simulated_power_in_watts = [0.001 * (i + 1) for i in range(len(channels))]  # Simulated power in watts

@@ -2,6 +2,7 @@
 
 import time
 from typing import List, Optional, Union
+import logging
 
 class SwitchMeasurements:
     """Utility class for switch-based power measurements"""
@@ -40,7 +41,7 @@ class SwitchMeasurements:
             valid_channels = [ch for ch in channels if 1 <= ch <= 12]
             
             if len(valid_channels) != len(channels):
-                print(f"Warning: Some channels were out of range (1-12). Using: {valid_channels}")
+                logging.warning(f"Warning: Some channels were out of range (1-12). Using: {valid_channels}")
                 
             return valid_channels
             
@@ -65,7 +66,7 @@ class SwitchMeasurements:
         measurements = []
         
         if not switch or not thorlabs_device:
-            print("Error: Switch or Thorlabs device not available")
+            logging.error("Switch or Thorlabs device not available")
             return measurements
         
         # Measure only the specified switch channels
@@ -82,7 +83,7 @@ class SwitchMeasurements:
                 measurements.append(power)
                 
             except Exception as e:
-                print(f"Error measuring channel {channel}: {e}")
+                logging.error(f"Measuring channel {channel}: {e}")
                 measurements.append(0.0)
         
         return measurements
@@ -102,7 +103,7 @@ class SwitchMeasurements:
         measurements = []
         
         if not thorlabs_devices:
-            print("Error: No Thorlabs devices available")
+            logging.error("No Thorlabs devices available")
             return measurements
         
         devices = thorlabs_devices if isinstance(thorlabs_devices, list) else [thorlabs_devices]
@@ -112,7 +113,7 @@ class SwitchMeasurements:
                 power = device.read_power(unit=unit)
                 measurements.append(power)
             except Exception as e:
-                print(f"Error reading Thorlabs {i}: {e}")
+                logging.error(f"Reading Thorlabs {i}: {e}")
                 measurements.append(0.0)
         
         return measurements

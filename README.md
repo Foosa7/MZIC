@@ -2,6 +2,8 @@
 
 GUI-based control system for programmable photonic circuits, providing automated calibration, unitary matrix implementation, and real-time monitoring of Mach-Zehnder interferometer (MZI) mesh networks. This software enables researchers to configure and operate reconfigurable photonic processors for applications in quantum computing, machine learning, and optical signal processing. Features include interactive grid-based phase control, automated resistance and phase characterization, parameter sweep functionality, and comprehensive data logging. The platform seamlessly integrates with Qontrol multi-channel current sources for thermal phase shifting, Thorlabs optical power meters, National Instruments DAQ systems for multi-channel measurements, and programmable optical switches for automated routing and characterization.
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Foosa7/MZIC)
+
 ## Quick Start
 
 ```bash
@@ -15,6 +17,9 @@ pip install -r requirements.txt
 # Run
 python main.py
 ```
+
+![Application Architecture](https://github.com/Foosa7/MZIC/blob/auto_calibrate/docs/assets/APP_ARCH.drawio.png)
+
 
 ## Features
 

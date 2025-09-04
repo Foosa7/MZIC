@@ -3,6 +3,7 @@ import pyvisa
 from ThorlabsPM100 import ThorlabsPM100, USBTMC
 from unittest.mock import MagicMock
 from app.devices.mock_devices import MockThorlabsPM100
+import logging
 
 class ThorlabsDevice:
     _connected_devices = {}
@@ -30,7 +31,7 @@ class ThorlabsDevice:
                                         "firmware": idn[3]
                                     })
                         except Exception as e:
-                            print(f"[ERROR][Thorlabs] Error inspecting {res}: {e}")
+                            logging.error(f"[Thorlabs] Error inspecting {res}: {e}")
             
             elif system == 'Linux':
                 import glob
@@ -49,12 +50,12 @@ class ThorlabsDevice:
                             })
                         inst.close()
                     except Exception as e:
-                        print(f"[ERROR][Thorlabs] Error inspecting {dev_path}: {e}")
+                        logging.error(f"[Thorlabs] Error inspecting {dev_path}: {e}")
             
             return devices
         
         except Exception as e:
-            print(f"[ERROR][Thorlabs] Error listing devices: {e}")
+            logging.error(f"[Thorlabs] Error listing devices: {e}")
             return []
     
     @classmethod
@@ -80,10 +81,10 @@ class ThorlabsDevice:
 
     def connect(self, serial=None, resource=None):
         if self._find_device(serial, resource):
-            print(f"[INFO][Thorlabs] Connected to {self.params['Model']} (SN: {self.params['Serial']})")
+            logging.info(f"[Thorlabs] Connected to {self.params['Model']} (SN: {self.params['Serial']})")
             return True
         else:
-            print("[INFO][Mock] Using mock device")
+            logging.info("[Mock] Using mock device")
             self.device = MockThorlabsPM100(MagicMock())
             self.params = {
                 "Manufacturer": "MockThorlabs",
@@ -105,10 +106,10 @@ class ThorlabsDevice:
             elif system == 'Linux':
                 return self._linux_find_device(serial, resource)
             else:
-                print(f"[ERROR][Thorlabs] Unsupported OS: {system}")
+                logging.error(f"[Thorlabs] Unsupported OS: {system}")
                 return False
         except Exception as e:
-            print(f"[ERROR][Thorlabs] Error finding device: {e}")
+            logging.error(f"[Thorlabs] Error finding device: {e}")
             return False
 
     def _windows_find_device(self, serial, resource):
@@ -149,7 +150,7 @@ class ThorlabsDevice:
             self._initialize_device(resource, idn)
             return True
         except Exception as e:
-            print(f"[INFO][Thorlabs] Windows connection failed: {e}")
+            logging.info(f"[Thorlabs] Windows connection failed: {e}")
             return False
 
     def _try_connect_linux(self, resource, expected_serial):
@@ -163,7 +164,7 @@ class ThorlabsDevice:
             self._initialize_device(resource, idn)
             return True
         except Exception as e:
-            print(f"[INFO][Thorlabs] Linux connection failed: {e}")
+            logging.info(f"[Thorlabs] Linux connection failed: {e}")
             return False
 
     def _initialize_device(self, resource, idn):
@@ -180,7 +181,7 @@ class ThorlabsDevice:
         self.serial = idn[2]
         self.device.sense.function = 'POWER'
         self.device.sense.correction.wavelength = self.wavelength
-        print(f"[INFO][Thorlabs] Connected to {self.params['Model']} at {resource}")
+        logging.info(f"[Thorlabs] Connected to {self.params['Model']} at {resource}")
 
     def read_power(self, unit="uW"):
         """
@@ -198,6 +199,7 @@ class ThorlabsDevice:
                 power_in_watts = self.device.read  # Read power in watts
             except AttributeError:
                 power_in_watts = self.device.power  # Fallback to another attribute
+                logging.info(f"[Thorlabs] Using fallback power reading method: {power_in_watts} W")
 
             # Convert to the desired unit
             if unit == "mW":
@@ -209,7 +211,7 @@ class ThorlabsDevice:
             elif unit == "W":
                 return power_in_watts  # Return in watts
             else:
-                raise ValueError(f"[ERROR][Thorlabs] Unsupported unit: {unit}. Use 'mW', 'uW' or 'W'.")
+                raise ValueError(f"[Thorlabs] Unsupported unit: {unit}. Use 'mW', 'uW' or 'W'.")
         return 0.0
 
     def set_wavelength(self, wavelength):
@@ -219,17 +221,17 @@ class ThorlabsDevice:
                 self.wavelength = wavelength
                 self.params["Wavelength"] = f"{wavelength} nm"
             except Exception as e:
-                print(f"[ERROR][Thorlabs] Wavelength setting error: {e}")
+                logging.error(f"[Thorlabs] Wavelength setting error: {e}")
 
     def disconnect(self):
         if self.inst:
             try:
                 self.inst.close()
-                print(f"[Thorlabs] Disconnected from {self.params['Serial']}")
+                logging.info(f"[Thorlabs] Disconnected from {self.params['Serial']}")
                 ThorlabsDevice._connected_devices.pop(self.serial, None)
                 ThorlabsDevice._connected_devices.pop(self.resource, None)
             except Exception as e:
-                print(f"[ERROR][Thorlabs] Error closing connection: {e}")
+                logging.info(f"[Thorlabs] Error closing connection: {e}")
             finally:
                 self.inst = None
                 self.device = None
@@ -238,9 +240,9 @@ class ThorlabsDevice:
     def show_status(self):
         """Display device status"""
         if self.device:
-            print(f"[INFO][Thorlabs] Device: {self.params['Model']} (SN: {self.params['Serial']})")
-            print(f"[INFO][Thorlabs] Wavelength: {self.params['Wavelength']}")
-            print(f"[INFO][Thorlabs] Current power: {self.read_power():.6f} mW")
+            logging.info(f"[Thorlabs] Device: {self.params['Model']} (SN: {self.params['Serial']})")
+            logging.info(f"[Thorlabs] Wavelength: {self.params['Wavelength']}")
+            logging.info(f"[Thorlabs] Current power: {self.read_power():.6f} mW")
     
     # def disconnect(self):
     #     """Safely close connection to device"""

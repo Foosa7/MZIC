@@ -1,10 +1,12 @@
-# utils/qmapper8x8.py
+# utils/qmapper12x12.py
 from app.imports import *
 import json
 from jsonschema import validate
 from collections import defaultdict
+from pathlib import Path
+from app.utils.qontrol.mapping_utils import get_mapping_functions
 
-# JSON schema for validation
+
 MAPPING_SCHEMA = {
     "type": "object",
     "patternProperties": {
@@ -12,9 +14,9 @@ MAPPING_SCHEMA = {
             "type": "object",
             "properties": {
                 "theta": {"type": "integer", "minimum": 0},
-                "phi": {"type": "integer", "minimum": 0}
+                "phi": {"type": "integer", "minimum": 0},
             },
-            "required": ["theta", "phi"]
+            "required": ["theta", "phi"],
         }
     },
     "additionalProperties": False
@@ -79,31 +81,29 @@ def import_single_selection(selection_dict):
     except Exception as e:
         raise ValueError(f"Invalid selection format: {str(e)}") from e
 
-# ## Use this if A1 is at the bottom left corner
+def load_custom_label_mapping(json_path):
+    """Loads a manually defined label-to-channel mapping from JSON file"""
+    try:
+        with open(json_path, 'r') as f:
+            json_str = f.read()
+        return import_mapping_json(json_str)
+    except Exception as e:
+        raise ValueError(f"Failed to load label mapping: {e}")
+
 def create_label_mapping(grid_n):
-    label_map = {}
-    for i in range(grid_n):
-        group_letter = chr(65 + i)  # 'A' to 'H'
-        n_elements = 4 if i % 2 == 0 else 3
-        
-        # Generate labels in ascending order
-        suffixes = range(1, n_elements+1) if i == grid_n-1 else range(n_elements, 0, -1)
-        
-        theta_start = sum(4 if k%2==0 else 3 for k in range(i))
-        initial_phi = 31 + sum(3 if k%2==0 else 4 for k in range(i))
-        
-        for j, suffix in enumerate(suffixes):
-            if i == grid_n-1:  # Special handling for last group
-                theta = theta_start + (n_elements-1 - j)
-                phi = (initial_phi - (n_elements-1)) + j
-            else:
-                theta = theta_start + j
-                phi = initial_phi - j
-            
-            label = f"{group_letter}{suffix}"
-            label_map[label] = (theta, phi)
-    
-    return label_map
+    """
+    Loads a manually defined label-to-channel mapping from a JSON file.
+    The file should be named '12_mode_mapping.json' and located in the same directory.
+    """
+    from pathlib import Path
+    mapping_file = Path(__file__).parent / "12_mode_mapping.json"
+    try:
+        with open(mapping_file, 'r') as f:
+            json_str = f.read()
+        return import_mapping_json(json_str)
+    except Exception as e:
+        raise ValueError(f"Failed to load label mapping: {e}")
+
 
 def print_mapping(label_map):
     """Prints mapping in column groups with channel pairs"""
@@ -120,36 +120,77 @@ def print_mapping(label_map):
         for label, (theta, phi) in sorted(columns[col], key=lambda x: int(x[0][1:])):
             logging.info(f"  {label}: θ{theta}, φ{phi}")
 
+
 def apply_grid_mapping(qontrol_device, grid_data, grid_size):
     """Main function to map grid values to Qontrol channels"""
     try:
-        n = int(grid_size.split('x')[0])
-        label_map = create_label_mapping(n)
-        
+        # n = int(grid_size.split('x')[0])
+        # label_map = create_label_mapping(n)
+
+
+        create_label_mapping, _ = get_mapping_functions(grid_size)
+        label_map = create_label_mapping(int(str(grid_size).split('x')[0]))
         # Parse grid export data
-        export_data = json.loads(grid_data)
+        if isinstance(grid_data, str):
+            export_data = json.loads(grid_data)
+        else:
+            export_data = grid_data
         channel_values = {}
-        
+
         # Get current limit from device config
         current_limit = qontrol_device.config.get("globalcurrrentlimit")
-        
+
         # Map values to channels
         for label, data in export_data.items():
             if label in label_map:
                 theta_ch, phi_ch = label_map[label]
-                
-                # Clamp values to safety limits
+
                 theta = clamp_value(data.get("theta", 0), current_limit)
                 phi = clamp_value(data.get("phi", 0), current_limit)
-                
+
                 channel_values[theta_ch] = theta
                 channel_values[phi_ch] = phi
-        
-        # Apply to Qontrol device
+
+        # Apply the mapped values to the Qontrol device
         apply_qontrol_mapping(qontrol_device, channel_values)
-        
+
     except Exception as e:
         print(f"Mapping error: {str(e)}")
+
+# def apply_grid_mapping(qontrol_device, grid_data, grid_size):
+#     """Main function to map grid values to Qontrol channels"""
+#     try:
+#         # n = int(grid_size.split('x')[0])
+#         # label_map = create_label_mapping(n)
+
+#         create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+#         label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+#         # Parse grid export data
+#         export_data = json.loads(grid_data)
+#         channel_values = {}
+        
+#         # Get current limit from device config
+#         current_limit = qontrol_device.config.get("globalcurrrentlimit")
+        
+#         # Map values to channels
+#         for label, data in export_data.items():
+#             if label in label_map:
+#                 theta_ch, phi_ch = label_map[label]
+
+#                 theta = clamp_value(data.get("theta", 0), current_limit)
+#                 phi = clamp_value(data.get("phi", 0), current_limit)
+
+#                 channel_values[theta_ch] = theta
+#                 channel_values[phi_ch] = phi
+
+
+#         # Apply the mapped values to the Qontrol device
+#         apply_qontrol_mapping(qontrol_device, channel_values)
+
+
+        
+#     except Exception as e:
+#         print(f"Mapping error: {str(e)}")
 
 def clamp_value(value, max_limit):
     """Safely clamp input values"""
@@ -175,12 +216,15 @@ def apply_qontrol_mapping(qontrol_device, channel_map):
 # Example usage:
 if __name__ == "__main__":
     # Create and export
-    mapping = create_label_mapping(8)
-    json_data = export_mapping_json(mapping)
+    # Path to JSON file in the same folder
+    MAPPING_FILE = Path(__file__).parent / "12_mode_mapping.json"
+    # Load, export, re-import, and print mapping
+    label_map = load_custom_label_mapping(MAPPING_FILE)
+    json_data = export_mapping_json(label_map)
     logging.info("Exported JSON:\n", json_data)
-    
-    # Import and validate
     imported_map = import_mapping_json(json_data)
-    import_single_selection(AppData.last_selected)
+    # Dummy call — you can skip or replace this
+    # import_single_selection(AppData.last_selected)
+    
     logging.info("\nImported mapping:")
     print_mapping(imported_map)
