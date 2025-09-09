@@ -651,8 +651,8 @@ class Window1Content(ctk.CTkFrame):
         # self.input_quick_frame.pack(pady=5)
         # self._build_quick_buttons(self.input_quick_frame, "input", "12x12")  # Always 12 buttons
         # # Compact error display in inner_frame
-        # self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
-        # self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
+        self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
+        self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
     
     def _build_quick_buttons(self, parent_frame, switch_type, mesh_size=None):
         """Build quick buttons - always 12 buttons, 4 per row"""
@@ -748,16 +748,43 @@ class Window1Content(ctk.CTkFrame):
         except Exception as e:
             self._show_error(f"Failed to set channel: {e}")
 
+
     def _swap_switch_ports(self):
+        """Swap the output and input switch objects"""
         try:
-            self.switch.swap_ports()  # call your Switch class method
-            self._log_message("[SWITCH] Ports swapped successfully.")
-            
-            # Update status labels to reflect the swap
-            self.output_status_label.configure(text=f"Output → {self.switch.port_out}")
-            self.input_status_label.configure(text=f"Input → {self.switch.port_in}")
+            # Swap the switch objects
+            self.switch_output, self.switch_input = self.switch_input, self.switch_output
+
+            # self._log_message("[SWITCH] Output and input ports swapped successfully.")
+
+            # Update labels to reflect the swap
+            out_port = self.switch_output.port if self.switch_output else "?"
+            in_port = self.switch_input.port if self.switch_input else "?"
+
+            self.output_status_label.configure(
+                text=f"Output → {out_port}",
+                text_color="white"
+            )
+            self.input_status_label.configure(
+                text=f"Input → {in_port}",
+                text_color="white"
+            )
+
         except Exception as e:
-            self._log_error(f"Failed to swap ports: {e}")
+            self._show_error(f"Failed to swap ports: {e}")
+
+
+
+    # def _swap_switch_ports(self):
+    #     try:
+    #         self.switch.swap_ports()  # call your Switch class method
+    #         self._log_message("[SWITCH] Ports swapped successfully.")
+            
+    #         # Update status labels to reflect the swap
+    #         self.output_status_label.configure(text=f"Output → {self.switch.port_out}")
+    #         self.input_status_label.configure(text=f"Input → {self.switch.port_in}")
+    #     except Exception as e:
+    #         self._show_error(f"Failed to swap ports: {e}")
 
     def _run_sweep(self):
         """Run MZI Sweep with configurable switch channel measurement"""
