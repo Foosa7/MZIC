@@ -673,7 +673,8 @@ class Window3Content(ctk.CTkFrame):
 
                 # b) push phases to the chip
                 self.update_status("  • Applying phases to chip...", "info")
-                self.apply_phase_new()
+                # self.apply_phase_new()
+                self.apply_phase_new_json()
                 self.update_status("  ✓ Phases applied", "success")
                 self.update()
 
@@ -782,6 +783,93 @@ class Window3Content(ctk.CTkFrame):
             # Always restore button state
             self.cycle_unitaries_button.configure(text="Cycle Unitaries", state="normal")
             self.update_status(f"\nFinished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", "info")
+
+
+    def apply_phase_new_json(self):
+        """
+        Apply phase settings to the entire grid based on phase calibration data from AppData.
+        Processes all theta and phi values in the current grid configuration.
+        """
+        try:
+            total_start = time.time()
+            t = time.time()
+            # Get current grid configuration
+            grid_config = json.loads(self.custom_grid.export_paths_json())
+            print(f"[TIMER] Loaded grid config in {time.time() - t:.3f}s")
+            if not grid_config:
+                self._show_error("No grid configuration found")
+                return
+
+            # Get label mapping for current grid size
+            t = time.time()
+            create_label_mapping, apply_grid_mapping = get_mapping_functions(self.grid_size)
+            label_map = create_label_mapping(int(self.grid_size.split('x')[0]))
+            print(f"[TIMER] Label mapping prepared in {time.time() - t:.3f}s")
+
+            # Create new configuration and tracking lists
+            phase_grid_config = copy.deepcopy(grid_config)
+            applied_channels = []
+            failed_channels = []
+
+            # Process each cross in the grid
+            for cross_label, data in grid_config.items():
+                # Skip if not in mapping
+                if cross_label not in label_map:
+                    continue
+
+                # Process theta value
+                theta_val = self.interpolated_theta.get(cross_label) if self.interpolation_enabled else data.get("theta", "0")
+                if theta_val:
+                    try:
+                        theta_float = float(theta_val)
+                        calib_key = f"{cross_label}_theta"
+                        t0 = time.time()
+                        current_theta = self._calculate_current_for_phase_new_json(calib_key, theta_float)
+                        print(f"[TIMER] Calculated current for {calib_key} in {time.time() - t0:.3f}s")
+                        if current_theta is not None:
+                            current_theta = round(current_theta, 5)
+                            phase_grid_config[cross_label]["theta"] = str(current_theta)
+                            applied_channels.append(f"{cross_label}:θ = {current_theta:.5f} mA")
+                        else:
+                            failed_channels.append(f"{cross_label}:θ (no calibration)")
+                    except Exception as e:
+                        failed_channels.append(f"{cross_label}:θ ({str(e)})")
+
+                # Process phi value
+                phi_val = data.get("phi", "0")
+                if phi_val:
+                    try:
+                        phi_float = float(phi_val)
+                        channel = f"{cross_label}_phi"
+                        current_phi = self._calculate_current_for_phase_new_json(channel, phi_float)
+                        
+                        if current_phi is not None:
+                            current_phi = round(current_phi, 5)
+                            phase_grid_config[cross_label]["phi"] = str(current_phi)
+                            applied_channels.append(f"{cross_label}:φ = {current_phi:.5f} mA")
+                        else:
+                            failed_channels.append(f"{cross_label}:φ (no calibration)")
+                    except Exception as e:
+                        failed_channels.append(f"{cross_label}:φ ({str(e)})")
+
+            # Store config and update displays
+            self.phase_grid_config = phase_grid_config
+            self._update_phase_results_display(applied_channels, failed_channels)
+
+            # Apply configuration to device
+            try:
+                config_json = json.dumps(phase_grid_config)
+                apply_grid_mapping(self.qontrol, config_json, self.grid_size)
+                self._capture_output(self.qontrol.show_status, self.status_display)
+            except Exception as e:
+                self._show_error(f"Device update failed: {str(e)}")
+
+        except Exception as e:
+            self._show_error(f"Failed to apply phases: {str(e)}")
+            traceback.print_exc()
+            return None
+
+
 
     # ──────────────────────────────────────────────────────────────
     # helper: save the results table to a CSV file
