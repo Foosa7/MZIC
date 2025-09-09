@@ -25,6 +25,7 @@ from app.utils.switch_measurements import SwitchMeasurements
 import json, time, logging
 from PIL import Image
 import os
+from app.devices.switch_device import Switch
 
 # from app.utils.grid import mode_to_arms
 
@@ -498,21 +499,20 @@ class Window1Content(ctk.CTkFrame):
         ### Switch tab ###
         switch_tab = notebook.add("Switches")  
         switch_tab.grid_columnconfigure(0, weight=1)
-        switch_tab.grid_columnconfigure(1, weight=1)
+        switch_tab.grid_columnconfigure(1, weight=0)  # middle column for swap
+        switch_tab.grid_columnconfigure(2, weight=1)
 
-        # Create frames for each switch
+        # ==== OUTPUT SWITCH FRAME ====
         output_frame = ctk.CTkFrame(switch_tab)
         output_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
-        input_frame = ctk.CTkFrame(switch_tab)
-        input_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
-
-        # OUTPUT SWITCH CONTROLS
-        output_header = ctk.CTkLabel(output_frame, text="Output Switch", 
-                                font=("TkDefaultFont", 14, "bold"))
+        output_header = ctk.CTkLabel(
+            output_frame,
+            text="Output Switch",
+            font=("TkDefaultFont", 14, "bold")
+        )
         output_header.pack(pady=(5, 10))
 
-        # Buttons for output switch
         self.output_get_button = ctk.CTkButton(
             output_frame,
             text="Get Current Channel",
@@ -520,25 +520,39 @@ class Window1Content(ctk.CTkFrame):
         )
         self.output_get_button.pack(pady=5)
 
-        # Status label for output
         self.output_status_label = ctk.CTkLabel(
-            output_frame, 
+            output_frame,
             text="Current Channel: Unknown",
             font=("TkDefaultFont", 11, "bold")
         )
         self.output_status_label.pack(pady=(10, 5))
 
-        # OUTPUT QUICK BUTTONS
         self.output_quick_frame = ctk.CTkFrame(output_frame)
         self.output_quick_frame.pack(pady=5)
-        self._build_quick_buttons(self.output_quick_frame, "output", "12x12")  # Always 12 buttons
+        self._build_quick_buttons(self.output_quick_frame, "output", "12x12")
 
-        # INPUT SWITCH CONTROLS
-        input_header = ctk.CTkLabel(input_frame, text="Input Switch", 
-                                font=("TkDefaultFont", 14, "bold"))
+        # ==== SWAP BUTTON ====
+        swap_button = ctk.CTkButton(
+            switch_tab,
+            text="⇆",
+            width=50,
+            height=40,
+            font=ctk.CTkFont(size=18, weight="bold"),
+            command=self._swap_switch_ports
+        )
+        swap_button.grid(row=0, column=1, padx=5, pady=5)
+
+        # ==== INPUT SWITCH FRAME ====
+        input_frame = ctk.CTkFrame(switch_tab)
+        input_frame.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
+
+        input_header = ctk.CTkLabel(
+            input_frame,
+            text="Input Switch",
+            font=("TkDefaultFont", 14, "bold")
+        )
         input_header.pack(pady=(5, 10))
 
-        # Buttons for input switch
         self.input_get_button = ctk.CTkButton(
             input_frame,
             text="Get Current Channel",
@@ -546,21 +560,99 @@ class Window1Content(ctk.CTkFrame):
         )
         self.input_get_button.pack(pady=5)
 
-        # Status label for input
         self.input_status_label = ctk.CTkLabel(
-            input_frame, 
+            input_frame,
             text="Current Channel: Unknown",
             font=("TkDefaultFont", 11, "bold")
         )
         self.input_status_label.pack(pady=(10, 5))
 
-        # INPUT QUICK BUTTONS
         self.input_quick_frame = ctk.CTkFrame(input_frame)
         self.input_quick_frame.pack(pady=5)
-        self._build_quick_buttons(self.input_quick_frame, "input", "12x12")  # Always 12 buttons
-        # Compact error display in inner_frame
-        self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
-        self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
+        self._build_quick_buttons(self.input_quick_frame, "input", "12x12")
+
+        # ### Switch tab ###
+        # switch_tab = notebook.add("Switches")  
+        # switch_tab.grid_columnconfigure(0, weight=1)
+        # switch_tab.grid_columnconfigure(1, weight=1)
+
+        # # Create frames for each switch
+        # output_frame = ctk.CTkFrame(switch_tab)
+        # output_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+
+        # input_frame = ctk.CTkFrame(switch_tab)
+        # input_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+
+        # # OUTPUT SWITCH CONTROLS
+        # output_header = ctk.CTkLabel(output_frame, text="Output Switch", 
+        #                         font=("TkDefaultFont", 14, "bold"))
+        # output_header.pack(pady=(5, 10))
+
+        # # Buttons for output switch
+        # self.output_get_button = ctk.CTkButton(
+        #     output_frame,
+        #     text="Get Current Channel",
+        #     command=lambda: self._get_switch_channel("output")
+        # )
+        # self.output_get_button.pack(pady=5)
+
+        # # Status label for output
+        # self.output_status_label = ctk.CTkLabel(
+        #     output_frame, 
+        #     text="Current Channel: Unknown",
+        #     font=("TkDefaultFont", 11, "bold")
+        # )
+        # self.output_status_label.pack(pady=(10, 5))
+
+        # # Create frames for each switch
+        # output_frame = ctk.CTkFrame(switch_tab)
+        # output_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+
+        # # SWAP BUTTON between input/output
+        # swap_button = ctk.CTkButton(
+        #     switch_tab,
+        #     text="⇆",  # swap symbol
+        #     width=40,
+        #     command=self._swap_switch_ports
+        # )
+        # swap_button.grid(row=0, column=1, sticky="ns", padx=5, pady=5)
+
+        # input_frame = ctk.CTkFrame(switch_tab)
+        # input_frame.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
+
+        # # OUTPUT QUICK BUTTONS
+        # self.output_quick_frame = ctk.CTkFrame(output_frame)
+        # self.output_quick_frame.pack(pady=5)
+        # self._build_quick_buttons(self.output_quick_frame, "output", "12x12")  # Always 12 buttons
+
+        # # INPUT SWITCH CONTROLS
+        # input_header = ctk.CTkLabel(input_frame, text="Input Switch", 
+        #                         font=("TkDefaultFont", 14, "bold"))
+        # input_header.pack(pady=(5, 10))
+
+        # # Buttons for input switch
+        # self.input_get_button = ctk.CTkButton(
+        #     input_frame,
+        #     text="Get Current Channel",
+        #     command=lambda: self._get_switch_channel("input")
+        # )
+        # self.input_get_button.pack(pady=5)
+
+        # # Status label for input
+        # self.input_status_label = ctk.CTkLabel(
+        #     input_frame, 
+        #     text="Current Channel: Unknown",
+        #     font=("TkDefaultFont", 11, "bold")
+        # )
+        # self.input_status_label.pack(pady=(10, 5))
+
+        # # INPUT QUICK BUTTONS
+        # self.input_quick_frame = ctk.CTkFrame(input_frame)
+        # self.input_quick_frame.pack(pady=5)
+        # self._build_quick_buttons(self.input_quick_frame, "input", "12x12")  # Always 12 buttons
+        # # Compact error display in inner_frame
+        # self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
+        # self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
     
     def _build_quick_buttons(self, parent_frame, switch_type, mesh_size=None):
         """Build quick buttons - always 12 buttons, 4 per row"""
@@ -655,6 +747,17 @@ class Window1Content(ctk.CTkFrame):
                 
         except Exception as e:
             self._show_error(f"Failed to set channel: {e}")
+
+    def _swap_switch_ports(self):
+        try:
+            self.switch.swap_ports()  # call your Switch class method
+            self._log_message("[SWITCH] Ports swapped successfully.")
+            
+            # Update status labels to reflect the swap
+            self.output_status_label.configure(text=f"Output → {self.switch.port_out}")
+            self.input_status_label.configure(text=f"Input → {self.switch.port_in}")
+        except Exception as e:
+            self._log_error(f"Failed to swap ports: {e}")
 
     def _run_sweep(self):
         """Run MZI Sweep with configurable switch channel measurement"""

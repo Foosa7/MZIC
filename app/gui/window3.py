@@ -540,7 +540,7 @@ class Window3Content(ctk.CTkFrame):
                 if not switch_channels:
                     raise ValueError("No valid switch channels specified")
                     
-                self.update_status(f"  • Switch channels: {switch_channels}", "info")
+                self.update_status(f"  • Switch +: {switch_channels}", "info")
                 measurement_labels = [f"Ch{ch}" for ch in switch_channels]
 
             # Prepare headers based on measurement configuration
