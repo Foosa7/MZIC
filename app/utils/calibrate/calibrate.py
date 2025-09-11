@@ -139,7 +139,7 @@ class CalibrationUtils:
         max_heating_power = max_current**2 * max_resistance # mW
         
         # Create uniform heating power steps
-        steps = 50
+        steps = 20
         heating_powers_mw = np.linspace(0, max_heating_power, steps)
         
         # Calculate corresponding currents for each power level

@@ -77,6 +77,10 @@ class Window1Content(ctk.CTkFrame):
         self.interpolation_enabled = False
         self.interpolated_theta = {}  # e.g., {"E1": 0.987, ...}
         
+        self._worker_thread = None
+        self._worker_lock = threading.Lock()
+        self._worker_alive = False
+
         self._auto_steps = []
         self._auto_total = 0
         self._auto_idx = 0
@@ -502,49 +506,9 @@ class Window1Content(ctk.CTkFrame):
         switch_tab.grid_columnconfigure(1, weight=0)  # middle column for swap
         switch_tab.grid_columnconfigure(2, weight=1)
 
-        # ==== OUTPUT SWITCH FRAME ====
-        output_frame = ctk.CTkFrame(switch_tab)
-        output_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-
-        output_header = ctk.CTkLabel(
-            output_frame,
-            text="Output Switch",
-            font=("TkDefaultFont", 14, "bold")
-        )
-        output_header.pack(pady=(5, 10))
-
-        self.output_get_button = ctk.CTkButton(
-            output_frame,
-            text="Get Current Channel",
-            command=lambda: self._get_switch_channel("output")
-        )
-        self.output_get_button.pack(pady=5)
-
-        self.output_status_label = ctk.CTkLabel(
-            output_frame,
-            text="Current Channel: Unknown",
-            font=("TkDefaultFont", 11, "bold")
-        )
-        self.output_status_label.pack(pady=(10, 5))
-
-        self.output_quick_frame = ctk.CTkFrame(output_frame)
-        self.output_quick_frame.pack(pady=5)
-        self._build_quick_buttons(self.output_quick_frame, "output", "12x12")
-
-        # ==== SWAP BUTTON ====
-        swap_button = ctk.CTkButton(
-            switch_tab,
-            text="⇆",
-            width=50,
-            height=40,
-            font=ctk.CTkFont(size=18, weight="bold"),
-            command=self._swap_switch_ports
-        )
-        swap_button.grid(row=0, column=1, padx=5, pady=5)
-
         # ==== INPUT SWITCH FRAME ====
         input_frame = ctk.CTkFrame(switch_tab)
-        input_frame.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
+        input_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
         input_header = ctk.CTkLabel(
             input_frame,
@@ -571,85 +535,46 @@ class Window1Content(ctk.CTkFrame):
         self.input_quick_frame.pack(pady=5)
         self._build_quick_buttons(self.input_quick_frame, "input", "12x12")
 
-        # ### Switch tab ###
-        # switch_tab = notebook.add("Switches")  
-        # switch_tab.grid_columnconfigure(0, weight=1)
-        # switch_tab.grid_columnconfigure(1, weight=1)
+        # ==== SWAP BUTTON ====
+        swap_button = ctk.CTkButton(
+            switch_tab,
+            text="⇆",
+            width=50,
+            height=40,
+            font=ctk.CTkFont(size=18, weight="bold"),
+            command=self._swap_switch_ports
+        )
+        swap_button.grid(row=0, column=1, padx=5, pady=5)
 
-        # # Create frames for each switch
-        # output_frame = ctk.CTkFrame(switch_tab)
-        # output_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        # ==== OUTPUT SWITCH FRAME ====
+        output_frame = ctk.CTkFrame(switch_tab)
+        output_frame.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
 
-        # input_frame = ctk.CTkFrame(switch_tab)
-        # input_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        output_header = ctk.CTkLabel(
+            output_frame,
+            text="Output Switch",
+            font=("TkDefaultFont", 14, "bold")
+        )
+        output_header.pack(pady=(5, 10))
 
-        # # OUTPUT SWITCH CONTROLS
-        # output_header = ctk.CTkLabel(output_frame, text="Output Switch", 
-        #                         font=("TkDefaultFont", 14, "bold"))
-        # output_header.pack(pady=(5, 10))
+        self.output_get_button = ctk.CTkButton(
+            output_frame,
+            text="Get Current Channel",
+            command=lambda: self._get_switch_channel("output")
+        )
+        self.output_get_button.pack(pady=5)
 
-        # # Buttons for output switch
-        # self.output_get_button = ctk.CTkButton(
-        #     output_frame,
-        #     text="Get Current Channel",
-        #     command=lambda: self._get_switch_channel("output")
-        # )
-        # self.output_get_button.pack(pady=5)
+        self.output_status_label = ctk.CTkLabel(
+            output_frame,
+            text="Current Channel: Unknown",
+            font=("TkDefaultFont", 11, "bold")
+        )
+        self.output_status_label.pack(pady=(10, 5))
 
-        # # Status label for output
-        # self.output_status_label = ctk.CTkLabel(
-        #     output_frame, 
-        #     text="Current Channel: Unknown",
-        #     font=("TkDefaultFont", 11, "bold")
-        # )
-        # self.output_status_label.pack(pady=(10, 5))
+        self.output_quick_frame = ctk.CTkFrame(output_frame)
+        self.output_quick_frame.pack(pady=5)
+        self._build_quick_buttons(self.output_quick_frame, "output", "12x12")
 
-        # # Create frames for each switch
-        # output_frame = ctk.CTkFrame(switch_tab)
-        # output_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-
-        # # SWAP BUTTON between input/output
-        # swap_button = ctk.CTkButton(
-        #     switch_tab,
-        #     text="⇆",  # swap symbol
-        #     width=40,
-        #     command=self._swap_switch_ports
-        # )
-        # swap_button.grid(row=0, column=1, sticky="ns", padx=5, pady=5)
-
-        # input_frame = ctk.CTkFrame(switch_tab)
-        # input_frame.grid(row=0, column=2, sticky="nsew", padx=5, pady=5)
-
-        # # OUTPUT QUICK BUTTONS
-        # self.output_quick_frame = ctk.CTkFrame(output_frame)
-        # self.output_quick_frame.pack(pady=5)
-        # self._build_quick_buttons(self.output_quick_frame, "output", "12x12")  # Always 12 buttons
-
-        # # INPUT SWITCH CONTROLS
-        # input_header = ctk.CTkLabel(input_frame, text="Input Switch", 
-        #                         font=("TkDefaultFont", 14, "bold"))
-        # input_header.pack(pady=(5, 10))
-
-        # # Buttons for input switch
-        # self.input_get_button = ctk.CTkButton(
-        #     input_frame,
-        #     text="Get Current Channel",
-        #     command=lambda: self._get_switch_channel("input")
-        # )
-        # self.input_get_button.pack(pady=5)
-
-        # # Status label for input
-        # self.input_status_label = ctk.CTkLabel(
-        #     input_frame, 
-        #     text="Current Channel: Unknown",
-        #     font=("TkDefaultFont", 11, "bold")
-        # )
-        # self.input_status_label.pack(pady=(10, 5))
-
-        # # INPUT QUICK BUTTONS
-        # self.input_quick_frame = ctk.CTkFrame(input_frame)
-        # self.input_quick_frame.pack(pady=5)
-        # self._build_quick_buttons(self.input_quick_frame, "input", "12x12")  # Always 12 buttons
         # # Compact error display in inner_frame
         self.error_display = ctk.CTkTextbox(inner_frame, height=100, state="disabled")
         self.error_display.grid(row=2, column=0, sticky="ew", pady=(2, 0))
@@ -3067,39 +2992,39 @@ class Window1Content(ctk.CTkFrame):
                 
         self.mapping_display.configure(state="disabled")
 
-    def mode_to_arms(mode):
-        """
-        Convert IO mode (with 0–3 suffix) to the list of arms.
-        """
-        m = mode.lower()
-        # BAR patterns
-        if m == "bar0":
-            return ["TL", "TR"]
-        if m == "bar1":
-            return ["BL", "BR"]
+    # def mode_to_arms(mode):
+    #     """
+    #     Convert IO mode (with 0–3 suffix) to the list of arms.
+    #     """
+    #     m = mode.lower()
+    #     # BAR patterns
+    #     if m == "bar0":
+    #         return ["TL", "TR"]
+    #     if m == "bar1":
+    #         return ["BL", "BR"]
 
-        # CROSS patterns
-        if m == "cross0":
-            return ["TL", "BR"]
-        if m == "cross1":
-            return ["TR", "BL"]
+    #     # CROSS patterns
+    #     if m == "cross0":
+    #         return ["TL", "BR"]
+    #     if m == "cross1":
+    #         return ["TR", "BL"]
 
-        # SPLIT patterns (3-of-4); split means missing arm index N
-        if m == "split0":  # missing TL
-            return ["TR", "BR", "BL"]
-        if m == "split1":  # missing TR
-            return ["TL", "BR", "BL"]
-        if m == "split2":  # missing BR
-            return ["TL", "TR", "BL"]
-        if m == "split3":  # missing BL
-            return ["TL", "TR", "BR"]
+    #     # SPLIT patterns (3-of-4); split means missing arm index N
+    #     if m == "split0":  # missing TL
+    #         return ["TR", "BR", "BL"]
+    #     if m == "split1":  # missing TR
+    #         return ["TL", "BR", "BL"]
+    #     if m == "split2":  # missing BR
+    #         return ["TL", "TR", "BL"]
+    #     if m == "split3":  # missing BL
+    #         return ["TL", "TR", "BR"]
 
-        # ARBITRARY: all four arms
-        if m == "arbitrary":
-            return ["TL", "TR", "BL", "BR"]
+    #     # ARBITRARY: all four arms
+    #     if m == "arbitrary":
+    #         return ["TL", "TR", "BL", "BR"]
 
-        # fallback: no arms
-        return []
+    #     # fallback: no arms
+    #     return []
 
     def _mode_to_arms(self, mode):
         """
@@ -3132,8 +3057,217 @@ class Window1Content(ctk.CTkFrame):
         # fallback: no arms
         return []
 
+    # def _worker_is_running(self) -> bool:
+    #     with self._worker_lock:
+    #         return self._worker_alive
+
+    # def _set_worker_running(self, val: bool):
+    #     with self._worker_lock:
+    #         self._worker_alive = val
+
+    # def auto_calibrate(self):
+    #     """Kick off (or resume) the non-blocking auto-calibration."""
+    #     # load & initialize on first call
+    #     if not getattr(self, "_auto_steps", None):
+    #         with open("calibration_steps.json", "r") as f:
+    #             payload = json.load(f)
+    #         self._auto_steps = payload.get("steps", [])
+    #         self._auto_total = len(self._auto_steps)
+
+    #     # always start from the very first step
+    #     self._auto_idx = AppData.current_calibration_step or 0
+    #     logging.info(f"[AutoCal] Starting auto-calibration with step {self._auto_idx}")
+
+    #     # schedule the very next step
+    #     self._schedule_next_step()
+
+    # def _schedule_next_step(self):
+    #     """Prepare one calibration step, then run the slow I/O in a worker thread."""
+    #     # 0) if user has paused the grid, stop here
+    #     if not self.custom_grid.playing:
+    #         return
+
+    #     # 1) if we're past the last step, clean up
+    #     if self._auto_idx >= self._auto_total:
+    #         self._auto_steps = []
+    #         # flip back to ▶ Play
+    #         self.custom_grid.toggle_play()
+    #         return
+
+    #     # 2) don't double-start while a worker is still running
+    #     if self._worker_is_running():
+    #         # keep polling until the current worker finishes
+    #         self.after(50, self._schedule_next_step)
+    #         return
+
+    #     # === prepare current step (UI-safe) ===
+    #     step = self._auto_steps[self._auto_idx]
+    #     idx  = self._auto_idx
+    #     node = step["calibration_node"]
+    #     io_mode = (step.get("Io_config", "") or "").lower()
+
+    #     # pick default θ based on mode
+    #     if io_mode.startswith("cross"):
+    #         default_theta = "0"
+    #     elif io_mode.startswith("bar"):
+    #         default_theta = "1"
+    #     elif io_mode.startswith("split"):
+    #         default_theta = "0.5"
+    #     else:
+    #         default_theta = "0"
+
+    #     logging.info(f"[AutoCal] Step {idx}/{self._auto_total}: {node} @ {io_mode}")
+
+    #     # Build grid_cfg for the UI layer
+    #     def _theta0_from_mode(m: str) -> str:
+    #         m = (m or "").lower()
+    #         if m.startswith("cross"): return "0"
+    #         if m.startswith("bar"):   return "1"
+    #         if m.startswith("split"): return "0.5"
+    #         return "0"
+
+    #     grid_cfg = {}
+    #     if node:
+    #         grid_cfg[node] = {
+    #             "arms": self._mode_to_arms(io_mode),
+    #             "theta": default_theta,
+    #             "phi":   "0"
+    #         }
+    #     for extra_node, extra_mode in step.get("additional_nodes", {}).items():
+    #         em = (extra_mode or "").lower()
+    #         grid_cfg[extra_node] = {
+    #             "arms": self._mode_to_arms(em),
+    #             "theta": _theta0_from_mode(em),
+    #             "phi":   "0"
+    #         }
+
+    #     # Import the calibration state into your UI
+    #     self.custom_grid.import_calibration(step_idx=idx)
+
+    #     AppData.selected_labels = {node}
+    #     AppData.selected_label  = node
+    #     AppData.update_last_selection(node, None)
+    #     self.custom_grid.event_generate("<<SelectionUpdated>>")
+    #     self.update_idletasks()
+
+    #     # normalize and stash io_config
+    #     raw_mode = io_mode
+    #     if raw_mode.startswith("cross"):
+    #         norm_mode = "cross"
+    #     elif raw_mode.startswith("bar"):
+    #         norm_mode = "bar"
+    #     elif raw_mode.startswith("split"):
+    #         norm_mode = "split"
+    #     elif raw_mode == "arbitrary":
+    #         norm_mode = "arbitrary"
+    #     else:
+    #         norm_mode = raw_mode
+
+    #     AppData.io_config = getattr(AppData, "io_config", {}) or {}
+    #     AppData.io_config[node] = norm_mode
+
+    #     # toggle the input/output switches (UI)
+    #     inp  = step.get("input_port")
+    #     outp = step.get("output_port")
+    #     if inp is not None:
+    #         self._quick_set_channel(inp, "input")
+    #     if outp is not None:
+    #         self._quick_set_channel(outp, "output")
+
+    #     # Set the phase-shifter widget (UI)
+    #     phase_sh = (step.get("Phase_shifter", "") or "").lower()
+    #     if self.phase_selector and phase_sh:
+    #         if phase_sh == "internal":
+    #             self.phase_selector.radio_var.set("theta")
+    #         elif phase_sh == "external":
+    #             self.phase_selector.radio_var.set("phi")
+    #         else:
+    #             self.phase_selector.radio_var.set(phase_sh)
+
+    #     # Prepare the hardware configuration (fast compute, still on UI thread)
+    #     create_map, apply_map = get_mapping_functions(self.grid_size)
+
+    #     raw_cfg = json.loads(self.custom_grid.export_paths_json())
+    #     calibrate_cfg = {}
+    #     for cross_label, data in raw_cfg.items():
+    #         arms = data["arms"]
+    #         θ_target = float(data.get("theta", "0"))
+    #         φ_target = float(data.get("phi",   "0"))
+
+    #         t_key = f"{cross_label}_theta"
+    #         p_key = f"{cross_label}_phi"
+
+    #         I_θ = self._calculate_current_for_phase_new_json(t_key, θ_target) or 0.0
+    #         I_φ = self._calculate_current_for_phase_new_json(p_key, φ_target) or 0.0
+
+    #         calibrate_cfg[cross_label] = {
+    #             "arms": arms,
+    #             "theta": str(round(I_θ, 5)),
+    #             "phi":   str(round(I_φ, 5))
+    #         }
+
+    #     # === run the slow I/O in a worker thread ===
+    #     def _work():
+    #         try:
+    #             # NOTE: do NOT touch Tk widgets here
+    #             apply_map(self.qontrol, json.dumps(calibrate_cfg), self.grid_size)
+
+    #             # Prefer a pure-IO version of RP calibration that doesn't touch UI.
+    #             # If your existing run_rp_calibration() updates UI, split it into
+    #             # a pure worker part and a small UI part, and call the worker here.
+    #             self._rp_calibration_io_only(node)  # implement as needed
+    #             ok = True
+    #             err = None
+    #         except Exception as e:
+    #             logging.exception("[AutoCal] Worker error")
+    #             ok = False
+    #             err = e
+    #         finally:
+    #             # Signal completion
+    #             self._set_worker_running(False)
+    #         return ok, err
+
+    #     # mark worker running and start it
+    #     self._set_worker_running(True)
+    #     self._worker_thread = threading.Thread(target=_work, daemon=True)
+    #     self._worker_thread.start()
+
+    #     # start polling for completion without blocking UI
+    #     self._poll_worker_completion()
+
+    # def _poll_worker_completion(self):
+    #     """Poll the background worker and advance when done."""
+    #     # If user paused while step was running, wait until worker ends, then just stop.
+    #     if self._worker_is_running():
+    #         self.after(50, self._poll_worker_completion)
+    #         return
+
+    #     # worker just finished. If paused, don't advance.
+    #     if not self.custom_grid.playing:
+    #         return
+
+    #     # Record progress and schedule next step quickly
+    #     AppData.current_calibration_step = self._auto_idx = self._auto_idx + 1
+    #     self.after(10, self._schedule_next_step)
+
+    # # Provide a pure-IO version of RP calibration, called only from the worker
+    # def _rp_calibration_io_only(self, node_label: str):
+    #     """
+    #     Do the raw measurement / device I/O needed for RP calibration WITHOUT
+    #     touching any Tk widgets. If your existing run_rp_calibration() mixes UI,
+    #     split it and move the I/O core here.
+    #     """
+    #     # Example: self.rp.perform_calibration(node_label)
+    #     # (Replace with your actual hardware calls)
+    #     self.run_rp_calibration()  # If this touches UI, refactor as noted above.
+
+
+
+####
+
+
     def auto_calibrate(self):
-        """Kick off (or resume) the non‐blocking auto‐calibration."""
+        """Kick off (or resume) the non-blocking auto-calibration."""
         # load & initialize on first call
         if not self._auto_steps:
             with open("calibration_steps.json","r") as f:
@@ -3142,15 +3276,15 @@ class Window1Content(ctk.CTkFrame):
             self._auto_total = len(self._auto_steps)
             # self._auto_idx = getattr(AppData, "current_calibration_step", 0)
         # always start from the very first step
-        self._auto_idx = 0
-        AppData.current_calibration_step = 0
-
+        self._auto_idx = AppData.current_calibration_step or 0
+        # AppData.current_calibration_step = 10
+        logging.info(f"[AutoCal] Starting auto-calibration with {self._auto_idx} step")
 
         # schedule the very next step
         self._schedule_next_step()
 
     def _schedule_next_step(self):
-        """Do exactly one calibration step, then re‐schedule if still playing."""
+        """Do exactly one calibration step, then re-schedule if still playing."""
         # 0) if user has paused the grid, stop here
         if not self.custom_grid.playing:
             return
@@ -3165,7 +3299,7 @@ class Window1Content(ctk.CTkFrame):
         step = self._auto_steps[self._auto_idx]
         idx  = self._auto_idx 
         node    = step["calibration_node"]
-        io_mode = step.get("Io_config","").lower()  # e.g. "Cross0", "Bar1", "Split2", …
+        io_mode = step.get("Io_config","") # e.g. "Cross0", "Bar1", "Split2", …
 
         # pick default θ based on mode:
         #   cross → 0, bar → 1, split → 0.5, else → 0
@@ -3263,8 +3397,17 @@ class Window1Content(ctk.CTkFrame):
             t_key = f"{cross_label}_theta"
             p_key = f"{cross_label}_phi"
 
-            I_θ = self._calculate_current_for_phase_new_json(t_key, θ_target) or 0.0
-            I_φ = self._calculate_current_for_phase_new_json(p_key, φ_target) or 0.0
+            I_θ = self._calculate_current_for_phase_new_json(t_key, θ_target)
+            I_φ = self._calculate_current_for_phase_new_json(p_key, φ_target)
+
+            logging.info(f"[AutoCal] {cross_label}: θ={θ_target}π → {I_θ} mA, φ={φ_target}π → {I_φ} mA")
+
+            if I_θ is None:
+                logging.warning(f"[AutoCal] No current solution for {t_key}; using 0.0 mA")
+                I_θ = 0.0
+            if I_φ is None:
+                logging.warning(f"[AutoCal] No current solution for {p_key}; using 0.0 mA")
+                I_φ = 0.0
 
             calibrate_cfg[cross_label] = {
                 "arms": arms,
@@ -3298,7 +3441,7 @@ class Window1Content(ctk.CTkFrame):
             self._quick_set_channel(outp, "output")
 
         node     = step["calibration_node"]
-        raw_mode = step.get("Io_config", "").lower()   # e.g. "cross0", "bar1", etc.
+        raw_mode = step.get("Io_config", "")   # e.g. "cross0", "bar1", etc.
 
         # normalize
         if raw_mode.startswith("cross"):

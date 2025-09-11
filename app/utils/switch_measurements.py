@@ -1,8 +1,10 @@
 # app/utils/switch_measurements.py
 
+from app.imports import *
 import time
 from typing import List, Optional, Union
 import logging
+# from app.devices.thorlabs_device import ThorlabsDevice
 
 class SwitchMeasurements:
     """Utility class for switch-based power measurements"""
