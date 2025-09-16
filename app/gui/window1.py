@@ -3023,6 +3023,128 @@ class Window1Content(ctk.CTkFrame):
         # fallback: no arms
         return []
         
+
+    def auto_calibrate(self, start_from: int | None = None):
+        with open("calibration_steps.json", "r") as f:
+            payload = json.load(f)
+
+        self._auto_steps = payload.get("steps", []) or []
+        total = len(self._auto_steps)
+        if total == 0:
+            logging.warning("[AutoCal] No steps in file.")
+            return
+        self._auto_total = total
+
+        # pick 1-based UI step (fallback 1) and clamp → 0-based idx
+        ui_step = start_from if start_from is not None else getattr(self.custom_grid, "current_step", 1) or 1
+        self._auto_idx = max(0, min(ui_step - 1, total - 1))
+
+        # guard: we’re in autocal (used to mute noisy renders from listeners)
+        setattr(AppData, "is_autocalibrating", True)
+
+        # render+execute that exact index now
+        self._run_one_auto_step()
+
+    def _run_one_auto_step(self):
+        if not self.custom_grid.playing:
+            return
+
+        if self._auto_idx >= self._auto_total:
+            self.custom_grid.playing = False
+            try: self.custom_grid.play_btn.configure(text="▶ Play")
+            except Exception: pass
+            logging.info("[AutoCal] Finished all steps.")
+            # leave autocal mode
+            setattr(AppData, "is_autocalibrating", False)
+            return
+
+        idx0 = self._auto_idx
+        step = self._auto_steps[idx0]
+
+        # label strictly by position so we don’t drift to a different numbered 'step'
+        display_idx = idx0 + 1
+        display_tot = self._auto_total
+
+        # ---- single render here ----
+        self.custom_grid.current_step = display_idx
+        self.custom_grid.import_calibration(step_idx=display_idx)  # 1-based
+        self.custom_grid._set_step_label(display_idx, display_tot)
+        AppData.current_calibration_step = display_idx
+
+        # (avoid re-render loops from external listeners)
+        # DO NOT emit SelectionUpdated while autocal is running
+        # self.custom_grid.event_generate("<<SelectionUpdated>>")  # ← remove during autocal
+
+        # ---- execute this step ----
+        node     = step.get("calibration_node")
+        io_mode  = (step.get("Io_config") or "")
+        inp      = step.get("input_port")
+        outp     = step.get("output_port")
+        phase_sh = step.get("Phase_shifter", "")
+
+        if node:
+            AppData.selected_labels = {node}
+            AppData.selected_label  = node
+            AppData.update_last_selection(node, None)
+            # keep this muted during autocal to avoid external view_load/import calls
+            # self.custom_grid.event_generate("<<SelectionUpdated>>")
+
+        create_map, apply_map = get_mapping_functions(self.grid_size)
+        raw_cfg = json.loads(self.custom_grid.export_paths_json())
+
+        calibrate_cfg = {}
+        for cross_label, data in raw_cfg.items():
+            arms     = data["arms"]
+            theta_pi = float(data.get("theta", "0"))
+            phi_pi   = float(data.get("phi",   "0"))
+            t_key = f"{cross_label}_theta"
+            p_key = f"{cross_label}_phi"
+            I_theta = self._calculate_current_for_phase_new_json(t_key, theta_pi) or 0.0
+            I_phi   = self._calculate_current_for_phase_new_json(p_key,   phi_pi) or 0.0
+            calibrate_cfg[cross_label] = {"arms": arms,
+                                        "theta": str(round(I_theta, 5)),
+                                        "phi":   str(round(I_phi,   5))}
+
+        apply_map(self.qontrol, json.dumps(calibrate_cfg), self.grid_size)
+
+        if self.phase_selector and phase_sh:
+            m = phase_sh.lower()
+            self.phase_selector.radio_var.set("theta" if m == "internal"
+                                            else "phi" if m == "external" else m)
+
+        if inp is not None:  self._quick_set_channel(inp,  "input")
+        if outp is not None: self._quick_set_channel(outp, "output")
+
+        if node:
+            rm = (io_mode or "").lower()
+            if   rm.startswith("cross"): norm = "cross"
+            elif rm.startswith("bar"):   norm = "bar"
+            elif rm.startswith("split"): norm = "split"
+            elif rm == "arbitrary":      norm = "arbitrary"
+            else:                        norm = rm
+            AppData.io_config = getattr(AppData, "io_config", {}) or {}
+            AppData.io_config[node] = norm
+
+        self.run_rp_calibration()
+
+        # advance to next index and schedule
+        self._auto_idx += 1
+        if self.custom_grid.playing:
+            self.after(100, self._run_one_auto_step)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # def auto_calibrate(self, start_from: int | None = None):
     #     """
     #     Start auto-cal from the selected 1-based step (default: current UI step).
@@ -3063,136 +3185,142 @@ class Window1Content(ctk.CTkFrame):
     #     self._run_one_auto_step()
 
 
-    def auto_calibrate(self, start_from: int | None = None):
-        """Start auto-cal from a numbered step. Default: the smallest step number in file (usually 1)."""
-        with open("calibration_steps.json", "r") as f:
-            payload = json.load(f)
+    # def auto_calibrate(self, start_from: int | None = None):
+    #     """Start auto-cal from a numbered step. Default: the smallest step number in file (usually 1)."""
+    #     with open("calibration_steps.json", "r") as f:
+    #         payload = json.load(f)
 
-        self._auto_steps = payload.get("steps", []) or []
-        total = len(self._auto_steps)
-        if total == 0:
-            logging.warning("[AutoCal] No steps in file.")
-            return
-        self._auto_total = total
+    #     self._auto_steps = payload.get("steps", []) or []
+    #     total = len(self._auto_steps)
+    #     if total == 0:
+    #         logging.warning("[AutoCal] No steps in file.")
+    #         return
+    #     self._auto_total = total
 
-        # Build a mapping of declared step numbers -> list index
-        num_to_idx = {}
-        for i, s in enumerate(self._auto_steps):
-            num = s.get("step", i + 1)  # fall back to position if missing
-            num_to_idx[num] = i
+    #     # NEW: if caller passed None, try the UI's current step first
+    #     if start_from is None:
+    #         ui_step = getattr(self.custom_grid, "current_step", None)
+    #         if isinstance(ui_step, int) and ui_step >= 1:
+    #             start_from = ui_step
 
-        if not num_to_idx:
-            logging.warning("[AutoCal] No valid step numbers.")
-            return
+    #     # Build a mapping of declared step numbers -> list index
+    #     num_to_idx = {}
+    #     for i, s in enumerate(self._auto_steps):
+    #         num = s.get("step", i + 1)  # fall back to position if missing
+    #         num_to_idx[num] = i
 
-        if start_from is None:
-            # Default to the smallest step number (normally 1)
-            display_start = min(num_to_idx.keys())
-        else:
-            # If requested step exists, use it; else pick the closest valid step ≥ requested,
-            # otherwise fall back to the largest available step
-            if start_from in num_to_idx:
-                display_start = start_from
-            else:
-                higher = sorted(x for x in num_to_idx if x >= start_from)
-                display_start = higher[0] if higher else max(num_to_idx.keys())
+    #     if not num_to_idx:
+    #         logging.warning("[AutoCal] No valid step numbers.")
+    #         return
 
-        # 0-based index into _auto_steps
-        self._auto_idx = num_to_idx[display_start]
+    #     if start_from is None:
+    #         # Default to the smallest step number (normally 1)
+    #         display_start = min(num_to_idx.keys())
+    #     else:
+    #         # If requested step exists, use it; else pick the closest valid step ≥ requested,
+    #         # otherwise fall back to the largest available step
+    #         if start_from in num_to_idx:
+    #             display_start = start_from
+    #         else:
+    #             higher = sorted(x for x in num_to_idx if x >= start_from)
+    #             display_start = higher[0] if higher else max(num_to_idx.keys())
 
-        # Sync UI to the chosen starting step and render it immediately
-        self.custom_grid.current_step = display_start
-        self.custom_grid.import_calibration(step_idx=display_start)   # import_calibration expects 1-based
-        self.custom_grid._set_step_label(display_start, total)
-        AppData.current_calibration_step = display_start
+    #     # 0-based index into _auto_steps
+    #     self._auto_idx = num_to_idx[display_start]
 
-        # Run that exact step now
-        self._run_one_auto_step()
+    #     # # Sync UI to the chosen starting step and render it immediately
+    #     # self.custom_grid.current_step = display_start
+    #     # self.custom_grid.import_calibration(step_idx=display_start)   # import_calibration expects 1-based
+    #     # self.custom_grid._set_step_label(display_start, total)
+    #     # AppData.current_calibration_step = display_start
 
-    def _run_one_auto_step(self):
-        if not self.custom_grid.playing:
-            return
+    #     # Run that exact step now
+    #     self._run_one_auto_step()
 
-        if self._auto_idx >= self._auto_total:
-            self.custom_grid.playing = False
-            try: self.custom_grid.play_btn.configure(text="▶ Play")
-            except Exception: pass
-            logging.info("[AutoCal] Finished all steps.")
-            return
+    # def _run_one_auto_step(self):
+    #     if not self.custom_grid.playing:
+    #         return
 
-        idx0 = self._auto_idx
-        step = self._auto_steps[idx0]
+    #     if self._auto_idx >= self._auto_total:
+    #         self.custom_grid.playing = False
+    #         try: self.custom_grid.play_btn.configure(text="▶ Play")
+    #         except Exception: pass
+    #         logging.info("[AutoCal] Finished all steps.")
+    #         return
 
-        display_idx = step.get("step", idx0 + 1)   # label as 1..N
-        display_tot = self._auto_total
+    #     idx0 = self._auto_idx
+    #     step = self._auto_steps[idx0]
 
-        # render this step
-        self.custom_grid.current_step = display_idx
-        self.custom_grid.import_calibration(step_idx=display_idx)  # 1-based
-        self.custom_grid._set_step_label(display_idx, display_tot)
-        AppData.current_calibration_step = display_idx
+    #     display_idx = step.get("step", idx0 + 1)   # label as 1..N
+    #     display_tot = self._auto_total
 
-
-        # ---- execute this step (unchanged logic below) ----
-        node     = step.get("calibration_node")
-        io_mode  = (step.get("Io_config") or "")
-        extras   = step.get("additional_nodes", {}) or {}
-        inp      = step.get("input_port")
-        outp     = step.get("output_port")
-        phase_sh = step.get("Phase_shifter", "")
-
-        if node:
-            AppData.selected_labels = {node}
-            AppData.selected_label  = node
-            AppData.update_last_selection(node, None)
-            self.custom_grid.event_generate("<<SelectionUpdated>>")
-
-        create_map, apply_map = get_mapping_functions(self.grid_size)
-        raw_cfg = json.loads(self.custom_grid.export_paths_json())
-
-        calibrate_cfg = {}
-        for cross_label, data in raw_cfg.items():
-            arms     = data["arms"]
-            theta_pi = float(data.get("theta", "0"))
-            phi_pi   = float(data.get("phi",   "0"))
-
-            t_key = f"{cross_label}_theta"
-            p_key = f"{cross_label}_phi"
-
-            I_theta = self._calculate_current_for_phase_new_json(t_key, theta_pi) or 0.0
-            I_phi   = self._calculate_current_for_phase_new_json(p_key,   phi_pi) or 0.0
-
-            calibrate_cfg[cross_label] = {"arms": arms,
-                                        "theta": str(round(I_theta, 5)),
-                                        "phi":   str(round(I_phi,   5))}
-
-        apply_map(self.qontrol, json.dumps(calibrate_cfg), self.grid_size)
-
-        if self.phase_selector and phase_sh:
-            m = phase_sh.lower()
-            self.phase_selector.radio_var.set("theta" if m == "internal"
-                                            else "phi" if m == "external" else m)
+    #     # render this step
+    #     self.custom_grid.current_step = display_idx
+    #     self.custom_grid.import_calibration(step_idx=display_idx)  # 1-based
+    #     self.custom_grid._set_step_label(display_idx, display_tot)
+    #     AppData.current_calibration_step = display_idx
 
 
-        if inp is not None:  self._quick_set_channel(inp,  "input")
-        if outp is not None: self._quick_set_channel(outp, "output")
+    #     # ---- execute this step (unchanged logic below) ----
+    #     node     = step.get("calibration_node")
+    #     io_mode  = (step.get("Io_config") or "")
+    #     extras   = step.get("additional_nodes", {}) or {}
+    #     inp      = step.get("input_port")
+    #     outp     = step.get("output_port")
+    #     phase_sh = step.get("Phase_shifter", "")
 
-        # optional: normalize Io_config record
-        if node:
-            rm = (io_mode or "").lower()
-            if   rm.startswith("cross"): norm = "cross"
-            elif rm.startswith("bar"):   norm = "bar"
-            elif rm.startswith("split"): norm = "split"
-            elif rm == "arbitrary":      norm = "arbitrary"
-            else:                        norm = rm
-            AppData.io_config = getattr(AppData, "io_config", {}) or {}
-            AppData.io_config[node] = norm
+    #     if node:
+    #         AppData.selected_labels = {node}
+    #         AppData.selected_label  = node
+    #         AppData.update_last_selection(node, None)
+    #         self.custom_grid.event_generate("<<SelectionUpdated>>")
 
-        self.run_rp_calibration()
+    #     create_map, apply_map = get_mapping_functions(self.grid_size)
+    #     raw_cfg = json.loads(self.custom_grid.export_paths_json())
 
-        # advance inside the sliced list
-        self._auto_idx += 1
-        # DO NOT bump AppData.current_calibration_step yet; next tick sets it.
+    #     calibrate_cfg = {}
+    #     for cross_label, data in raw_cfg.items():
+    #         arms     = data["arms"]
+    #         theta_pi = float(data.get("theta", "0"))
+    #         phi_pi   = float(data.get("phi",   "0"))
 
-        if self.custom_grid.playing:
-            self.after(100, self._run_one_auto_step)
+    #         t_key = f"{cross_label}_theta"
+    #         p_key = f"{cross_label}_phi"
+
+    #         I_theta = self._calculate_current_for_phase_new_json(t_key, theta_pi) or 0.0
+    #         I_phi   = self._calculate_current_for_phase_new_json(p_key,   phi_pi) or 0.0
+
+    #         calibrate_cfg[cross_label] = {"arms": arms,
+    #                                     "theta": str(round(I_theta, 5)),
+    #                                     "phi":   str(round(I_phi,   5))}
+
+    #     apply_map(self.qontrol, json.dumps(calibrate_cfg), self.grid_size)
+
+    #     if self.phase_selector and phase_sh:
+    #         m = phase_sh.lower()
+    #         self.phase_selector.radio_var.set("theta" if m == "internal"
+    #                                         else "phi" if m == "external" else m)
+
+
+    #     if inp is not None:  self._quick_set_channel(inp,  "input")
+    #     if outp is not None: self._quick_set_channel(outp, "output")
+
+    #     # optional: normalize Io_config record
+    #     if node:
+    #         rm = (io_mode or "").lower()
+    #         if   rm.startswith("cross"): norm = "cross"
+    #         elif rm.startswith("bar"):   norm = "bar"
+    #         elif rm.startswith("split"): norm = "split"
+    #         elif rm == "arbitrary":      norm = "arbitrary"
+    #         else:                        norm = rm
+    #         AppData.io_config = getattr(AppData, "io_config", {}) or {}
+    #         AppData.io_config[node] = norm
+
+    #     self.run_rp_calibration()
+
+    #     # advance inside the sliced list
+    #     self._auto_idx += 1
+    #     # DO NOT bump AppData.current_calibration_step yet; next tick sets it.
+
+    #     if self.custom_grid.playing:
+    #         self.after(100, self._run_one_auto_step)

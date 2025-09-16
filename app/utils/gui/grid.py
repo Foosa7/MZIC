@@ -1604,15 +1604,26 @@ class Example(Frame):
 
         return lines
 
+
     def _on_play_clicked(self):
         if callable(self.auto_calibrate_callback):
             self.custom_grid.playing = not self.custom_grid.playing
             self.custom_grid.play_btn.configure(text="⏸ Pause" if self.custom_grid.playing else "▶ Play")
             if self.custom_grid.playing:
-                # let auto_calibrate read steps and default to the first numbered step (usually 1)
-                self.auto_calibrate_callback(start_from=None)
+                start_from = getattr(self.custom_grid, "current_step", 1) or 1
+                self.auto_calibrate_callback(start_from=start_from)
         else:
             self.toggle_play()
+
+    # def _on_play_clicked(self):
+    #     if callable(self.auto_calibrate_callback):
+    #         self.custom_grid.playing = not self.custom_grid.playing
+    #         self.custom_grid.play_btn.configure(text="⏸ Pause" if self.custom_grid.playing else "▶ Play")
+    #         if self.custom_grid.playing:
+    #             # let auto_calibrate read steps and default to the first numbered step (usually 1)
+    #             self.auto_calibrate_callback(start_from=None)
+    #     else:
+    #         self.toggle_play()
 
 
     # def _on_play_clicked(self):
