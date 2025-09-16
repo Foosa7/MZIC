@@ -1,7 +1,7 @@
 {
   "metadata": {
     "created_at": "2025-09-16T12:18:43.586825",
-    "total_steps": 40
+    "total_steps": 64
   },
   "steps": [
     {
@@ -1243,53 +1243,497 @@
     },
     {
       "step": 40,
-      "input_port": 1,
-      "output_port": 3,
+      "input_port": 3,
+      "output_port": 12,
       "calibration": "RP",
-      "calibration_node": "K1",
+      "calibration_node": "A2",
       "Phase_shifter": "Internal",
-      "Io_config": "bar1",
+      "Io_config": "bar0",
       "additional_nodes": {
-        "A1": "cross0",
-        "B1": "bar0",
-        "C1": "bar1",
+        "B1": "bar1",
         "C2": "cross0",
-        "D1": "bar0",
         "D2": "cross0",
-        "E1": "bar1",
-        "E2": "cross0",
         "E3": "cross0",
-        "F1": "bar0",
-        "F2": "cross0",
         "F3": "cross0",
-        "G1": "bar1",
-        "G2": "cross0",
-        "G3": "cross0",
         "G4": "cross0",
-        "H1": "bar0",
-        "H2": "cross0",
-        "H3": "cross0",
         "H4": "cross0",
-        "I1": "bar1",
-        "I2": "cross0",
-        "I3": "cross0",
-        "I4": "cross0",
         "I5": "cross0",
-        "J1": "bar0",
-        "J2": "cross0",
-        "J3": "cross0",
-        "J4": "cross0",
         "J5": "cross0",
-        "K2": "cross0",
-        "K3": "cross0",
-        "K4": "cross0",
-        "K5": "cross0",
-        "K6": "cross0",
-        "L1": "cross0",
-        "L2": "cross0",
-        "L3": "cross0",
-        "L4": "cross0",
-        "L5": "cross0"
+        "K6": "cross0"
+      }
+    },
+    {
+      "step": 41,
+      "input_port": 3,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "B2",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A2": "cross0",
+        "C2": "bar1",
+        "D2": "cross0",
+        "E3": "cross0",
+        "F3": "cross0",
+        "G4": "cross0",
+        "H4": "cross0",
+        "I5": "cross0",
+        "J5": "cross0",
+        "K6": "cross0"
+      }
+    },
+    {
+      "step": 42,
+      "input_port": 3,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "C3",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A2": "cross0",
+        "B2": "cross0",
+        "D2": "bar1",
+        "E3": "cross0",
+        "F3": "cross0",
+        "G4": "cross0",
+        "H4": "cross0",
+        "I5": "cross0",
+        "J5": "cross0",
+        "K6": "cross0"
+      }
+    },
+    {
+      "step": 43,
+      "input_port": 3,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "D3",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A2": "cross0",
+        "B2": "cross0",
+        "C3": "cross0",
+        "E3": "bar1",
+        "F3": "cross0",
+        "G4": "cross0",
+        "H4": "cross0",
+        "I5": "cross0",
+        "J5": "cross0",
+        "K6": "cross0"
+      }
+    },
+    {
+      "step": 44,
+      "input_port": 3,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "E4",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A2": "cross0",
+        "B2": "cross0",
+        "C3": "cross0",
+        "D3": "cross0",
+        "F3": "bar1",
+        "G4": "cross0",
+        "H4": "cross0",
+        "I5": "cross0",
+        "J5": "cross0",
+        "K6": "cross0"
+      }
+    },
+    {
+      "step": 45,
+      "input_port": 3,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "F4",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A2": "cross0",
+        "B2": "cross0",
+        "C3": "cross0",
+        "D3": "cross0",
+        "E4": "cross0",
+        "G4": "bar1",
+        "H4": "cross0",
+        "I5": "cross0",
+        "J5": "cross0",
+        "K6": "cross0"
+      }
+    },
+    {
+      "step": 46,
+      "input_port": 3,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "G5",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A2": "cross0",
+        "B2": "cross0",
+        "C3": "cross0",
+        "D3": "cross0",
+        "E4": "cross0",
+        "F4": "cross0",
+        "H4": "bar1",
+        "I5": "cross0",
+        "J5": "cross0",
+        "K6": "cross0"
+      }
+    },
+    {
+      "step": 47,
+      "input_port": 3,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "H5",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A2": "cross0",
+        "B2": "cross0",
+        "C3": "cross0",
+        "D3": "cross0",
+        "E4": "cross0",
+        "F4": "cross0",
+        "G5": "cross0",
+        "I5": "bar1",
+        "J5": "cross0",
+        "K6": "cross0"
+      }
+    },
+    {
+      "step": 48,
+      "input_port": 3,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "I6",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A2": "cross0",
+        "B2": "cross0",
+        "C3": "cross0",
+        "D3": "cross0",
+        "E4": "cross0",
+        "F4": "cross0",
+        "G5": "cross0",
+        "H5": "cross0",
+        "J5": "bar1",
+        "K6": "cross0"
+      }
+    },
+    {
+      "step": 49,
+      "input_port": 5,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "A3",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "B2": "bar1",
+        "C3": "cross0",
+        "D3": "cross0",
+        "E4": "cross0",
+        "F4": "cross0",
+        "G5": "cross0",
+        "H5": "cross0",
+        "I6": "cross0",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 50,
+      "input_port": 5,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "B3",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A3": "cross0",
+        "C3": "bar1",
+        "D3": "cross0",
+        "E4": "cross0",
+        "F4": "cross0",
+        "G5": "cross0",
+        "H5": "cross0",
+        "I6": "cross0",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 51,
+      "input_port": 5,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "C4",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A3": "cross0",
+        "B3": "cross0",
+        "D3": "bar1",
+        "E4": "cross0",
+        "F4": "cross0",
+        "G5": "cross0",
+        "H5": "cross0",
+        "I6": "cross0",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 52,
+      "input_port": 5,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "D4",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A3": "cross0",
+        "B3": "cross0",
+        "C4": "cross0",
+        "E4": "bar1",
+        "F4": "cross0",
+        "G5": "cross0",
+        "H5": "cross0",
+        "I6": "cross0",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 53,
+      "input_port": 5,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "E5",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A3": "cross0",
+        "B3": "cross0",
+        "C4": "cross0",
+        "D4": "cross0",
+        "F4": "bar1",
+        "G5": "cross0",
+        "H5": "cross0",
+        "I6": "cross0",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 54,
+      "input_port": 5,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "F5",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A3": "cross0",
+        "B3": "cross0",
+        "C4": "cross0",
+        "D4": "cross0",
+        "E5": "cross0",
+        "G5": "bar1",
+        "H5": "cross0",
+        "I6": "cross0",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 55,
+      "input_port": 5,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "G6",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A3": "cross0",
+        "B3": "cross0",
+        "C4": "cross0",
+        "D4": "cross0",
+        "E5": "cross0",
+        "F5": "cross0",
+        "H5": "bar1",
+        "I6": "cross0",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 56,
+      "input_port": 7,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "A4",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "B3": "bar1",
+        "C4": "cross0",
+        "D4": "cross0",
+        "E5": "cross0",
+        "F5": "cross0",
+        "G6": "cross0",
+        "I6": "bar1",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 57,
+      "input_port": 7,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "B4",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A4": "cross0",
+        "C4": "bar1",
+        "D4": "cross0",
+        "E5": "cross0",
+        "F5": "cross0",
+        "G6": "cross0",
+        "I6": "bar1",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 58,
+      "input_port": 7,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "C5",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A4": "cross0",
+        "B4": "cross0",
+        "D4": "bar1",
+        "E5": "cross0",
+        "F5": "cross0",
+        "G6": "cross0",
+        "I6": "bar1",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 59,
+      "input_port": 7,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "D5",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A4": "cross0",
+        "B4": "cross0",
+        "C5": "cross0",
+        "E5": "bar1",
+        "F5": "cross0",
+        "G6": "cross0",
+        "I6": "bar1",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 60,
+      "input_port": null,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "E6",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A4": "cross0",
+        "B4": "cross0",
+        "C5": "cross0",
+        "D5": "cross0",
+        "F5": "bar1",
+        "G6": "cross0",
+        "I6": "bar1",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 61,
+      "input_port": 9,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "A5",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "B4": "bar1",
+        "C5": "cross0",
+        "D5": "cross0",
+        "E6": "cross0",
+        "G6": "bar1",
+        "I6": "bar1",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 62,
+      "input_port": 9,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "B5",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A5": "cross0",
+        "C5": "bar1",
+        "D5": "cross0",
+        "E6": "cross0",
+        "G6": "bar1",
+        "I6": "bar1",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 63,
+      "input_port": 9,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "C6",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "A5": "cross0",
+        "B5": "cross0",
+        "D5": "bar1",
+        "E6": "cross0",
+        "G6": "bar1",
+        "I6": "bar1",
+        "K6": "bar1"
+      }
+    },
+    {
+      "step": 64,
+      "input_port": 11,
+      "output_port": 12,
+      "calibration": "RP",
+      "calibration_node": "A6",
+      "Phase_shifter": "Internal",
+      "Io_config": "bar0",
+      "additional_nodes": {
+        "B5": "bar1",
+        "C6": "cross0",
+        "E6": "bar1",
+        "G6": "bar1",
+        "I6": "bar1",
+        "K6": "bar1"
       }
     }
   ]
