@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "created_at": "2025-09-10T18:30:03.806205",
-    "total_steps": 17
+    "created_at": "2025-09-12T14:43:31.241288",
+    "total_steps": 10
   },
   "steps": [
     {
@@ -198,27 +198,6 @@
       "input_port": 1,
       "output_port": 12,
       "calibration": "RP",
-      "calibration_node": "B1",
-      "Phase_shifter": "Internal",
-      "Io_config": "cross0",
-      "additional_nodes": {
-        "A1": "cross0",
-        "C2": "cross0",
-        "D2": "cross0",
-        "E3": "cross0",
-        "F3": "cross0",
-        "G4": "cross0",
-        "H4": "cross0",
-        "I5": "cross0",
-        "J5": "cross0",
-        "K6": "cross0"
-      }
-    },
-    {
-      "step": 10,
-      "input_port": 1,
-      "output_port": 12,
-      "calibration": "RP",
       "calibration_node": "A1",
       "Phase_shifter": "Internal",
       "Io_config": "cross0",
@@ -233,138 +212,6 @@
         "I5": "cross0",
         "J5": "cross0",
         "K6": "cross0"
-      }
-    },
-    {
-      "step": 11,
-      "input_port": 1,
-      "output_port": 11,
-      "calibration": "RP",
-      "calibration_node": "L5",
-      "Phase_shifter": "Internal",
-      "Io_config": "bar1",
-      "additional_nodes": {
-        "A1": "cross0",
-        "B1": "cross0",
-        "C2": "cross0",
-        "D2": "cross0",
-        "E3": "cross0",
-        "F3": "cross0",
-        "G4": "cross0",
-        "H4": "cross0",
-        "I5": "cross0",
-        "J5": "cross0",
-        "K6": "bar0"
-      }
-    },
-    {
-      "step": 12,
-      "input_port": 1,
-      "output_port": 11,
-      "calibration": "RP",
-      "calibration_node": "K5",
-      "Phase_shifter": "Internal",
-      "Io_config": "bar1",
-      "additional_nodes": {
-        "A1": "cross0",
-        "B1": "cross0",
-        "C2": "cross0",
-        "D2": "cross0",
-        "E3": "cross0",
-        "F3": "cross0",
-        "G4": "cross0",
-        "H4": "cross0",
-        "I5": "cross0",
-        "J5": "bar0",
-        "L5": "cross0"
-      }
-    },
-    {
-      "step": 13,
-      "input_port": 1,
-      "output_port": 11,
-      "calibration": "RP",
-      "calibration_node": "J4",
-      "Phase_shifter": "Internal",
-      "Io_config": "bar1",
-      "additional_nodes": {
-        "A1": "cross0",
-        "B1": "cross0",
-        "C2": "cross0",
-        "D2": "cross0",
-        "E3": "cross0",
-        "F3": "cross0",
-        "G4": "cross0",
-        "H4": "cross0",
-        "I5": "bar0",
-        "K5": "cross0",
-        "L5": "cross0"
-      }
-    },
-    {
-      "step": 14,
-      "input_port": 1,
-      "output_port": 11,
-      "calibration": "RP",
-      "calibration_node": "I4",
-      "Phase_shifter": "Internal",
-      "Io_config": "bar1",
-      "additional_nodes": {
-        "A1": "cross0",
-        "B1": "cross0",
-        "C2": "cross0",
-        "D2": "cross0",
-        "E3": "cross0",
-        "F3": "cross0",
-        "G4": "cross0",
-        "H4": "bar0",
-        "J4": "cross0",
-        "K5": "cross0",
-        "L5": "cross0"
-      }
-    },
-    {
-      "step": 15,
-      "input_port": 1,
-      "output_port": 11,
-      "calibration": "RP",
-      "calibration_node": "H3",
-      "Phase_shifter": "Internal",
-      "Io_config": "bar1",
-      "additional_nodes": {
-        "A1": "cross0",
-        "B1": "cross0",
-        "C2": "cross0",
-        "D2": "cross0",
-        "E3": "cross0",
-        "F3": "cross0",
-        "G4": "bar0",
-        "I4": "cross0",
-        "J4": "cross0",
-        "K5": "cross0",
-        "L5": "cross0"
-      }
-    },
-    {
-      "step": 16,
-      "input_port": 1,
-      "output_port": 11,
-      "calibration": "RP",
-      "calibration_node": "G3",
-      "Phase_shifter": "Internal",
-      "Io_config": "bar1",
-      "additional_nodes": {
-        "A1": "cross0",
-        "B1": "cross0",
-        "C2": "cross0",
-        "D2": "cross0",
-        "E3": "cross0",
-        "F3": "bar0",
-        "H3": "cross0",
-        "I4": "cross0",
-        "J4": "cross0",
-        "K5": "cross0",
-        "L5": "cross0"
       }
     }
   ]

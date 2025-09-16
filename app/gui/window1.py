@@ -2992,40 +2992,6 @@ class Window1Content(ctk.CTkFrame):
                 
         self.mapping_display.configure(state="disabled")
 
-    # def mode_to_arms(mode):
-    #     """
-    #     Convert IO mode (with 0–3 suffix) to the list of arms.
-    #     """
-    #     m = mode.lower()
-    #     # BAR patterns
-    #     if m == "bar0":
-    #         return ["TL", "TR"]
-    #     if m == "bar1":
-    #         return ["BL", "BR"]
-
-    #     # CROSS patterns
-    #     if m == "cross0":
-    #         return ["TL", "BR"]
-    #     if m == "cross1":
-    #         return ["TR", "BL"]
-
-    #     # SPLIT patterns (3-of-4); split means missing arm index N
-    #     if m == "split0":  # missing TL
-    #         return ["TR", "BR", "BL"]
-    #     if m == "split1":  # missing TR
-    #         return ["TL", "BR", "BL"]
-    #     if m == "split2":  # missing BR
-    #         return ["TL", "TR", "BL"]
-    #     if m == "split3":  # missing BL
-    #         return ["TL", "TR", "BR"]
-
-    #     # ARBITRARY: all four arms
-    #     if m == "arbitrary":
-    #         return ["TL", "TR", "BL", "BR"]
-
-    #     # fallback: no arms
-    #     return []
-
     def _mode_to_arms(self, mode):
         """
         Convert IO mode string (e.g. 'Cross0', 'Bar1', 'Split2', 'Arbitrary')
@@ -3056,418 +3022,177 @@ class Window1Content(ctk.CTkFrame):
             return ["TL", "TR", "BL", "BR"]
         # fallback: no arms
         return []
-
-    # def _worker_is_running(self) -> bool:
-    #     with self._worker_lock:
-    #         return self._worker_alive
-
-    # def _set_worker_running(self, val: bool):
-    #     with self._worker_lock:
-    #         self._worker_alive = val
-
-    # def auto_calibrate(self):
-    #     """Kick off (or resume) the non-blocking auto-calibration."""
-    #     # load & initialize on first call
-    #     if not getattr(self, "_auto_steps", None):
-    #         with open("calibration_steps.json", "r") as f:
-    #             payload = json.load(f)
-    #         self._auto_steps = payload.get("steps", [])
-    #         self._auto_total = len(self._auto_steps)
-
-    #     # always start from the very first step
-    #     self._auto_idx = AppData.current_calibration_step or 0
-    #     logging.info(f"[AutoCal] Starting auto-calibration with step {self._auto_idx}")
-
-    #     # schedule the very next step
-    #     self._schedule_next_step()
-
-    # def _schedule_next_step(self):
-    #     """Prepare one calibration step, then run the slow I/O in a worker thread."""
-    #     # 0) if user has paused the grid, stop here
-    #     if not self.custom_grid.playing:
-    #         return
-
-    #     # 1) if we're past the last step, clean up
-    #     if self._auto_idx >= self._auto_total:
-    #         self._auto_steps = []
-    #         # flip back to ▶ Play
-    #         self.custom_grid.toggle_play()
-    #         return
-
-    #     # 2) don't double-start while a worker is still running
-    #     if self._worker_is_running():
-    #         # keep polling until the current worker finishes
-    #         self.after(50, self._schedule_next_step)
-    #         return
-
-    #     # === prepare current step (UI-safe) ===
-    #     step = self._auto_steps[self._auto_idx]
-    #     idx  = self._auto_idx
-    #     node = step["calibration_node"]
-    #     io_mode = (step.get("Io_config", "") or "").lower()
-
-    #     # pick default θ based on mode
-    #     if io_mode.startswith("cross"):
-    #         default_theta = "0"
-    #     elif io_mode.startswith("bar"):
-    #         default_theta = "1"
-    #     elif io_mode.startswith("split"):
-    #         default_theta = "0.5"
-    #     else:
-    #         default_theta = "0"
-
-    #     logging.info(f"[AutoCal] Step {idx}/{self._auto_total}: {node} @ {io_mode}")
-
-    #     # Build grid_cfg for the UI layer
-    #     def _theta0_from_mode(m: str) -> str:
-    #         m = (m or "").lower()
-    #         if m.startswith("cross"): return "0"
-    #         if m.startswith("bar"):   return "1"
-    #         if m.startswith("split"): return "0.5"
-    #         return "0"
-
-    #     grid_cfg = {}
-    #     if node:
-    #         grid_cfg[node] = {
-    #             "arms": self._mode_to_arms(io_mode),
-    #             "theta": default_theta,
-    #             "phi":   "0"
-    #         }
-    #     for extra_node, extra_mode in step.get("additional_nodes", {}).items():
-    #         em = (extra_mode or "").lower()
-    #         grid_cfg[extra_node] = {
-    #             "arms": self._mode_to_arms(em),
-    #             "theta": _theta0_from_mode(em),
-    #             "phi":   "0"
-    #         }
-
-    #     # Import the calibration state into your UI
-    #     self.custom_grid.import_calibration(step_idx=idx)
-
-    #     AppData.selected_labels = {node}
-    #     AppData.selected_label  = node
-    #     AppData.update_last_selection(node, None)
-    #     self.custom_grid.event_generate("<<SelectionUpdated>>")
-    #     self.update_idletasks()
-
-    #     # normalize and stash io_config
-    #     raw_mode = io_mode
-    #     if raw_mode.startswith("cross"):
-    #         norm_mode = "cross"
-    #     elif raw_mode.startswith("bar"):
-    #         norm_mode = "bar"
-    #     elif raw_mode.startswith("split"):
-    #         norm_mode = "split"
-    #     elif raw_mode == "arbitrary":
-    #         norm_mode = "arbitrary"
-    #     else:
-    #         norm_mode = raw_mode
-
-    #     AppData.io_config = getattr(AppData, "io_config", {}) or {}
-    #     AppData.io_config[node] = norm_mode
-
-    #     # toggle the input/output switches (UI)
-    #     inp  = step.get("input_port")
-    #     outp = step.get("output_port")
-    #     if inp is not None:
-    #         self._quick_set_channel(inp, "input")
-    #     if outp is not None:
-    #         self._quick_set_channel(outp, "output")
-
-    #     # Set the phase-shifter widget (UI)
-    #     phase_sh = (step.get("Phase_shifter", "") or "").lower()
-    #     if self.phase_selector and phase_sh:
-    #         if phase_sh == "internal":
-    #             self.phase_selector.radio_var.set("theta")
-    #         elif phase_sh == "external":
-    #             self.phase_selector.radio_var.set("phi")
-    #         else:
-    #             self.phase_selector.radio_var.set(phase_sh)
-
-    #     # Prepare the hardware configuration (fast compute, still on UI thread)
-    #     create_map, apply_map = get_mapping_functions(self.grid_size)
-
-    #     raw_cfg = json.loads(self.custom_grid.export_paths_json())
-    #     calibrate_cfg = {}
-    #     for cross_label, data in raw_cfg.items():
-    #         arms = data["arms"]
-    #         θ_target = float(data.get("theta", "0"))
-    #         φ_target = float(data.get("phi",   "0"))
-
-    #         t_key = f"{cross_label}_theta"
-    #         p_key = f"{cross_label}_phi"
-
-    #         I_θ = self._calculate_current_for_phase_new_json(t_key, θ_target) or 0.0
-    #         I_φ = self._calculate_current_for_phase_new_json(p_key, φ_target) or 0.0
-
-    #         calibrate_cfg[cross_label] = {
-    #             "arms": arms,
-    #             "theta": str(round(I_θ, 5)),
-    #             "phi":   str(round(I_φ, 5))
-    #         }
-
-    #     # === run the slow I/O in a worker thread ===
-    #     def _work():
-    #         try:
-    #             # NOTE: do NOT touch Tk widgets here
-    #             apply_map(self.qontrol, json.dumps(calibrate_cfg), self.grid_size)
-
-    #             # Prefer a pure-IO version of RP calibration that doesn't touch UI.
-    #             # If your existing run_rp_calibration() updates UI, split it into
-    #             # a pure worker part and a small UI part, and call the worker here.
-    #             self._rp_calibration_io_only(node)  # implement as needed
-    #             ok = True
-    #             err = None
-    #         except Exception as e:
-    #             logging.exception("[AutoCal] Worker error")
-    #             ok = False
-    #             err = e
-    #         finally:
-    #             # Signal completion
-    #             self._set_worker_running(False)
-    #         return ok, err
-
-    #     # mark worker running and start it
-    #     self._set_worker_running(True)
-    #     self._worker_thread = threading.Thread(target=_work, daemon=True)
-    #     self._worker_thread.start()
-
-    #     # start polling for completion without blocking UI
-    #     self._poll_worker_completion()
-
-    # def _poll_worker_completion(self):
-    #     """Poll the background worker and advance when done."""
-    #     # If user paused while step was running, wait until worker ends, then just stop.
-    #     if self._worker_is_running():
-    #         self.after(50, self._poll_worker_completion)
-    #         return
-
-    #     # worker just finished. If paused, don't advance.
-    #     if not self.custom_grid.playing:
-    #         return
-
-    #     # Record progress and schedule next step quickly
-    #     AppData.current_calibration_step = self._auto_idx = self._auto_idx + 1
-    #     self.after(10, self._schedule_next_step)
-
-    # # Provide a pure-IO version of RP calibration, called only from the worker
-    # def _rp_calibration_io_only(self, node_label: str):
+        
+    # def auto_calibrate(self, start_from: int | None = None):
     #     """
-    #     Do the raw measurement / device I/O needed for RP calibration WITHOUT
-    #     touching any Tk widgets. If your existing run_rp_calibration() mixes UI,
-    #     split it and move the I/O core here.
+    #     Start auto-cal from the selected 1-based step (default: current UI step).
     #     """
-    #     # Example: self.rp.perform_calibration(node_label)
-    #     # (Replace with your actual hardware calls)
-    #     self.run_rp_calibration()  # If this touches UI, refactor as noted above.
+    #     with open("calibration_steps.json", "r") as f:
+    #         payload = json.load(f)
+
+    #     self._auto_steps = payload.get("steps", []) or []
+    #     total = len(self._auto_steps)
+    #     if total == 0:
+    #         logging.warning("[AutoCal] No steps in file.")
+    #         return
+    #     self._auto_total = total
+
+    #     # 1-based desired starting display index
+    #     display_start = (
+    #         int(start_from) if start_from is not None
+    #         else int(getattr(self.custom_grid, "current_step", 1) or 1)
+    #     )
+    #     display_start = max(1, min(display_start, total))   # clamp to [1..total]
+
+    #     # Map 1-based display step → 0-based list index.
+    #     # Prefer matching by the 'step' field (robust to reordering), fall back to (display_start-1).
+    #     idx0 = next(
+    #         (i for i, s in enumerate(self._auto_steps) if s.get("step") == display_start),
+    #         display_start - 1
+    #     )
+
+    #     self._auto_idx = idx0  # 0-based into _auto_steps
+
+    #     # Sync UI to the chosen starting step
+    #     self.custom_grid.current_step = display_start
+    #     self.custom_grid.import_calibration(step_idx=display_start)  # expects 1-based
+    #     self.custom_grid._set_step_label(display_start, total)
+    #     AppData.current_calibration_step = display_start
+
+    #     # Run the chosen step immediately
+    #     self._run_one_auto_step()
 
 
+    def auto_calibrate(self, start_from: int | None = None):
+        """Start auto-cal from a numbered step. Default: the smallest step number in file (usually 1)."""
+        with open("calibration_steps.json", "r") as f:
+            payload = json.load(f)
 
-####
+        self._auto_steps = payload.get("steps", []) or []
+        total = len(self._auto_steps)
+        if total == 0:
+            logging.warning("[AutoCal] No steps in file.")
+            return
+        self._auto_total = total
 
+        # Build a mapping of declared step numbers -> list index
+        num_to_idx = {}
+        for i, s in enumerate(self._auto_steps):
+            num = s.get("step", i + 1)  # fall back to position if missing
+            num_to_idx[num] = i
 
-    def auto_calibrate(self):
-        """Kick off (or resume) the non-blocking auto-calibration."""
-        # load & initialize on first call
-        if not self._auto_steps:
-            with open("calibration_steps.json","r") as f:
-                payload = json.load(f)
-            self._auto_steps = payload.get("steps", [])
-            self._auto_total = len(self._auto_steps)
-            # self._auto_idx = getattr(AppData, "current_calibration_step", 0)
-        # always start from the very first step
-        self._auto_idx = AppData.current_calibration_step or 0
-        # AppData.current_calibration_step = 10
-        logging.info(f"[AutoCal] Starting auto-calibration with {self._auto_idx} step")
+        if not num_to_idx:
+            logging.warning("[AutoCal] No valid step numbers.")
+            return
 
-        # schedule the very next step
-        self._schedule_next_step()
+        if start_from is None:
+            # Default to the smallest step number (normally 1)
+            display_start = min(num_to_idx.keys())
+        else:
+            # If requested step exists, use it; else pick the closest valid step ≥ requested,
+            # otherwise fall back to the largest available step
+            if start_from in num_to_idx:
+                display_start = start_from
+            else:
+                higher = sorted(x for x in num_to_idx if x >= start_from)
+                display_start = higher[0] if higher else max(num_to_idx.keys())
 
-    def _schedule_next_step(self):
-        """Do exactly one calibration step, then re-schedule if still playing."""
-        # 0) if user has paused the grid, stop here
+        # 0-based index into _auto_steps
+        self._auto_idx = num_to_idx[display_start]
+
+        # Sync UI to the chosen starting step and render it immediately
+        self.custom_grid.current_step = display_start
+        self.custom_grid.import_calibration(step_idx=display_start)   # import_calibration expects 1-based
+        self.custom_grid._set_step_label(display_start, total)
+        AppData.current_calibration_step = display_start
+
+        # Run that exact step now
+        self._run_one_auto_step()
+
+    def _run_one_auto_step(self):
         if not self.custom_grid.playing:
             return
 
-        # 1) if we're past the last step, clean up
         if self._auto_idx >= self._auto_total:
-            # reset so a new ▶ Play will start over
-            self._auto_steps = []
-            self.custom_grid.toggle_play()   # flip back to ▶ Play
+            self.custom_grid.playing = False
+            try: self.custom_grid.play_btn.configure(text="▶ Play")
+            except Exception: pass
+            logging.info("[AutoCal] Finished all steps.")
             return
 
-        step = self._auto_steps[self._auto_idx]
-        idx  = self._auto_idx 
-        node    = step["calibration_node"]
-        io_mode = step.get("Io_config","") # e.g. "Cross0", "Bar1", "Split2", …
+        idx0 = self._auto_idx
+        step = self._auto_steps[idx0]
 
-        # pick default θ based on mode:
-        #   cross → 0, bar → 1, split → 0.5, else → 0
-        if io_mode.startswith("cross"):
-            default_theta = "0"
-        elif io_mode.startswith("bar"):
-            default_theta = "1"
-        elif io_mode.startswith("split"):
-            default_theta = "0.5"
-        else:
-            default_theta = "0"
+        display_idx = step.get("step", idx0 + 1)   # label as 1..N
+        display_tot = self._auto_total
 
-        node    = step["calibration_node"]
-        io_mode = step.get("Io_config","")
-        extras  = step.get("additional_nodes",{})
-        inp     = step.get("input_port")
-        outp    = step.get("output_port")
-        phase_sh= step.get("Phase_shifter","")
+        # render this step
+        self.custom_grid.current_step = display_idx
+        self.custom_grid.import_calibration(step_idx=display_idx)  # 1-based
+        self.custom_grid._set_step_label(display_idx, display_tot)
+        AppData.current_calibration_step = display_idx
 
-        logging.info(f"[AutoCal] Step {idx}/{self._auto_total}: {node} @ {io_mode}")
 
-        # 1) Build the raw grid JSON dict
-        grid_cfg = {}
+        # ---- execute this step (unchanged logic below) ----
+        node     = step.get("calibration_node")
+        io_mode  = (step.get("Io_config") or "")
+        extras   = step.get("additional_nodes", {}) or {}
+        inp      = step.get("input_port")
+        outp     = step.get("output_port")
+        phase_sh = step.get("Phase_shifter", "")
+
         if node:
-            grid_cfg[node] = {
-                "arms": self._mode_to_arms(io_mode),
-                "theta": default_theta,
-                "phi":   "0"
-            }
-        for extra_node, extra_mode in step.get("additional_nodes", {}).items():
-            em = extra_mode.lower()
-            if em.startswith("cross"):
-                t0 = "0"
-            elif em.startswith("bar"):
-                t0 = "1"
-            elif em.startswith("split"):
-                t0 = "0.5"
-            else:
-                t0 = "0"
-            grid_cfg[extra_node] = {
-                "arms": self._mode_to_arms(em),
-                "theta": t0,
-                "phi":   "0"
-            }
-
-
-
-        # # 1) Build the raw grid JSON dict
-        # grid_cfg = {}
-        # if node:
-        #     grid_cfg[node] = {
-        #         "arms": self._mode_to_arms(io_mode),
-        #         "theta": "0", "phi": "0"
-        #     }
-        # for extra_node, extra_mode in extras.items():
-        #     grid_cfg[extra_node] = {
-        #         "arms": self._mode_to_arms(extra_mode),
-        #         "theta": "0", "phi": "0"
-        #     }
-
-        # 2) Push into AppData and rebuild the UI grid
-        # AppData.default_json_grid = grid_cfg
-        # self.build_grid(self.grid_size)
-
-        # 3) Import that grid JSON to select paths & show boxes
-        # self.custom_grid.import_paths_json(json.dumps(grid_cfg, indent=2))
-        # self.custom_grid.current_step = idx
-        # self.custom_grid.step_label.configure(text=f"Step {idx}/{total}")
-        # self.import_calibration_data(json.dumps(grid_cfg, indent=2))
-        self.custom_grid.import_calibration(step_idx=idx)
-
-        AppData.selected_labels = {node}
-        AppData.selected_label  = node
-        AppData.update_last_selection(node, None)
-        # Trigger the selection‐updated handlers in Window1Content
-        self.custom_grid.event_generate("<<SelectionUpdated>>")
-        self.update_idletasks()
-
-        # 4) Force the “last selection” so characterize_* finds our node
-        AppData.update_last_selection(node, None)
-        # Trigger the selection‐updated handlers
-        self.custom_grid.event_generate("<<SelectionUpdated>>")
+            AppData.selected_labels = {node}
+            AppData.selected_label  = node
+            AppData.update_last_selection(node, None)
+            self.custom_grid.event_generate("<<SelectionUpdated>>")
 
         create_map, apply_map = get_mapping_functions(self.grid_size)
-
-        # grab the manifest of what the grid wants (arms + θ/φ strings)
         raw_cfg = json.loads(self.custom_grid.export_paths_json())
 
         calibrate_cfg = {}
         for cross_label, data in raw_cfg.items():
-            arms = data["arms"]
-            θ_target = float(data.get("theta", "0"))
-            φ_target = float(data.get("phi",   "0"))
+            arms     = data["arms"]
+            theta_pi = float(data.get("theta", "0"))
+            phi_pi   = float(data.get("phi",   "0"))
 
             t_key = f"{cross_label}_theta"
             p_key = f"{cross_label}_phi"
 
-            I_θ = self._calculate_current_for_phase_new_json(t_key, θ_target)
-            I_φ = self._calculate_current_for_phase_new_json(p_key, φ_target)
+            I_theta = self._calculate_current_for_phase_new_json(t_key, theta_pi) or 0.0
+            I_phi   = self._calculate_current_for_phase_new_json(p_key,   phi_pi) or 0.0
 
-            logging.info(f"[AutoCal] {cross_label}: θ={θ_target}π → {I_θ} mA, φ={φ_target}π → {I_φ} mA")
+            calibrate_cfg[cross_label] = {"arms": arms,
+                                        "theta": str(round(I_theta, 5)),
+                                        "phi":   str(round(I_phi,   5))}
 
-            if I_θ is None:
-                logging.warning(f"[AutoCal] No current solution for {t_key}; using 0.0 mA")
-                I_θ = 0.0
-            if I_φ is None:
-                logging.warning(f"[AutoCal] No current solution for {p_key}; using 0.0 mA")
-                I_φ = 0.0
-
-            calibrate_cfg[cross_label] = {
-                "arms": arms,
-                "theta": str(round(I_θ, 5)),
-                "phi":   str(round(I_φ, 5))
-            }
-
-        # now push *that* to the hardware
         apply_map(self.qontrol, json.dumps(calibrate_cfg), self.grid_size)
 
-        # 6) Set the phase‐shifter widget
         if self.phase_selector and phase_sh:
-            # JSON uses "Internal" for theta, "External" for phi
-            if phase_sh.lower() == "internal":
-                self.phase_selector.radio_var.set("theta")
-            elif phase_sh.lower() == "external":
-                self.phase_selector.radio_var.set("phi")
-            else:
-                # if you ever add new modes, fall back to whatever makes sense
-                self.phase_selector.radio_var.set(phase_sh.lower())
+            m = phase_sh.lower()
+            self.phase_selector.radio_var.set("theta" if m == "internal"
+                                            else "phi" if m == "external" else m)
 
 
-        # # 6) Set the phase‐shifter widget
-        # if self.phase_selector:
-        #     self.phase_selector.radio_var.set(phase_sh)
+        if inp is not None:  self._quick_set_channel(inp,  "input")
+        if outp is not None: self._quick_set_channel(outp, "output")
 
-        # 7) Toggle the input/output switches
-        if inp is not None:
-            self._quick_set_channel(inp, "input")
-        if outp is not None:
-            self._quick_set_channel(outp, "output")
+        # optional: normalize Io_config record
+        if node:
+            rm = (io_mode or "").lower()
+            if   rm.startswith("cross"): norm = "cross"
+            elif rm.startswith("bar"):   norm = "bar"
+            elif rm.startswith("split"): norm = "split"
+            elif rm == "arbitrary":      norm = "arbitrary"
+            else:                        norm = rm
+            AppData.io_config = getattr(AppData, "io_config", {}) or {}
+            AppData.io_config[node] = norm
 
-        node     = step["calibration_node"]
-        raw_mode = step.get("Io_config", "")   # e.g. "cross0", "bar1", etc.
-
-        # normalize
-        if raw_mode.startswith("cross"):
-            norm_mode = "cross"
-        elif raw_mode.startswith("bar"):
-            norm_mode = "bar"
-        elif raw_mode.startswith("split"):
-            norm_mode = "split"
-        elif raw_mode == "arbitrary":
-            norm_mode = "arbitrary"
-        else:
-            norm_mode = raw_mode  # fallback, in case you invent new ones
-
-        AppData.io_config = getattr(AppData, "io_config", {}) or {}
-        AppData.io_config[node] = norm_mode
-
-        # 8) Finally run RP calibration on that node
         self.run_rp_calibration()
 
-        # Record progress
-        AppData.current_calibration_step = self._auto_idx = self._auto_idx + 1
+        # advance inside the sliced list
+        self._auto_idx += 1
+        # DO NOT bump AppData.current_calibration_step yet; next tick sets it.
 
-        # 2) schedule the *next* step in 500 ms
-        self.after(1000, self._schedule_next_step)
-
-
-
-##########
-
+        if self.custom_grid.playing:
+            self.after(100, self._run_one_auto_step)

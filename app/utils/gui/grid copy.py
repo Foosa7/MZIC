@@ -23,7 +23,7 @@ class Path:
         self.line_id = line_id
 
 class Example(Frame):
-    def __init__(self, master=None, grid_n=12, scale=1, calibration_json=None, get_cross_modes_func=None):
+    def __init__(self, master=None, grid_n=12, scale=1, calibration_json=None, get_cross_modes_func=None, auto_calibrate_callback=None):
 
         """
         master: parent widget.
@@ -38,6 +38,7 @@ class Example(Frame):
         self.step_lines = []    
         self.all_steps = []    
         self.playing = False
+        self.auto_calibrate_callback = auto_calibrate_callback
         self.current_step = 0
         self.edit_mode = False  # Start in edit mode  
         self.grid_n = grid_n
@@ -77,13 +78,23 @@ class Example(Frame):
         nav_frame.grid(row=0, column=1)
         self.back_btn = ctk.CTkButton(nav_frame, text="⏮ Back", width=80, command=self.decrement_step, fg_color="transparent")
         self.back_btn.pack(side='left', padx=5)
-        self.play_btn = ctk.CTkButton(nav_frame, text="▶ Play", width=80, command=self.toggle_play, fg_color="transparent")
+        # self.play_btn = ctk.CTkButton(nav_frame, text="▶ Play", width=80, command=self.toggle_play, fg_color="transparent")
+        # ▶ Play now either starts grid‐stepping or runs auto‐calibration
+        self.play_btn = ctk.CTkButton(
+            nav_frame,
+            text="▶ Play",
+            width=80,
+            command=self._on_play_clicked,
+            fg_color="transparent"
+        )
+
+    
         self.play_btn.pack(side='left', padx=5)
         self.next_btn = ctk.CTkButton(
             nav_frame,
             text="Next ⏭",
             width=80,
-            command=self._handle_next,
+            command=self.next_step,
             text_color="white",
             fg_color="transparent"
 
@@ -441,6 +452,7 @@ class Example(Frame):
         self.canvas.itemconfig(label_id, fill="red")
         AppData.selected_label = label
         AppData.update_last_selection(label, None)
+        logging.info(f"Selected cross: {label}")
 
 
     def get_cross_modes(self):
@@ -1191,136 +1203,38 @@ class Example(Frame):
         self.load_step(self.current_step)
 
     def increment_step(self):
-        """Increment the step counter by one and update the label."""
-        # bump the counter
-        # self.import_calibration(step_idx=self.current_step + 1)
-        self.current_step += 1
+        """Go forward one step: load that step’s data from calibration_steps.json."""
+        # 1) Load the file
+        filepath = "calibration_steps.json"
+        try:
+            with open(filepath, "r") as f:
+                payload = json.load(f)
+        except Exception as e:
+            logging.error("Could not open %s: %s", filepath, e)
+            messagebox.showerror("Error", f"Cannot load calibration file:\n{e}")
+            return
 
-        # now update the button’s text
-        self.step_label.configure(
-            text=f"Step {self.current_step}/{len(self.step_lines)}"
-        )
+        steps = payload.get("steps", [])
+        total = len(steps)
+        if total == 0:
+            messagebox.showwarning("No steps", "Calibration file has no steps.")
+            return
 
-    # def increment_step(self):
-    #     """Go forward one step: load that step’s data from calibration_steps.json."""
-    #     # 1) Load the file
-    #     filepath = "calibration_steps.json"
-    #     try:
-    #         with open(filepath, "r") as f:
-    #             payload = json.load(f)
-    #     except Exception as e:
-    #         logging.error("Could not open %s: %s", filepath, e)
-    #         messagebox.showerror("Error", f"Cannot load calibration file:\n{e}")
-    #         return
+        # 2) If we're already at the last step, do nothing
+        if self.current_step >= total - 1:
+            return
 
-    #     steps = payload.get("steps", [])
-    #     total = len(steps)
-    #     if total == 0:
-    #         messagebox.showwarning("No steps", "Calibration file has no steps.")
-    #         return
+        # 3) Otherwise, load & render the next step
+        self.import_calibration(step_idx=self.current_step + 1)
 
-    #     # 2) If we're already at the last step, do nothing
-    #     if self.current_step >= total - 1:
-    #         return
-
-    #     # 3) Otherwise, load & render the next step
-    #     self.import_calibration(step_idx=self.current_step + 1)
-
-
-    # def increment_step(self):
-    #     """
-    #     Advance one step:
-    #     - EDIT MODE: just bump through the steps you've saved (self.all_steps).
-    #     - VIEW MODE: load the next step from calibration_steps.json.
-    #     """
-    #     if self.edit_mode:
-    #         total = len(self.all_steps)
-    #         # nothing to do if you haven't saved anything yet,
-    #         # or if you're already on the last saved step
-    #         if total == 0 or self.current_step >= total - 1:
-    #             return
-
-    #         # move to the next saved step
-    #         self.current_step += 1
-
-    #         # update the counter in 1-based form
-    #         self.step_label.configure(
-    #             text=f"Step {self.current_step+1}/{total}"
-    #         )
-
-    #     else:
-    #         # VIEW MODE: import from merged JSON
-    #         next_idx = self.current_step + 1
-    #         self.import_calibration(step_idx=next_idx)
-
-    # def decrement_step(self):
-    #     """Decrement the step counter by one (down to 0) and update the label."""
-    #     # don’t go below the first step
-    #     if self.current_step <= 0:
-    #         return
-
-    #     # bump the counter down
-    #     self.current_step -= 1
-
-    #     # update the on-screen label
-    #     self.step_label.configure(
-    #         text=f"Step {self.current_step}/{len(self.step_lines)}"
-    #     )
-
-    # def decrement_step(self):
-    #     """Go back one step: load that step’s data from calibration_steps.json."""
-    #     # If we're already at the first step, do nothing
-    #     # self.current_step -= 1
-    #     logging.info(f"Decrementing to step {self.current_step}")
-    #     if self.current_step <= 0:
-    #         return
-
-    #     # Load & render step (this also updates self.current_step and the label)
-    #     self.import_calibration(step_idx=self.current_step - 1)
-
-    def decrement_step(self) -> None:
-        """Go back one step.
-
-        • If calibration_steps.json exists **and** contains that row →
-        call `import_calibration` to repaint it.
-
-        • Otherwise just bump the internal counter and refresh the
-        “Step X/Y” label.
-        """
+    def decrement_step(self):
+        """Go back one step: load that step’s data from calibration_steps.json."""
+        # If we're already at the first step, do nothing
         if self.current_step <= 0:
-            return  # already at the first step
+            return
 
-        target_idx = self.current_step - 1
-        logging.info("Decrementing to step %d", target_idx)
-
-        loaded = False
-        if os.path.isfile("calibration_steps.json"):
-            # `import_calibration` silently returns when idx is out of range,
-            # but it *does* set self.current_step on success, so we detect that.
-            prev_idx = self.current_step
-            self.import_calibration(step_idx=target_idx)
-            loaded = self.current_step != prev_idx
-
-        if not loaded:
-            # fall-back: just show the new counter value
-            self.current_step = target_idx
-            total = max(len(self.all_steps), self.current_step + 1)
-            self.step_label.configure(text=f"Step {self.current_step}/{total-1}")
-
-
-    def _handle_next(self):
-        if self.edit_mode:
-            self.save_current_step()      # write/replace current row
-            self.increment_step()         # bump the index & label
-
-            # Only reload when the step is already present in the file.
-            if self.current_step < len(self.all_steps):
-                self.import_calibration(step_idx=self.current_step)
-            else:
-                # new, empty step → just clear the canvas (optional helper)
-                self.clear_highlights()   # write this to wipe colours/selections
-        else:
-            self.next_step()
+        # Load & render step (this also updates self.current_step and the label)
+        self.import_calibration(step_idx=self.current_step - 1)
 
 
     def save_current_and_next_step(self):
@@ -1355,13 +1269,13 @@ class Example(Frame):
         if not self.playing:
             return
         self.next_step()
-        # schedule next advance in 1 000 ms
+        # schedule next advance in  600 ms
         self.after(600, self._auto_advance)
 
     def export_calibration_step(self):
         """
         Build a calibration‐step dict matching your JSON schema:
-          {
+        {
             "step": 0,
             "input_port": 1,
             "output_port": 12,
@@ -1370,13 +1284,11 @@ class Example(Frame):
             "Phase_shifter": "Internal",
             "Io_config": "Cross",
             "additional_nodes": { ... }
-          }
+        }
         """
         # 1) Step index
-        # step = len(self.all_steps)
-        step = self.current_step
+        step = len(self.all_steps)
         logging.info(f"Exporting step {step}")
-
 
         # 2) Grab the one selected input/output pin (they are stored as ints 1–8)
         input_port  = next(iter(AppData.selected_input_pins),  None)
@@ -1385,23 +1297,17 @@ class Example(Frame):
         # 3) Calibration node = the one cross‐label stored in AppData.selected_label
         cal_node = AppData.selected_label if isinstance(AppData.selected_label, str) else None
 
-
         # 4) Phase shifter choice from AppData
         phase_shifter = AppData.phase_shifter_selection
 
         # 5) Compute Io_config + additional_nodes from the current cross modes
-        cross_modes = self.get_cross_modes_numbers()  # e.g. {"A1":"cross", "B1":"bar", ...}
-        # io_config = cross_modes.get(cal_node, "cross").capitalize()
+        cross_modes = self.get_cross_modes_numbers()  # e.g. {"A1":"cross0", "B1":"bar1", ...}
 
-       # if cal_node is None or missing, default to “Cross”
-        io_config = (
-            cross_modes.get(cal_node, "cross").capitalize()
-            if cal_node in cross_modes
-            else "Cross"
-        )
+        # Use raw mode strings (do not capitalize) to avoid conflicts
+        io_config = cross_modes.get(cal_node, "cross")
 
         additional_nodes = {
-            node: mode.capitalize()
+            node: mode
             for node, mode in cross_modes.items()
             if node != cal_node
         }
@@ -1417,93 +1323,52 @@ class Example(Frame):
             "Io_config":        io_config,
             "additional_nodes": additional_nodes
         }
-    
+
+
     def save_current_step(self):
         """
-        Build a calibration-step dict for the *current* index and
-        write/update calibration.json.
-
-        • Overwrite self.all_steps[self.current_step] if it exists
-        • Append a brand-new entry if it doesn’t
+        Called when the Save button is clicked:
+          - builds the current calibration‐step dict
+          - writes it to step_<n>.json
         """
-        # 1) build the step dict
+        # 1) export current‐step dict
         step_data = self.export_calibration_step()
-        step_idx  = self.current_step
 
-        # 2) insert or replace in the in-memory list
-        if step_idx < len(self.all_steps):
-            self.all_steps[step_idx] = step_data          # ← overwrite
+        # 2) append
+        # self.all_steps.append(step_data)
+        # 2) overwrite if editing an existing step, otherwise append
+        if 0 <= self.current_step < len(self.all_steps):
+            self.all_steps[self.current_step] = step_data
         else:
-            self.all_steps.append(step_data)              # ← brand-new
-
-        # 3) make sure every dict’s "step" field matches its position
-        for i, s in enumerate(self.all_steps):
-            s["step"] = i
-
-        # 4) build payload + metadata
+            self.all_steps.append(step_data)
+            
+        # 3) build top‐level structure
         payload = {
             "metadata": {
-                "created_at": datetime.now().isoformat(timespec="seconds"),
-                "total_steps": len(self.all_steps)
+                "created_at": datetime.now().isoformat(),
+                "total_steps": len(self.all_steps),
+                # you can add more global fields here, e.g.
+                # "phase_shifter": AppData.phase_shifter_selection
             },
             "steps": self.all_steps
         }
 
-        # 5) write file
+        # 4) write single file
         try:
-            with open("calibration.json", "w") as f:
+            with open("calibration_steps.json", "w") as f:
                 json.dump(payload, f, indent=2)
-                logging.info("Saved step %d (total %d) → calibration.json",
-                            step_idx, len(self.all_steps))
-        except Exception as e:
-            logging.error("Failed to write merged JSON: %s", e)
-            messagebox.showerror("Error",
-                                f"Could not save merged file:\n{e}")
-
-
-
-    # def save_current_step(self):
-    #     """
-    #     Called when the Save button is clicked:
-    #       - builds the current calibration‐step dict
-    #       - writes it to step_<n>.json
-    #     """
-    #     # 1) export current‐step dict
-    #     step_data = self.export_calibration_step()
-
-    #     # 2) append
-    #     # self.all_steps.append(step_data)
-    #     # 2) overwrite if editing an existing step, otherwise append
-    #     if 0 <= self.current_step < len(self.all_steps):
-    #         self.all_steps[self.current_step] = step_data
-    #     else:
-    #         self.all_steps.append(step_data)
-            
-    #     # 3) build top‐level structure
-    #     payload = {
-    #         "metadata": {
-    #             "created_at": datetime.now().isoformat(),
-    #             "total_steps": len(self.all_steps),
-    #             # you can add more global fields here, e.g.
-    #             # "phase_shifter": AppData.phase_shifter_selection
-    #         },
-    #         "steps": self.all_steps
-    #     }
-    
-    #     # 4) write single file
-    #     try:
-    #         with open("calibration_steps.json", "w") as f:
-    #             json.dump(payload, f, indent=2)
-    #             # logging.info(f"Saved: Merged {len(self.all_steps)} steps into calibration_steps.json")
+                self.current_step += 1  # Advance the step counter after saving
+                # logging.info(f"Saved: Merged {len(self.all_steps)} steps into calibration_steps.json")
         
 
-    #     except Exception as e:
-    #         logging.error("Failed to write merged JSON: %s", e)
-    #         messagebox.showerror("Error", f"Could not save merged file: {e}")
+        except Exception as e:
+            logging.error("Failed to write merged JSON: %s", e)
+            messagebox.showerror("Error", f"Could not save merged file: {e}")
 
     def next_step(self):
         """Just advance the counter & load without saving (view mode)."""
         self.current_step += 1
+        AppData.current_calibration_step = self.current_step
         logging.info(f"Advancing to step {self.current_step}")
         self.import_calibration(step_idx=self.current_step)
 
@@ -1534,85 +1399,16 @@ class Example(Frame):
             for b in (self.back_btn, self.play_btn, self.next_btn):
                 b.configure(fg_color="transparent", hover_color="#144870", text_color="white")
 
-    # def save_current_step(self):
-    #     """
-    #     Called when the Save button is clicked:
-    #       - builds the current calibration‐step dict
-    #       - writes it to step_<n>.json
-    #     """
-    #     # 1) export current‐step dict
-    #     step_data = self.export_calibration_step()
 
-    #     # 2) append
-    #     self.all_steps.append(step_data)
-
-    #     # 3) build top‐level structure
-    #     payload = {
-    #         "metadata": {
-    #             "created_at": datetime.now().isoformat(),
-    #             "total_steps": len(self.all_steps),
-    #             # you can add more global fields here, e.g.
-    #             # "phase_shifter": AppData.phase_shifter_selection
-    #         },
-    #         "steps": self.all_steps
-    #     }
-
-    #     # 4) write single file
-    #     try:
-    #         with open("calibration_steps.json", "w") as f:
-    #             json.dump(payload, f, indent=2)
-    #             # logging.info(f"Saved: Merged {len(self.all_steps)} steps into calibration_steps.json")
-
-    #     except Exception as e:
-    #         logging.error("Failed to write merged JSON: %s", e)
-    #         messagebox.showerror("Error", f"Could not save merged file: {e}")
-
-    # def next_step(self):
-    #     """Just advance the counter & load without saving (view mode)."""
-    #     self.current_step += 1
-    #     logging.info(f"Advancing to step {self.current_step}")
-    #     self.import_calibration(step_idx=self.current_step)
-
-    # def toggle_edit_mode(self):
-    #     """Toggle between view and edit modes.
-    #        In edit mode, Next ⏭ will SAVE instead of advancing."""
-    #     self.edit_mode = not self.edit_mode
-
-    #     if self.edit_mode:
-    #         # now in edit mode
-    #         self.mode_btn.configure(text="✏️ Edit")
-    #         # Next → save
-    #         self.next_btn.configure(command=self.save_current_and_next_step)
-    #         # visually highlight “Next” when it’s acting as save
-    #         for b in (self.back_btn, self.play_btn, self.next_btn):
-    #             b.configure(fg_color="red", hover_color="#690000", text_color="black")
-    #         self.next_btn.configure(command=self.save_current_and_next_step)
-
-    #     else:
-    #         # back to view mode
-    #         self.mode_btn.configure(text="👁️ View")
-    #         # Next → just advance
-    #         self.next_btn.configure(command=self.next_step)
-    #         # restore default look
-    #         for b in (self.back_btn, self.play_btn, self.next_btn):
-    #            b.configure(fg_color="transparent", hover_color = "#144870", text_color="white")
-    #         self.next_btn.configure(command=self.next_step)
-
-    def import_calibration(self, filepath: str = "calibration_steps.json",
-                        step_idx: int | None = None) -> None:
+    def import_calibration(self, filepath="calibration_steps.json", step_idx=None):
         """
-        Paint one calibration step on the grid.
-
-        Parameters
-        ----------
-        filepath : str
-            Path to the merged-calibration JSON written by `save_current_step`.
-        step_idx : int | None
-            • None   → use self.current_step  
-            • 0-based index of the step to load.  
-            If it is < 0 or ≥ len(steps) the call is ignored.
+        Load calibration_steps.json, pick out step #step_idx (0-based), and update the grid:
+        • highlight calibration_node (orange) and additional_nodes (white)
+        • color arms (red) according to mode_to_arms()
+        • highlight input/output pins and their extension lines
+        • (re)create θ/φ input boxes and set θ via update_input_box_mode()
         """
-        # ── 1) Load the file ───────────────────────────────────────────────
+        # 1) Load file
         try:
             with open(filepath, "r") as f:
                 payload = json.load(f)
@@ -1621,90 +1417,114 @@ class Example(Frame):
             messagebox.showerror("Error", f"Could not load calibration file:\n{e}")
             return
 
-        steps: list[dict] = payload.get("steps", [])
+        steps = payload.get("steps", [])
         total = len(steps)
         if total == 0:
             messagebox.showwarning("No steps", "Calibration file has no steps.")
             return
 
-        # ── 2) Pick which row to show ─────────────────────────────────────
-        idx = self.current_step if step_idx is None else step_idx
-        if idx < 0 or idx >= total:
-            # out-of-range → nothing to do
-            return
-
+        # 2) Choose step (clamped)
+        idx = 0 if step_idx is None else max(0, min(step_idx, total - 1))
         step_data = steps[idx]
 
-        # ── 3) Clear all previous highlights ──────────────────────────────
-        #  a) lines
+        # 3) Reset visuals and selection
         for p in self.paths:
             self.canvas.itemconfig(p.line_id, fill="white")
         self.selected_paths.clear()
 
-        #  b) cross labels
         for tid in self.cross_labels.values():
             self.canvas.itemconfig(tid, fill="white")
 
-        #  c) IO labels
-        self.canvas.itemconfig("io_label", fill="white")
+        try:
+            self.canvas.itemconfig("io_label", fill="white")
+        except Exception:
+            pass
         AppData.selected_input_pins.clear()
         AppData.selected_output_pins.clear()
 
-        # ── 4) Highlight crosses and arms for this step ───────────────────
-        arm_specs: dict[str, list[str]] = {}
+        # 4) Build desired arms per center using existing helper
+        centers: dict[str, list[str]] = {}
 
-        # 4a) main calibration node (orange)
         cal_label = step_data.get("calibration_node")
-        io_mode   = step_data.get("Io_config", "")
+        io_mode   = (step_data.get("Io_config") or "").lower()
         if cal_label:
-            arm_specs[cal_label] = mode_to_arms(io_mode)
+            centers[cal_label] = mode_to_arms(io_mode)
+            # color the calibration node label orange
             for key, tid in self.cross_labels.items():
                 if self.canvas.itemcget(tid, "text") == cal_label:
                     self.canvas.itemconfig(tid, fill="orange")
                     break
 
-        # 4b) additional nodes (white text)
-        for node_label, mode_str in step_data.get("additional_nodes", {}).items():
-            arm_specs[node_label] = mode_to_arms(mode_str)
+        for node_label, mode_str in (step_data.get("additional_nodes") or {}).items():
+            centers[node_label] = mode_to_arms((mode_str or "").lower())
+            # keep additional nodes white (or change if you prefer)
             for key, tid in self.cross_labels.items():
                 if self.canvas.itemcget(tid, "text") == node_label:
                     self.canvas.itemconfig(tid, fill="white")
                     break
 
-        # 4c) colour matching arms red
+        # 5) Apply arm selections: paint matching lines red & record as selected
         for path in self.paths:
             center, arm = self._parse_path_components(path)
-            if center in arm_specs and arm in arm_specs[center]:
+            if not center or not arm or center not in centers:
+                continue
+            # arm can be compound like "TL-BR"; match if any part is requested
+            path_arms = arm.split("-")
+            if any(a in centers[center] for a in path_arms):
                 self.canvas.itemconfig(path.line_id, fill="red")
                 self.selected_paths.add(path.line_id)
 
-        # ── 5) Highlight input / output pins ──────────────────────────────
-        def _highlight_io(port: int | None, tag_prefix: str,
-                        pin_set: set[int]) -> None:
+        # 6) Highlight input/output labels and their extension lines
+        def _highlight_io(port, prefix, pin_set):
             if port is None:
                 return
-            lbl_tag = f"{tag_prefix}_label_{port}"
-            self.canvas.itemconfig(lbl_tag, fill="red")
+            tag = f"{prefix}_label_{port}"
+            try:
+                self.canvas.itemconfig(tag, fill="red")
+            except Exception:
+                pass
             pin_set.clear()
             pin_set.add(port)
             for path in self.paths:
-                if lbl_tag in self.canvas.gettags(path.line_id):
+                if tag in self.canvas.gettags(path.line_id):
                     self.canvas.itemconfig(path.line_id, fill="red")
                     self.selected_paths.add(path.line_id)
 
         _highlight_io(step_data.get("input_port"),  "input",  AppData.selected_input_pins)
         _highlight_io(step_data.get("output_port"), "output", AppData.selected_output_pins)
 
-        # ── 6) Ensure θ/φ input boxes exist for any coloured crosses ──────
-        for center_label, arms in arm_specs.items():
-            if arms and center_label not in self.input_boxes:
+        # 7) Rebuild cross_selected_count from current selection (so boxes persist)
+        self.cross_selected_count.clear()
+        for path in self.paths:
+            if path.line_id in self.selected_paths:
+                center, arm = self._parse_path_components(path)
+                if center and arm:
+                    self.cross_selected_count[center] += 1
+
+        # Remove boxes only for centers with no selected arms now
+        for existing in list(self.input_boxes.keys()):
+            if self.cross_selected_count.get(existing, 0) == 0:
+                self.delete_input_boxes(existing)
+
+        # Ensure boxes exist for every selected center and set defaults
+        for center_label, count in self.cross_selected_count.items():
+            if count <= 0:
+                continue
+            if center_label not in self.input_boxes:
                 self.create_input_boxes(center_label)
 
-        # ── 7) Update state and UI counter ────────────────────────────────
-        self.current_step = idx
-        self.step_label.configure(text=f"Step {idx}/{total - 1}")
+            # Derive θ from the *actual selected arms* (bar->1, cross->0, split->0.5)
+            self.update_input_box_mode(center_label)
 
-        # ── 8) Notify listeners that the selection changed ────────────────
+            # Give φ a default if empty
+            phi_entry = self.input_boxes[center_label]['phi_entry']
+            if phi_entry.get().strip() == "":
+                phi_entry.delete(0, "end")
+                phi_entry.insert(0, "0")
+
+        # 8) Update counter & notify
+        self.current_step = idx
+        self.step_label.configure(text=f"Step {idx}/{total}")
         self.event_generate("<<SelectionUpdated>>")
         self.update_selection()
 
@@ -1712,12 +1532,13 @@ class Example(Frame):
 
     # def import_calibration(self, filepath="calibration_steps.json", step_idx=None):
     #     """
-    #     Load calibration_steps.json, pick out step #step_idx (0-based),
-    #     highlight:
-    #     - Cross‐center labels (orange + green) and arms (red)
-    #     - Input/output side‐labels and extension lines (red)
+    #     Load calibration_steps.json, pick out step #step_idx (0-based), and update the grid:
+    #     • highlight calibration_node (orange) and additional_nodes (white)
+    #     • color arms (red) according to mode_to_arms()
+    #     • highlight input/output pins and their extension lines
+    #     • (re)create θ/φ input boxes and set θ via update_input_box_mode()
     #     """
-    #     # 1) Load JSON
+    #     # 1) Load file
     #     try:
     #         with open(filepath, "r") as f:
     #             payload = json.load(f)
@@ -1732,85 +1553,121 @@ class Example(Frame):
     #         messagebox.showwarning("No steps", "Calibration file has no steps.")
     #         return
 
-    #     # 2) Clamp step index
-    #     idx = 0 if step_idx is None # else max(0, min(step_idx, total - 1))
+    #     # 2) Choose step
+    #     idx = 0 if step_idx is None else max(0, min(step_idx, total - 1))
     #     step_data = steps[idx]
 
-    #     # 3) Clear all old highlights
-    #     #    a) Lines
+    #     # 3) Reset visuals and selection
     #     for p in self.paths:
     #         self.canvas.itemconfig(p.line_id, fill="white")
     #     self.selected_paths.clear()
 
-    #     #    b) Cross‐labels
     #     for tid in self.cross_labels.values():
     #         self.canvas.itemconfig(tid, fill="white")
 
-    #     #    c) IO labels (common tag "io_label")
-    #     self.canvas.itemconfig("io_label", fill="white")
+    #     try:
+    #         self.canvas.itemconfig("io_label", fill="white")
+    #     except Exception:
+    #         pass
     #     AppData.selected_input_pins.clear()
     #     AppData.selected_output_pins.clear()
 
-    #     # 4) Highlight cross‐centers and arms (as before) …
-    #     arm_specs = {}
-    #     # 4a) calibration_node
+    #     # 4) Build {center_label: [arms]} from step using mode_to_arms
+    #     centers = {}  # { "A1": ["TL","BR", ...], ... }
+
     #     cal_label = step_data.get("calibration_node")
-    #     io_mode   = step_data.get("Io_config", "")
+    #     io_mode   = (step_data.get("Io_config") or "").lower()
     #     if cal_label:
-    #         arm_specs[cal_label] = mode_to_arms(io_mode)
-    #         # text label → orange
+    #         centers[cal_label] = mode_to_arms(io_mode)  # <- your existing helper
+    #         # color calibration node label orange
     #         for key, tid in self.cross_labels.items():
     #             if self.canvas.itemcget(tid, "text") == cal_label:
     #                 self.canvas.itemconfig(tid, fill="orange")
     #                 break
-    #     # 4b) additional_nodes → green
-    #     for node_label, mode_str in step_data.get("additional_nodes", {}).items():
-    #         arm_specs[node_label] = mode_to_arms(mode_str)
+
+    #     for node_label, mode_str in (step_data.get("additional_nodes") or {}).items():
+    #         centers[node_label] = mode_to_arms((mode_str or "").lower())
+    #         # keep them visually distinct if you like; white here
     #         for key, tid in self.cross_labels.items():
     #             if self.canvas.itemcget(tid, "text") == node_label:
     #                 self.canvas.itemconfig(tid, fill="white")
     #                 break
-    #     # 4c) color those arms red
+
+    #     # 5) Apply arm selections: paint those lines red & mark selected
     #     for path in self.paths:
     #         center, arm = self._parse_path_components(path)
-    #         if center in arm_specs and arm in arm_specs[center]:
-    #             self.canvas.itemconfig(path.line_id, fill="red")
-    #             self.selected_paths.add(path.line_id)
-
-    #     # 5) Highlight input_port / output_port
-    #     inp = step_data.get("input_port")
-    #     outp = step_data.get("output_port")
-
-    #     def _highlight_io(port, tag_prefix, pin_set):
-    #         if port is None:
-    #             return
-    #         lbl_tag = f"{tag_prefix}_label_{port}"
-    #         # 5a) highlight the text
-    #         self.canvas.itemconfig(lbl_tag, fill="red")
-    #         pin_set.clear()
-    #         pin_set.add(port)
-    #         # 5b) highlight its extension line(s)
-    #         for path in self.paths:
-    #             if lbl_tag in self.canvas.gettags(path.line_id):
+    #         if center in centers and arm:
+    #             # arm may be compound like "TL-BR" for cross-column; split and match any part
+    #             target_arms = set()
+    #             for a in arm.split("-"):
+    #                 target_arms.add(a)
+    #             # If any of the arms on this path are in the wanted set, color it
+    #             if any(a in centers[center] for a in target_arms):
     #                 self.canvas.itemconfig(path.line_id, fill="red")
     #                 self.selected_paths.add(path.line_id)
 
-    #     _highlight_io(inp,  "input",  AppData.selected_input_pins)
-    #     _highlight_io(outp, "output", AppData.selected_output_pins)
+    #     # 6) Highlight input/output labels and their extension lines
+    #     def _highlight_io(port, prefix, pin_set):
+    #         if port is None:
+    #             return
+    #         tag = f"{prefix}_label_{port}"
+    #         try:
+    #             self.canvas.itemconfig(tag, fill="red")
+    #         except Exception:
+    #             pass
+    #         pin_set.clear()
+    #         pin_set.add(port)
+    #         for path in self.paths:
+    #             if tag in self.canvas.gettags(path.line_id):
+    #                 self.canvas.itemconfig(path.line_id, fill="red")
+    #                 self.selected_paths.add(path.line_id)
 
-    #     # 6) Re-create any needed input‐boxes (θ/φ) for crosses
-    #     for center_label, arms in arm_specs.items():
-    #         if arms and center_label not in self.input_boxes:
+    #     _highlight_io(step_data.get("input_port"),  "input",  AppData.selected_input_pins)
+    #     _highlight_io(step_data.get("output_port"), "output", AppData.selected_output_pins)
+
+    #     # 7) Keep input boxes in sync with this step
+    #     #    - remove boxes for centers not in this step
+    #     for existing in list(self.input_boxes.keys()):
+    #         if existing not in centers:
+    #             self.delete_input_boxes(existing)
+
+    #     #    - ensure boxes exist and set θ from current selection using your helper
+    #     for center_label in centers.keys():
+    #         if center_label not in self.input_boxes:
     #             self.create_input_boxes(center_label)
+    #         # Important: this derives θ=1/0/0.5 from the *actual selected arms*
+    #         self.update_input_box_mode(center_label)
 
-    #     # 7) Update counter & state
+    #         # If you also want a default φ, only set if empty:
+    #         phi_entry = self.input_boxes[center_label]['phi_entry']
+    #         if phi_entry.get().strip() == "":
+    #             phi_entry.delete(0, "end")
+    #             phi_entry.insert(0, "0")
+
+    #     # 8) Update counter & notify
     #     self.current_step = idx
     #     self.step_label.configure(text=f"Step {idx}/{total}")
-
-    #     # 8) Fire update event
     #     self.event_generate("<<SelectionUpdated>>")
     #     self.update_selection()
 
+
+    def increment_step(self):
+        """
+        Advance one step:
+          • In edit mode: always bump the counter so you can add new steps
+          • In view mode: load the next step from calibration_steps.json
+        """
+        if self.edit_mode:
+            # — EDIT mode: just advance the counter, no clamping —
+            self.current_step += 1
+            total = len(self.all_steps)
+            # if you prefer 1-based display, do current_step+1 here
+            self.step_label.configure(text=f"Step {self.current_step}/{total}")
+            return
+
+        # — VIEW mode: pull from calibration_steps.json —
+        # note: import_calibration will clamp internally if you go past the end
+        self.import_calibration(step_idx=self.current_step + 1)
 
     # def increment_step(self):
     #     """
@@ -1936,6 +1793,25 @@ class Example(Frame):
 
         return lines
 
+    def _on_play_clicked(self):
+        """
+        When ▶ Play is clicked:
+          • if an auto_calibrate_callback was provided → call it.
+          • else → fall back to the old toggle_play behavior.
+        """
+        # if callable(self.auto_calibrate_callback):
+        #     # hand off control to window1.auto_calibrate()
+        #     self.auto_calibrate_callback()
+        # else:
+        #     # no callback set → just do the regular play/step
+        #     self.toggle_play()
+        # 1) always flip the play/pause state and button text
+        self.toggle_play()
+
+        # 2) if we just went into PLAY, hand off to the window’s auto_calibrate
+        if self.playing and callable(self.auto_calibrate_callback):
+            self.auto_calibrate_callback()
+
 
     def get_cross_modes_numbers(self):
         """
@@ -1980,13 +1856,16 @@ class Example(Frame):
             # ARBITRARY: all four arms
             elif arm_set == {"TL", "TR", "BR", "BL"}:
                 modes[cross] = "arbitrary"
+            
+            self.update_input_box_mode(cross)
+        
 
         return modes
 
 
 def mode_to_arms(mode):
     """
-    Convert IO mode (with 0–3 suffix) to the list of arms.
+    Convert IO mode (with 0-3 suffix) to the list of arms.
     """
     m = mode.lower()
     # BAR patterns
@@ -2001,7 +1880,7 @@ def mode_to_arms(mode):
     if m == "cross1":
         return ["TR", "BL"]
 
-    # SPLIT patterns (3-of-4); splitN means missing arm index N
+    # SPLIT patterns (3-of-4); split means missing arm index N
     if m == "split0":  # missing TL
         return ["TR", "BR", "BL"]
     if m == "split1":  # missing TR
@@ -2016,11 +1895,8 @@ def mode_to_arms(mode):
         return ["TL", "TR", "BL", "BR"]
 
     # fallback: no arms
+
     return []
-
-
-
-
 
 def main():
     root = Tk()
