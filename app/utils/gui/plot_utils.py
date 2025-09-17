@@ -144,11 +144,12 @@ class PlotUtils:
             y_fit = fitfunc(x_fit, *popt)
             ax.plot(x_fit, y_fit, color='#ff4b4b', linewidth=1, label='Cosine Fit')
 
+            title_str = f"Phase Characterization of {cross_label}:{channel_symbol} at Channel {target_channel} ({io_config.capitalize()})"
             # Title and labels
-            if cross_label and channel_symbol:
-                title_str = f"Phase Characterization of {cross_label}:{channel_symbol} at Channel {target_channel} ({io_config.capitalize()})"
-            else:
-                title_str = f"Phase Characterization of Channel {target_channel} ({io_config.capitalize()})"
+            # if cross_label and channel_symbol:
+            #     title_str = f"Phase Characterization of {cross_label}:{channel_symbol} at Channel {target_channel} ({io_config.capitalize()})"
+            # else:
+            #     title_str = f"Phase Characterization of Channel {target_channel} ({io_config.capitalize()})"
 
             ax.set_title(title_str, color='white', fontsize=12)
             ax.set_xlabel("Heating Power (mW)", color='white', fontsize=10)

@@ -102,16 +102,52 @@ class Example(Frame):
         self.next_btn.pack(side='left', padx=5)
         self.bind_all("<space>", lambda e: self.next_btn.invoke())
 
+        # —— controls on the right: View + Insert + Remove ——
+        # (replace your existing mode_btn.grid(...) block with this)
+        right_frame = Frame(ctrl, bg='grey16')
+        right_frame.grid(row=0, column=2, padx=10, sticky="e")
 
-        # —— save button on the right ——
+        # NEW: insert button — adds a step at current index and shifts the rest
+        self.insert_btn = ctk.CTkButton(
+            right_frame,
+            text="➕ Insert",
+            width=80,
+            command=self.insert_step_here,
+            text_color="white",
+            fg_color="transparent"
+        )
+        self.insert_btn.pack(side='left', padx=5)
+
+        # NEW: remove button — removes the current step and renumbers remaining
+        self.remove_btn = ctk.CTkButton(
+            right_frame,
+            text="🗑 Remove",
+            width=80,
+            command=self.remove_step_here,
+            text_color="white",
+            fg_color="transparent"
+        )
+        self.remove_btn.pack(side='left', padx=5)
+
         self.mode_btn = ctk.CTkButton(
-            ctrl,
+            right_frame,
             text="👁️ View",              # Start in view mode
             width=80,
             corner_radius=6,
             command=self.toggle_edit_mode
         )
-        self.mode_btn.grid(row=0, column=2, padx=10)
+        self.mode_btn.pack(side='left', padx=5)
+
+
+        # # —— save button on the right ——
+        # self.mode_btn = ctk.CTkButton(
+        #     ctrl,
+        #     text="👁️ View",              # Start in view mode
+        #     width=80,
+        #     corner_radius=6,
+        #     command=self.toggle_edit_mode
+        # )
+        # self.mode_btn.grid(row=0, column=2, padx=10)
 
         # track the mode
         self.edit_mode = False     # = View mode
@@ -1229,7 +1265,148 @@ class Example(Frame):
         self.import_calibration(step_idx=target)  # expects 1-based
         self.current_step = target                # keep state in sync
 
+    def insert_step_here(self, filepath="calibration_steps.json"):
+        """
+        Insert a blank step at the current (1-based) step index and push all
+        existing steps forward by 1. Re-number steps to 1..N and save.
 
+        - In VIEW mode: edits the file and immediately loads the inserted (blank) step.
+        - In EDIT mode: edits the in-memory buffer (self.all_steps), writes file, and
+                        keeps the cursor where it is (now pointing to the new blank step).
+        """
+        # Load (or create skeleton)
+        payload, steps, _ = self._load_calibration_file(filepath)
+        if payload is None:
+            # If load failed, create a minimal payload
+            payload = {"metadata": {}, "steps": []}
+            steps = []
+
+        # 1-based to 0-based index where we insert
+        idx0 = max(0, min(self.current_step - 1, len(steps)))
+
+        # Create a blank placeholder step; you can prefill more fields if desired
+        new_step = {"step": None}
+
+        # Insert and re-number 1..N
+        steps.insert(idx0, new_step)
+        for i, s in enumerate(steps, start=1):
+            s["step"] = i
+
+        # Update metadata and write back
+        payload["steps"] = steps
+        meta = payload.get("metadata", {}) or {}
+        meta["total_steps"] = len(steps)
+        payload["metadata"] = meta
+
+        try:
+            with open(filepath, "w") as f:
+                json.dump(payload, f, indent=2)
+        except Exception as e:
+            logging.error("Failed to write calibration file during insert: %s", e)
+            messagebox.showerror("Error", f"Could not insert step:\n{e}")
+            return
+
+        # Reflect changes in UI depending on mode
+        if self.edit_mode:
+            # Keep in-memory buffer consistent and label updated
+            self.all_steps = steps[:]
+            # current_step now points at the newly inserted blank step
+            self._set_step_label(self.current_step, len(self.all_steps))
+            # (Optional) clear highlights for a truly "blank" look
+            self.import_calibration(step_idx=self.current_step)
+        else:
+            # In VIEW mode, reload to show the new blank step
+            self.import_calibration(step_idx=self.current_step)
+
+        # Feedback (optional)
+        logging.info(f"Inserted blank step at {self.current_step}; total_steps={len(steps)}")
+
+    def remove_step_here(self, filepath="calibration_steps.json"):
+        """
+        Remove the current (1-based) step from the file/buffer, renumber remaining
+        to 1..N, and keep the UI consistent.
+
+        - In VIEW mode: edits the file and loads the new current step (clamped).
+        - In EDIT mode: edits self.all_steps + file; keeps cursor clamped.
+        """
+        payload, steps, _ = self._load_calibration_file(filepath)
+        if payload is None:
+            return
+
+        if not steps:
+            messagebox.showinfo("Nothing to remove", "There are no steps to remove.")
+            return
+
+        idx0 = max(0, min(self.current_step - 1, len(steps) - 1))
+
+        # Remove the step
+        removed = steps.pop(idx0)
+
+        # Renumber remaining
+        for i, s in enumerate(steps, start=1):
+            s["step"] = i
+
+        meta = payload.get("metadata", {}) or {}
+        meta["total_steps"] = len(steps)
+        payload["metadata"] = meta
+        payload["steps"] = steps
+
+        try:
+            with open(filepath, "w") as f:
+                json.dump(payload, f, indent=2)
+        except Exception as e:
+            logging.error("Failed to write calibration file during remove: %s", e)
+            messagebox.showerror("Error", f"Could not remove step:\n{e}")
+            return
+
+        # Determine new current_step (clamp)
+        if steps:
+            # If we removed the last step, move cursor back one
+            self.current_step = min(self.current_step, len(steps))
+        else:
+            # No steps left; set to 1 and clear UI label
+            self.current_step = 1
+
+        if self.edit_mode:
+            self.all_steps = steps[:]
+            self._set_step_label(self.current_step, len(self.all_steps) or 1)
+            if steps:
+                self.import_calibration(step_idx=self.current_step)
+            else:
+                # No steps left—clear highlighted selections/boxes
+                for p in self.paths:
+                    self.canvas.itemconfig(p.line_id, fill="white")
+                for tid in self.cross_labels.values():
+                    self.canvas.itemconfig(tid, fill="white")
+                try:
+                    self.canvas.itemconfig("io_label", fill="white")
+                except Exception:
+                    pass
+                self.selected_paths.clear()
+                self.cross_selected_count.clear()
+                for key in list(self.input_boxes.keys()):
+                    self.delete_input_boxes(key)
+        else:
+            # VIEW mode
+            if steps:
+                self.import_calibration(step_idx=self.current_step)
+            else:
+                # No steps left—show empty state in label
+                self._set_step_label(1, 1)
+                for p in self.paths:
+                    self.canvas.itemconfig(p.line_id, fill="white")
+                for tid in self.cross_labels.values():
+                    self.canvas.itemconfig(tid, fill="white")
+                try:
+                    self.canvas.itemconfig("io_label", fill="white")
+                except Exception:
+                    pass
+                self.selected_paths.clear()
+                self.cross_selected_count.clear()
+                for key in list(self.input_boxes.keys()):
+                    self.delete_input_boxes(key)
+
+        logging.info(f"Removed step {removed.get('step')} (index {idx0+1}). Now {len(steps)} steps remain.")
 
     def jump_to_step(self, idx: int):
         if self.edit_mode:
