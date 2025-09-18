@@ -1455,12 +1455,12 @@ class Window1Content(ctk.CTkFrame):
         self._read_thorlabs_powers()
 
         # Format the DAQ readings with the timestamp aligned to the right
-        daq_header = f"DAQ Readings:{' ' * (95 - len('DAQ Readings:'))}{timestamp}"
+        # daq_header = f"DAQ Readings:{' ' * (95 - len('DAQ Readings:'))}{timestamp}"
 
         # Combine results with the formatted DAQ header
         combined = (
-            daq_header + "\n" +
-            self._daq_last_result +
+            # daq_header + "\n" +
+            # self._daq_last_result +
             "\n\nThorlabs Readings:\n" + self._thorlabs_last_result
         )
         self._update_measurement_text(combined)
